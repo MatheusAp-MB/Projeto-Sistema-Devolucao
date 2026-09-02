@@ -5,9 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nova devolução</title>
+    <link rel="stylesheet" href="{% static 'devolucoes/css/layout_nav.css' %}">
     <link rel="stylesheet" href="{% static 'devolucoes/css/layout_nova_devolucao.css' %}">
 </head>
 <body class="devolucao-pagina">
+
+    <nav class="nav-principal">
+        <a href="{% url 'nova_devolucao' %}" class="nav-link{% if pagina_ativa == 'nova_devolucao' %} nav-link--ativo{% endif %}">Nova Devolução</a>
+        <a href="{% url 'produtos' %}" class="nav-link{% if pagina_ativa == 'produtos' %} nav-link--ativo{% endif %}">Produtos</a>
+    </nav>
 
     <div class="devolucao-cartao">
         <p class="devolucao-titulo">Nova devolução</p>

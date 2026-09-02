@@ -1,0 +1,71 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produtos</title>
+    <link rel="stylesheet" href="{% static 'devolucoes/css/layout_nav.css' %}">
+    <link rel="stylesheet" href="{% static 'devolucoes/css/layout_produtos.css' %}">
+</head>
+<body class="produtos-pagina">
+
+    <nav class="nav-principal">
+        <a href="{% url 'nova_devolucao' %}" class="nav-link{% if pagina_ativa == 'nova_devolucao' %} nav-link--ativo{% endif %}">Nova Devolução</a>
+        <a href="{% url 'produtos' %}" class="nav-link{% if pagina_ativa == 'produtos' %} nav-link--ativo{% endif %}">Produtos</a>
+    </nav>
+
+    <div class="produtos-cartao">
+        <div class="produtos-cabecalho">
+            <p class="produtos-titulo">Produtos cadastrados</p>
+            <button type="button" id="botao-mostrar-cadastro-produto" class="produtos-botao-cadastrar">Cadastrar produto</button>
+        </div>
+
+        <div id="produtos-form-cadastro" class="produtos-cadastro" hidden>
+            <p class="produtos-cadastro-titulo">Novo produto</p>
+            <form method="post" action="{% url 'cadastrar_produto' %}" enctype="multipart/form-data" class="produtos-form-produto">
+                {% csrf_token %}
+                <input type="text" name="nome" placeholder="Nome do produto" required>
+                <input type="text" name="marca" placeholder="Marca">
+                <input type="text" name="codigo_barras" placeholder="Código de barras (EAN)" required>
+
+                <div class="produtos-campo-imagem">
+                    <input type="file" name="foto" accept="image/*" id="id_foto_novo_produto" class="produtos-input-imagem-oculto">
+                    <label for="id_foto_novo_produto" class="produtos-botao-escolher-imagem">Escolher foto</label>
+                    <div id="preview_foto_novo_produto_cartao" class="produtos-preview-cartao" hidden>
+                        <img id="preview_foto_novo_produto" alt="Pré-visualização">
+                        <span id="preview_foto_novo_produto_nome" class="produtos-preview-nome-arquivo"></span>
+                    </div>
+                </div>
+
+                <button type="submit" class="produtos-botao-salvar">Salvar produto</button>
+            </form>
+        </div>
+
+        {% if produtos %}
+            <div class="produtos-grade">
+                {% for produto in produtos %}
+                    <a href="{% url 'catalogo' %}?codigo_barras={{ produto.codigo_barras }}" class="produtos-item">
+                        <div class="produtos-item-foto">
+                            {% if produto.foto %}
+                                <img src="{{ produto.foto.url }}" alt="{{ produto.nome }}">
+                            {% else %}
+                                <span class="produtos-item-foto-vazia">sem foto</span>
+                            {% endif %}
+                        </div>
+                        <div class="produtos-item-info">
+                            <p class="produtos-item-nome">{{ produto.nome }}</p>
+                            <p class="produtos-item-marca">{{ produto.marca|default:"—" }}</p>
+                            <p class="produtos-item-ean">EAN: {{ produto.codigo_barras }}</p>
+                        </div>
+                    </a>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="produtos-vazio">Nenhum produto cadastrado ainda.</p>
+        {% endif %}
+    </div>
+
+    <script src="{% static 'devolucoes/js/script_produtos.js' %}"></script>
+</body>
+</html>

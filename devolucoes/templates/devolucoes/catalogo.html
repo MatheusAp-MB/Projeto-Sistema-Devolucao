@@ -5,9 +5,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Catálogo de peças</title>
+    <link rel="stylesheet" href="{% static 'devolucoes/css/layout_nav.css' %}">
     <link rel="stylesheet" href="{% static 'devolucoes/css/layout_catalogo.css' %}">
 </head>
 <body class="catalogo-pagina">
+
+    <nav class="nav-principal">
+        <a href="{% url 'nova_devolucao' %}" class="nav-link{% if pagina_ativa == 'nova_devolucao' %} nav-link--ativo{% endif %}">Nova Devolução</a>
+        <a href="{% url 'produtos' %}" class="nav-link{% if pagina_ativa == 'produtos' %} nav-link--ativo{% endif %}">Produtos</a>
+    </nav>
 
     <div class="catalogo-cartao">
         <p class="catalogo-titulo">Catálogo de peças</p>
@@ -22,9 +28,33 @@
 
         {% if buscou %}
             {% if produto %}
+                <a href="{% url 'produtos' %}" class="catalogo-link-voltar">← Voltar para Produtos</a>
+
                 <div class="catalogo-produto-info">
                     <p class="catalogo-produto-nome">{{ produto.nome }}</p>
                     <p class="catalogo-produto-marca">Marca: {{ produto.marca|default:"—" }}</p>
+                </div>
+
+                <div class="catalogo-dados-produto">
+                    <p class="catalogo-dados-produto-titulo">Dados do produto</p>
+                    <form method="post" action="{% url 'editar_produto' produto.id %}" enctype="multipart/form-data" class="catalogo-form-dados-produto">
+                        {% csrf_token %}
+                        <input type="text" name="nome" value="{{ produto.nome }}" placeholder="Nome do produto" required>
+                        <input type="text" name="marca" value="{{ produto.marca }}" placeholder="Marca">
+                        <input type="text" name="codigo_barras" value="{{ produto.codigo_barras }}" placeholder="Código de barras (EAN)" required>
+
+                        <div class="catalogo-campo-imagem">
+                            <input type="file" name="foto" accept="image/*" id="id_foto_editar_produto" class="catalogo-input-imagem-oculto">
+                            <label for="id_foto_editar_produto" class="catalogo-botao-escolher-imagem">Trocar foto</label>
+                            {% if produto.foto %}
+                                <img id="preview_foto_editar_produto" src="{{ produto.foto.url }}" class="catalogo-preview-imagem-atual" alt="Foto atual do produto">
+                            {% else %}
+                                <img id="preview_foto_editar_produto" class="catalogo-preview-imagem-atual" hidden alt="Foto atual do produto">
+                            {% endif %}
+                        </div>
+
+                        <button type="submit" class="catalogo-botao-salvar-produto">Salvar dados do produto</button>
+                    </form>
                 </div>
 
                 <p class="catalogo-subtitulo">Peças cadastradas</p>
@@ -57,21 +87,22 @@
                         {% csrf_token %}
                         <input type="text" name="nome" placeholder="Nome da peça" required>
                         <input type="number" name="quantidade_esperada" placeholder="Qtd esperada" min="1" value="1" required>
-                        <input type="file" name="imagem" accept="image/*" id="id_imagem_nova_peca">
-                        <img id="preview_imagem_nova_peca" class="catalogo-preview-imagem" alt="Pré-visualização">
+                        <div class="catalogo-campo-imagem">
+                            <input type="file" name="imagem" accept="image/*" id="id_imagem_nova_peca" class="catalogo-input-imagem-oculto">
+                            <label for="id_imagem_nova_peca" class="catalogo-botao-escolher-imagem">Escolher foto</label>
+
+                            <div id="preview_imagem_nova_peca_cartao" class="catalogo-preview-cartao" hidden>
+                                <img id="preview_imagem_nova_peca" class="catalogo-preview-imagem" alt="Pré-visualização">
+                                <span id="preview_imagem_nova_peca_nome" class="catalogo-preview-nome-arquivo"></span>
+                            </div>
+                        </div>
                         <button type="submit">Adicionar peça</button>
                     </form>
                 </div>
             {% else %}
                 <div class="catalogo-nao-encontrado">
                     <p>Produto não encontrado.</p>
-                    <form method="post" action="{% url 'cadastrar_produto' %}" class="catalogo-form-produto">
-                        {% csrf_token %}
-                        <input type="hidden" name="codigo_barras" value="{{ codigo_barras }}">
-                        <input type="text" name="nome" placeholder="Nome do produto" required>
-                        <input type="text" name="marca" placeholder="Marca">
-                        <button type="submit">Cadastrar esse produto</button>
-                    </form>
+                    <a href="{% url 'produtos' %}" class="catalogo-link-voltar">← Voltar para Produtos</a>
                 </div>
             {% endif %}
         {% endif %}

@@ -1,0 +1,31 @@
+.nav-principal {
+    display: flex;
+    gap: 4px;
+    max-width: 860px;
+    margin: 0 auto 12px;
+    padding: 4px;
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-sizing: border-box;
+}
+
+.nav-link {
+    flex: 1;
+    text-align: center;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #6c757d;
+    text-decoration: none;
+}
+
+.nav-link:hover {
+    background-color: #f1f3f6;
+}
+
+.nav-link--ativo {
+    background-color: #1a3a5c;
+    color: #ffffff;
+}

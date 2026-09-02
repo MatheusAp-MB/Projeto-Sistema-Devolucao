@@ -11,7 +11,12 @@ from .models import Peca, Produto
 
 
 def nova_devolucao(request):
-    return render(request, 'devolucoes/nova_devolucao.html')
+    return render(request, 'devolucoes/nova_devolucao.html', {'pagina_ativa': 'nova_devolucao'})
+
+
+def produtos(request):
+    lista_produtos = Produto.objects.all()
+    return render(request, 'devolucoes/produtos.html', {'produtos': lista_produtos, 'pagina_ativa': 'produtos'})
 
 
 def catalogo(request):
@@ -29,8 +34,29 @@ def catalogo(request):
         'produto': produto,
         'pecas': pecas,
         'buscou': bool(codigo_barras),
+        'pagina_ativa': 'produtos',
     }
     return render(request, 'devolucoes/catalogo.html', contexto)
+
+
+def editar_produto(request, produto_id):
+    produto = get_object_or_404(Produto, pk=produto_id)
+
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        marca = request.POST.get('marca', '').strip()
+        codigo_barras = request.POST.get('codigo_barras', '').strip()
+        foto = request.FILES.get('foto')
+
+        if nome and codigo_barras:
+            produto.nome = nome
+            produto.marca = marca
+            produto.codigo_barras = codigo_barras
+            if foto:
+                produto.foto = foto
+            produto.save()
+
+    return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
 
 
 def cadastrar_produto(request):
@@ -39,13 +65,14 @@ def cadastrar_produto(request):
     if request.method == 'POST' and codigo_barras:
         nome = request.POST.get('nome', '').strip()
         marca = request.POST.get('marca', '').strip()
+        foto = request.FILES.get('foto')
         if nome:
             Produto.objects.get_or_create(
                 codigo_barras=codigo_barras,
-                defaults={'nome': nome, 'marca': marca},
+                defaults={'nome': nome, 'marca': marca, 'foto': foto},
             )
 
-    return redirect(f"{reverse('catalogo')}?codigo_barras={codigo_barras}")
+    return redirect('produtos')
 
 
 def adicionar_peca(request, produto_id):
