@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+    @page {
+        size: A4;
+        margin: 2cm;
+    }
+    body {
+        font-family: Helvetica, Arial, sans-serif;
+        font-size: 13px;
+        color: #343a40;
+    }
+    h1 {
+        font-size: 22px;
+        color: #1a3a5c;
+        margin: 0 0 4px 0;
+    }
+    .subtitulo {
+        font-size: 11px;
+        color: #6c757d;
+        margin: 0 0 6px 0;
+    }
+    .linha-cabecalho {
+        border-bottom: 2px solid #1a3a5c;
+        padding-bottom: 10px;
+        margin-bottom: 18px;
+    }
+    .secao-titulo {
+        font-size: 12px;
+        text-transform: uppercase;
+        color: #2e7bb5;
+        border-bottom: 1px solid #dee2e6;
+        padding-bottom: 5px;
+        margin: 20px 0 10px 0;
+    }
+    table.dados {
+        width: 100%;
+    }
+    table.dados td {
+        padding: 5px 0;
+        font-size: 13px;
+        vertical-align: top;
+    }
+    table.dados td.rotulo {
+        color: #6c757d;
+        width: 35%;
+    }
+    table.produto td.foto {
+        width: 86px;
+    }
+    table.produto img {
+        width: 70px;
+        height: 70px;
+    }
+    table.pecas {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+    }
+    table.pecas th {
+        text-align: left;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #6c757d;
+        border-bottom: 1px solid #dee2e6;
+        padding: 8px;
+    }
+    table.pecas td {
+        padding: 10px 8px;
+        border-bottom: 1px solid #f1f3f6;
+        font-size: 12px;
+        vertical-align: middle;
+    }
+    table.pecas img {
+        width: 48px;
+        height: 48px;
+    }
+    .tag {
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: bold;
+        color: #ffffff;
+    }
+    .tag-ok { background-color: #1e7e34; }
+    .tag-parcial { background-color: #b38600; }
+    .tag-falta { background-color: #b02a37; }
+    .rodape {
+        margin-top: 28px;
+        font-size: 9px;
+        color: #adb5bd;
+        text-align: right;
+    }
+</style>
+</head>
+<body>
+
+    <div class="linha-cabecalho">
+        <h1>Relatório de Devolução</h1>
+        <p class="subtitulo">Sistema de Relatório de Devoluções — documento gerado na hora, não fica salvo</p>
+    </div>
+
+    <p class="secao-titulo">Dados da devolução</p>
+    <table class="dados">
+        <tr><td class="rotulo">NF</td><td>{{ dados.nf }}</td></tr>
+        <tr><td class="rotulo">Pedido</td><td>{{ dados.pedido }}</td></tr>
+        <tr><td class="rotulo">Cliente</td><td>{{ dados.cliente|default:"—" }}</td></tr>
+        <tr><td class="rotulo">Data de recebimento</td><td>{{ dados.data_recebimento }}</td></tr>
+        <tr><td class="rotulo">Abertura chamado ML</td><td>{{ dados.data_chamado_ml|default:"—" }}</td></tr>
+    </table>
+
+    <p class="secao-titulo">Produto</p>
+    <table class="produto">
+        <tr>
+            {% if produto.foto %}
+                <td class="foto"><img src="{{ produto.foto.url }}"></td>
+            {% endif %}
+            <td>
+                <table class="dados">
+                    <tr><td class="rotulo">Nome</td><td>{{ produto.nome }}</td></tr>
+                    <tr><td class="rotulo">Marca</td><td>{{ produto.marca|default:"—" }}</td></tr>
+                    <tr><td class="rotulo">EAN</td><td>{{ produto.codigo_barras }}</td></tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+
+    <p class="secao-titulo">Peças conferidas</p>
+    <table class="pecas">
+        <thead>
+            <tr>
+                <th>Foto</th>
+                <th>Peça</th>
+                <th>Recebido</th>
+                <th>Situação</th>
+                <th>Anotação</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in pecas_conferidas %}
+                <tr>
+                    <td>{% if item.peca.imagem %}<img src="{{ item.peca.imagem.url }}">{% endif %}</td>
+                    <td>{{ item.peca.nome }}</td>
+                    <td>{{ item.recebido }} de {{ item.peca.quantidade_esperada }}</td>
+                    <td>
+                        {% if item.recebido == 0 %}
+                            <span class="tag tag-falta">{{ item.situacao }}</span>
+                        {% elif item.recebido < item.peca.quantidade_esperada %}
+                            <span class="tag tag-parcial">{{ item.situacao }}</span>
+                        {% else %}
+                            <span class="tag tag-ok">{{ item.situacao }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ item.anotacao|default:"—" }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <p class="rodape">Documento de uso único — não é reaberto nem reimpresso a partir de um histórico salvo.</p>
+
+</body>
+</html>
