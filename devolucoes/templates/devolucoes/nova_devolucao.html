@@ -1,0 +1,79 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova devolução</title>
+    <link rel="stylesheet" href="{% static 'devolucoes/css/layout_nova_devolucao.css' %}">
+</head>
+<body class="devolucao-pagina">
+
+    <div class="devolucao-cartao">
+        <p class="devolucao-titulo">Nova devolução</p>
+
+        <form method="post" class="devolucao-formulario">
+            {% csrf_token %}
+
+            <div class="devolucao-campo">
+                <label for="id_nf">Número da NF *</label>
+                <input type="text" id="id_nf" name="nf" placeholder="000.000.000" required>
+            </div>
+
+            <div class="devolucao-campo">
+                <label for="id_pedido">Número do pedido *</label>
+                <input type="text" id="id_pedido" name="pedido" placeholder="2000123456789" required>
+            </div>
+
+            <div class="devolucao-campo">
+                <label for="id_cliente">Nome do cliente</label>
+                <input type="text" id="id_cliente" name="cliente" placeholder="Opcional">
+            </div>
+
+            <div class="devolucao-grid-data">
+                <div class="devolucao-campo">
+                    <label for="id_data_recebimento">Data de recebimento *</label>
+                    <input type="date" id="id_data_recebimento" name="data_recebimento" required>
+                </div>
+                <div class="devolucao-campo">
+                    <label for="id_data_chamado_ml">Abertura chamado ML</label>
+                    <input type="date" id="id_data_chamado_ml" name="data_chamado_ml">
+                </div>
+            </div>
+
+            <div class="devolucao-campo">
+                <label for="id_codigo_barras">Código de barras do produto *</label>
+                <div class="devolucao-linha-codigo-barras">
+                    <input type="text" id="id_codigo_barras" name="codigo_barras" placeholder="Bipar ou digitar" required>
+                    <button type="submit" class="devolucao-botao-icone" aria-label="Buscar produto">
+                        Buscar
+                    </button>
+                </div>
+            </div>
+        </form>
+
+        <div class="devolucao-produto-info">
+            <p class="devolucao-produto-nome">Liquidificador Turbo 900 LQ-900</p>
+            <p class="devolucao-produto-marca">Marca: Vintory</p>
+        </div>
+
+        <p class="devolucao-subtitulo">Peças do produto</p>
+        <div class="devolucao-pecas-lista">
+            <div class="devolucao-peca devolucao-peca--ok">
+                <span>Jarra de vidro</span>
+                <span class="devolucao-peca-status">OK</span>
+            </div>
+            <div class="devolucao-peca devolucao-peca--pendente">
+                <span>Tampa de vedação</span>
+                <span class="devolucao-peca-status">Selecionar estado</span>
+            </div>
+        </div>
+
+        <div class="devolucao-acoes">
+            <button type="button" class="devolucao-botao-primario">PDF completo</button>
+            <button type="button" class="devolucao-botao-secundario">Folha resumida</button>
+        </div>
+    </div>
+
+</body>
+</html>

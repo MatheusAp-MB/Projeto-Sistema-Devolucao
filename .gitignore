@@ -1,0 +1,31 @@
+# Bytecode e cache do Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Ambiente virtual (se algum dia rodar fora do pyenv/poetry global)
+.venv/
+venv/
+env/
+
+# Banco de dados local (dev) — dado, não código
+db.sqlite3
+
+# Saída do PyInstaller
+build/
+dist/
+
+# .spec é gerado de novo a cada build pelo comando validado
+# (poetry run pyinstaller --onedir --noconsole ...)
+*.spec
+
+# Arquivos de sistema operacional
+Thumbs.db
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+
+# Segredos, se algum dia existir
+.env

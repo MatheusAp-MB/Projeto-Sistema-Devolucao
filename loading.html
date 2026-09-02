@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Sistema de Relatório de Devoluções</title>
+<style>
+  body { margin:0; height:100vh; display:flex; align-items:center; justify-content:center;
+         background:#1e1b29; font-family:'Segoe UI',sans-serif; }
+  .caixa { text-align:center; color:white; }
+  .titulo { font-size:20px; font-weight:bold; margin-bottom:8px; }
+  .subtitulo { font-size:13px; color:#b8a9f0; }
+</style>
+</head>
+<body>
+  <div class="caixa">
+    <div class="titulo">Iniciando o sistema...</div>
+    <div class="subtitulo">Sistema de Relatório de Devoluções</div>
+  </div>
+  <script>
+    function tentarConectar() {
+      fetch("http://127.0.0.1:8000/", { mode: "no-cors" })
+        .then(() => { window.location.href = "http://127.0.0.1:8000/"; })
+        .catch(() => { setTimeout(tentarConectar, 300); });
+    }
+    setTimeout(tentarConectar, 300);
+  </script>
+</body>
+</html>
