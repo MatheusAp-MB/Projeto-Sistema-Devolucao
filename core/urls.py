@@ -1,23 +1,31 @@
-"""
-URL configuration for core project.
+# core/urls.py
 
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/6.1/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
+# Função Objetivo: URLs raiz do projeto — inclui as rotas do app
+# `devolucoes` e serve estático/mídia manualmente, porque o waitress
+# serve o WSGI puro (nunca passa pelo runserver), que é o único lugar
+# onde o Django serve esses arquivos sozinho durante o desenvolvimento.
+
+from django.conf import settings
 from django.contrib import admin
-from django.urls import path, include
+from django.contrib.staticfiles.views import serve as staticfiles_serve
+from django.urls import include, path
+from django.views.static import serve as media_serve
+
+
+def servir_estatico(request, path):
+    # insecure=True: essa view normalmente só funciona com DEBUG=True —
+    # aqui não existe "produção" separada de "app empacotado", então
+    # força funcionar sempre, independente do DEBUG.
+    return staticfiles_serve(request, path, insecure=True)
+
+
+def servir_midia(request, path):
+    return media_serve(request, path, document_root=settings.MEDIA_ROOT)
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('devolucoes.urls')),
+    path('static/<path:path>', servir_estatico),
+    path('media/<path:path>', servir_midia),
 ]

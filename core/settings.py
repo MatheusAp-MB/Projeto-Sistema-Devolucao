@@ -10,10 +10,23 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import os
+import sys
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Pasta de dados que precisa sobreviver a uma recompilação do .exe.
+# Empacotado (PyInstaller), a pasta do app inteira é regerada a cada
+# build — então banco de dados e fotos do catálogo NÃO podem morar
+# dentro dela. Em produção (frozen), usa a pasta de dados do usuário do
+# Windows (%APPDATA%); em desenvolvimento, usa a pasta do projeto normal.
+if getattr(sys, 'frozen', False):
+    DADOS_DIR = Path(os.environ['APPDATA']) / 'SistemaDevolucoes'
+    DADOS_DIR.mkdir(parents=True, exist_ok=True)
+else:
+    DADOS_DIR = BASE_DIR
 
 
 # Quick-start development settings - unsuitable for production
@@ -76,7 +89,7 @@ WSGI_APPLICATION = 'core.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': DADOS_DIR / 'db.sqlite3',
     }
 }
 
@@ -116,6 +129,11 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Arquivos de mídia (fotos do catálogo de peças, enviadas pelo usuário em
+# tempo de uso — nunca ficam dentro da pasta do app empacotado).
+MEDIA_URL = 'media/'
+MEDIA_ROOT = DADOS_DIR / 'media'
 
 
 # Email

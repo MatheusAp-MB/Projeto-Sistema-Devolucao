@@ -29,3 +29,4 @@ Thumbs.db
 
 # Segredos, se algum dia existir
 .env
+media/

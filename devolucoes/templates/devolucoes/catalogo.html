@@ -1,0 +1,92 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo de peças</title>
+    <link rel="stylesheet" href="{% static 'devolucoes/css/layout_catalogo.css' %}">
+</head>
+<body class="catalogo-pagina">
+
+    <div class="catalogo-cartao">
+        <p class="catalogo-titulo">Catálogo de peças</p>
+
+        <form method="get" class="catalogo-busca">
+            <label for="id_codigo_barras">Código de barras do produto</label>
+            <div class="catalogo-linha-busca">
+                <input type="text" id="id_codigo_barras" name="codigo_barras" value="{{ codigo_barras }}" placeholder="Bipar ou digitar" required>
+                <button type="submit">Buscar</button>
+            </div>
+        </form>
+
+        {% if buscou %}
+            {% if produto %}
+                <div class="catalogo-produto-info">
+                    <p class="catalogo-produto-nome">{{ produto.nome }}</p>
+                    <p class="catalogo-produto-marca">Marca: {{ produto.marca|default:"—" }}</p>
+                </div>
+
+                <p class="catalogo-subtitulo">Peças cadastradas</p>
+                <div class="catalogo-pecas-grade">
+                    {% for peca in pecas %}
+                        <div class="catalogo-peca">
+                            <p class="catalogo-peca-nome">{{ peca.nome }}</p>
+                            <div class="catalogo-peca-foto{% if peca.imagem %} catalogo-peca-foto--clicavel{% endif %}"
+                                 {% if peca.imagem %}data-imagem-url="{{ peca.imagem.url }}" data-imagem-titulo="{{ peca.nome }}"{% endif %}>
+                                {% if peca.imagem %}
+                                    <img src="{{ peca.imagem.url }}" alt="{{ peca.nome }}">
+                                {% else %}
+                                    <span class="catalogo-peca-foto-vazia">sem foto</span>
+                                {% endif %}
+                            </div>
+                            <div class="catalogo-peca-rodape">
+                                <span>Qtd: {{ peca.quantidade_esperada }}</span>
+                                <form method="post" action="{% url 'remover_peca' peca.id %}" class="catalogo-form-remover">
+                                    {% csrf_token %}
+                                    <button type="submit" class="catalogo-botao-remover">Remover</button>
+                                </form>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <div class="catalogo-adicionar-peca">
+                    <p class="catalogo-adicionar-titulo">Adicionar peça</p>
+                    <form method="post" action="{% url 'adicionar_peca' produto.id %}" enctype="multipart/form-data" class="catalogo-form-peca">
+                        {% csrf_token %}
+                        <input type="text" name="nome" placeholder="Nome da peça" required>
+                        <input type="number" name="quantidade_esperada" placeholder="Qtd esperada" min="1" value="1" required>
+                        <input type="file" name="imagem" accept="image/*" id="id_imagem_nova_peca">
+                        <img id="preview_imagem_nova_peca" class="catalogo-preview-imagem" alt="Pré-visualização">
+                        <button type="submit">Adicionar peça</button>
+                    </form>
+                </div>
+            {% else %}
+                <div class="catalogo-nao-encontrado">
+                    <p>Produto não encontrado.</p>
+                    <form method="post" action="{% url 'cadastrar_produto' %}" class="catalogo-form-produto">
+                        {% csrf_token %}
+                        <input type="hidden" name="codigo_barras" value="{{ codigo_barras }}">
+                        <input type="text" name="nome" placeholder="Nome do produto" required>
+                        <input type="text" name="marca" placeholder="Marca">
+                        <button type="submit">Cadastrar esse produto</button>
+                    </form>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <div id="modal-foto-catalogo" class="catalogo-modal-overlay" hidden>
+        <div class="catalogo-modal-cabecalho">
+            <span id="modal-foto-catalogo-titulo" class="catalogo-modal-titulo"></span>
+            <button type="button" id="modal-foto-catalogo-fechar" class="catalogo-modal-fechar" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="catalogo-modal-corpo">
+            <img id="modal-foto-catalogo-imagem" class="catalogo-modal-imagem" alt="">
+        </div>
+    </div>
+
+    <script src="{% static 'devolucoes/js/script_catalogo.js' %}"></script>
+</body>
+</html>
