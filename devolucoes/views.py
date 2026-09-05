@@ -2,8 +2,10 @@
 
 # Função Objetivo: views da tela de nova devolução — busca produto/peças
 # reais do catálogo por código de barras e gera o PDF do relatório na
-# hora (sem salvar nada no banco) — e views do catálogo de peças —
-# buscar/criar produto por código de barras, e adicionar/remover peça.
+# hora (sem salvar nada no banco) — views do catálogo de peças —
+# buscar/criar produto por código de barras, e adicionar/remover peça —
+# e a troca de empresa ativa (Magazine/Samvale), lida pelo EmpresaMiddleware
+# a partir da sessão.
 
 import os
 
@@ -16,6 +18,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from xhtml2pdf import pisa
+
+from core.empresa import EMPRESAS_VALIDAS
 
 from .models import Peca, Produto
 
@@ -219,3 +223,10 @@ def remover_peca(request, peca_id):
         peca.delete()
 
     return redirect(f"{reverse('catalogo')}?codigo_barras={codigo_barras}")
+
+
+def trocar_empresa(request, empresa):
+    if empresa in EMPRESAS_VALIDAS:
+        request.session['empresa_ativa'] = empresa
+
+    return redirect(request.META.get('HTTP_REFERER') or 'nova_devolucao')

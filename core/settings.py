@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
-import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -20,16 +19,15 @@ load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Pasta de dados que precisa sobreviver a uma recompilação do .exe.
-# Empacotado (PyInstaller), a pasta do app inteira é regerada a cada
-# build — então banco de dados e fotos do catálogo NÃO podem morar
-# dentro dela. Em produção (frozen), usa a pasta de dados do usuário do
-# Windows (%APPDATA%); em desenvolvimento, usa a pasta do projeto normal.
-if getattr(sys, 'frozen', False):
-    DADOS_DIR = Path(os.environ['APPDATA']) / 'SistemaDevolucoes'
-    DADOS_DIR.mkdir(parents=True, exist_ok=True)
-else:
-    DADOS_DIR = BASE_DIR
+# Pasta de dados (fotos do catálogo) — precisa sobreviver a uma
+# recompilação do .exe (a pasta do app inteira é regerada a cada build).
+# Desde 05/09/2026, vem direto do .env — mesma pasta fixa em
+# desenvolvimento e no .exe (mesmo padrão já usado pro MySQL, sem mais
+# distinção por ambiente). Cada máquina define o caminho certo no seu
+# próprio .env; NÃO pode ficar dentro de dist/SistemaDevolucoes/, senão
+# é apagada no próximo build.
+DADOS_DIR = Path(os.getenv('DADOS_DIR'))
+DADOS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # Quick-start development settings - unsuitable for production
@@ -83,6 +81,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.empresa_ativa',
             ],
         },
     },

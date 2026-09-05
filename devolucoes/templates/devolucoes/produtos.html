@@ -15,6 +15,11 @@
         <a href="{% url 'produtos' %}" class="nav-link{% if pagina_ativa == 'produtos' %} nav-link--ativo{% endif %}">Produtos</a>
     </nav>
 
+    <div class="nav-empresa">
+        <span class="nav-empresa-atual">{{ empresa_ativa_nome }}</span>
+        <a href="{% url 'trocar_empresa' empresa_outra %}" class="nav-empresa-trocar">Trocar para {{ empresa_outra_nome }}</a>
+    </div>
+
     <div class="produtos-cartao">
         <div class="produtos-cabecalho">
             <p class="produtos-titulo">Produtos cadastrados</p>

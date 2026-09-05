@@ -45,16 +45,20 @@ class Command(BaseCommand):
             # bandeja (pystray); subpacote de código de barras que o
             # xhtml2pdf carrega por baixo dos panos (bug de 03/09/2026);
             # management commands do Django, necessários desde que o
-            # launcher passou a chamar `migrate` sozinho; e o pacote `core`
-            # do próprio projeto — `EmpresaMiddleware`/`EmpresaRouter` só são
-            # referenciados como string em `MIDDLEWARE`/`DATABASE_ROUTERS` do
-            # settings.py, nunca com um `import` direto em nenhum arquivo,
-            # então o PyInstaller nunca enxerga `core/middleware.py` nem
-            # `core/database_router.py` sozinho (bug encontrado em 04/09/2026)
+            # launcher passou a chamar `migrate` sozinho; e os 2 módulos
+            # próprios do projeto (`core.middleware`, `core.database_router`)
+            # que só são referenciados como string em `MIDDLEWARE`/
+            # `DATABASE_ROUTERS` do settings.py, nunca com um `import` direto
+            # em nenhum arquivo. Trocado de `--collect-submodules=core`
+            # (log não mostrou nenhuma tentativa de análise de `core`,
+            # 04/09/2026) pra `--hidden-import` explícito nos 2 módulos —
+            # é o que a própria documentação do PyInstaller recomenda pra
+            # este exato cenário (módulo só referenciado por string)
             "--hidden-import=pystray._win32",
             "--collect-submodules=reportlab.graphics.barcode",
             "--collect-submodules=django.core.management.commands",
-            "--collect-submodules=core",
+            "--hidden-import=core.middleware",
+            "--hidden-import=core.database_router",
 
             # Ponto de entrada do app
             "launcher.py",
