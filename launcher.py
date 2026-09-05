@@ -19,6 +19,7 @@ from waitress import serve
 # carregamento do Django (django.setup()) no momento em que é importado.
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 
+from django.core.management import call_command
 from core.wsgi import application
 
 HOST = "127.0.0.1"
@@ -83,6 +84,9 @@ if __name__ == "__main__":
     if porta_ja_em_uso():
         abrir_navegador()
         sys.exit(0)
+
+    for alias in ("magazine", "samvale"):
+        call_command("migrate", database=alias, verbosity=0)
 
     threading.Thread(target=rodar_servidor, daemon=True).start()
     abrir_tela_de_carregamento()
