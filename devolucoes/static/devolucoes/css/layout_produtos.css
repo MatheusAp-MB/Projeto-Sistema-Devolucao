@@ -1,12 +1,3 @@
-.produtos-pagina {
-    margin: 0;
-    padding: 16px;
-    background-color: #e9edf4;
-    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    min-height: 100vh;
-    box-sizing: border-box;
-}
-
 .produtos-cartao {
     background-color: #ffffff;
     border: 1px solid #dee2e6;

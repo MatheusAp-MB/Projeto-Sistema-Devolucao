@@ -1,0 +1,213 @@
+/*
+* [RESUMO] → CSS global do sistema — define o layout principal
+* compartilhado por todas as páginas: sidebar, toolbar e conteúdo.
+* Importado pelo estrutura_base_global.html
+*/
+
+:root {
+    --cor-primaria:        #1a3a5c;
+    --cor-primaria-clara:  #2e7bb5;
+    --cor-texto-claro:     #ffffff;
+    --cor-texto-muted:     #6c757d;
+    --cor-fundo-pagina:    #e9edf4;
+    --cor-fundo-card:      #ffffff;
+    --cor-borda:           #dee2e6;
+
+    --sidebar-largura:     260px;
+    --toolbar-altura:      60px;
+
+    --cor-positivo:        #2d7a4f;
+    --cor-negativo:        #dc3545;
+    --cor-alerta:          #f59e0b;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--cor-fundo-pagina);
+    color: #515151;
+}
+
+a {
+    color: var(--cor-primaria-clara);
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--cor-primaria);
+    text-decoration: underline;
+}
+
+.layout-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: var(--sidebar-largura);
+    min-width: var(--sidebar-largura);
+    height: 100vh;
+    position: sticky;
+    top: 0;
+    background-color: var(--cor-primaria);
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    min-height: 70px;
+}
+
+.sidebar-logo span {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--cor-texto-claro);
+}
+
+.sidebar-logo:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 0;
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 20px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.sidebar-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--cor-texto-claro);
+    text-decoration: none;
+}
+
+.sidebar-item i:first-child {
+    width: 20px;
+    font-size: 1rem;
+}
+
+.sidebar-item--ativo {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--cor-texto-claro);
+    font-weight: 600;
+}
+
+.main-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 99;
+    height: var(--toolbar-altura);
+    background-color: var(--cor-primaria);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 0 20px;
+}
+
+.toolbar-titulo {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--cor-texto-claro);
+    margin: 0;
+    flex: 1;
+}
+
+.toolbar-acoes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.badge-empresa {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    color: var(--cor-texto-claro);
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.badge-empresa:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: var(--cor-texto-claro);
+    text-decoration: none;
+}
+
+.conteudo-principal {
+    flex: 1;
+    padding: 24px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.avisos-globais {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.aviso-global {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    border-radius: 6px;
+    border-left: 4px solid transparent;
+    font-size: 0.9rem;
+}
+
+.aviso-global--success {
+    background: #e6f4ea;
+    border-left-color: var(--cor-positivo);
+    color: var(--cor-positivo);
+}
+
+.aviso-global--warning {
+    background: #fef3c7;
+    border-left-color: var(--cor-alerta);
+    color: #92400e;
+}
+
+.aviso-global--error {
+    background: #fde8e8;
+    border-left-color: var(--cor-negativo);
+    color: var(--cor-negativo);
+}
+
+.aviso-global--info,
+.aviso-global--debug {
+    background: #e0edf7;
+    border-left-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria);
+}

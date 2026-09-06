@@ -17,10 +17,10 @@ from waitress import serve
 
 # Precisa ser setado antes do import de core.wsgi, que dispara o
 # carregamento do Django (django.setup()) no momento em que é importado.
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "projeto_sistema_devolucao_mb_sv.settings")
 
 from django.core.management import call_command
-from core.wsgi import application
+from projeto_sistema_devolucao_mb_sv.wsgi import application
 
 HOST = "127.0.0.1"
 PORTA = 8000
@@ -49,7 +49,7 @@ def rodar_servidor():
 
 
 def abrir_tela_de_carregamento():
-    caminho = caminho_recurso("loading.html")
+    caminho = caminho_recurso("launcher_recursos/loading.html")
     webbrowser.open(f"file:///{caminho}")
 
 

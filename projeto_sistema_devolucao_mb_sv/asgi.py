@@ -1,5 +1,5 @@
 """
-ASGI config for core project.
+ASGI config for projeto_sistema_devolucao_mb_sv project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'projeto_sistema_devolucao_mb_sv.settings')
 
 application = get_asgi_application()

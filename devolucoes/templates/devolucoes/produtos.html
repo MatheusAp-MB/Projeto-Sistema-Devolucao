@@ -1,25 +1,14 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Produtos</title>
-    <link rel="stylesheet" href="{% static 'devolucoes/css/layout_nav.css' %}">
-    <link rel="stylesheet" href="{% static 'devolucoes/css/layout_produtos.css' %}">
-</head>
-<body class="produtos-pagina">
 
-    <nav class="nav-principal">
-        <a href="{% url 'nova_devolucao' %}" class="nav-link{% if pagina_ativa == 'nova_devolucao' %} nav-link--ativo{% endif %}">Nova Devolução</a>
-        <a href="{% url 'produtos' %}" class="nav-link{% if pagina_ativa == 'produtos' %} nav-link--ativo{% endif %}">Produtos</a>
-    </nav>
+{% block titulo %}Produtos{% endblock %}
+{% block toolbar_titulo %}Produtos{% endblock %}
 
-    <div class="nav-empresa">
-        <span class="nav-empresa-atual">{{ empresa_ativa_nome }}</span>
-        <a href="{% url 'trocar_empresa' empresa_outra %}" class="nav-empresa-trocar">Trocar para {{ empresa_outra_nome }}</a>
-    </div>
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_produtos.css' %}">
+{% endblock %}
 
+{% block conteudo %}
     <div class="produtos-cartao">
         <div class="produtos-cabecalho">
             <p class="produtos-titulo">Produtos cadastrados</p>
@@ -70,7 +59,8 @@
             <p class="produtos-vazio">Nenhum produto cadastrado ainda.</p>
         {% endif %}
     </div>
+{% endblock %}
 
-    <script src="{% static 'devolucoes/js/script_produtos.js' %}"></script>
-</body>
-</html>
+{% block scripts %}
+<script src="{% static 'devolucoes/js/script_produtos.js' %}"></script>
+{% endblock %}

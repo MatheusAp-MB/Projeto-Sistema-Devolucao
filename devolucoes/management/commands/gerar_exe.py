@@ -3,10 +3,10 @@
 # Função Objetivo: empacotar o Sistema de Devoluções com PyInstaller (--onedir),
 # reunindo num único comando (`python manage.py gerar_exe`) a linha de build que
 # hoje precisa ser copiada/colada manualmente — já com todas as flags descobertas
-# como necessárias: --add-data pra templates/static/loading.html, hidden-import
-# do pystray, e os 2 --collect-submodules (reportlab.graphics.barcode e
-# django.core.management.commands) encontrados em 03/09/2026. Uso exclusivo do
-# dev — nunca roda na máquina da usuária final.
+# como necessárias: --add-data pra launcher_recursos/loading.html, templates e
+# estáticos do Django, hidden-import do pystray, e os 2 --collect-submodules
+# (reportlab.graphics.barcode e django.core.management.commands) encontrados
+# em 03/09/2026. Uso exclusivo do dev — nunca roda na máquina da usuária final.
 
 import subprocess
 
@@ -36,7 +36,7 @@ class Command(BaseCommand):
             # Arquivos estáticos que o PyInstaller não empacota sozinho —
             # precisam ser apontados manualmente: tela de carregamento HTML,
             # templates e estáticos do Django
-            "--add-data", "loading.html;.",
+            "--add-data", "launcher_recursos/loading.html;launcher_recursos",
             "--add-data", "devolucoes/templates;devolucoes/templates",
             "--add-data", "devolucoes/static;devolucoes/static",
 

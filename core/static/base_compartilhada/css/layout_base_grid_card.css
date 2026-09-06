@@ -1,0 +1,50 @@
+/*
+* [RESUMO] → CSS compartilhado para páginas com grid de cards.
+* Define o estilo dos cards de módulo reutilizável em qualquer página.
+* Importado pelo estrutura_base_grid_card.html
+*/
+
+.card-modulo {
+    height: 100%;
+    background-color: var(--cor-fundo-card);
+    border: 2px solid var(--cor-borda);
+    border-radius: 12px;
+    padding: 32px 24px;
+    text-align: center;
+    color: var(--cor-primaria);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.card-modulo:hover {
+    background-color: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(26, 58, 92, 0.2);
+}
+
+.card-modulo h5 {
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.card-modulo p {
+    font-size: 0.875rem;
+    opacity: 0.75;
+    margin: 0;
+}
+
+.card-modulo-vazio {
+    opacity: 0.35;
+    cursor: default;
+    border-style: dashed;
+}
+
+.card-modulo-vazio:hover {
+    background-color: var(--cor-fundo-card);
+    border-color: var(--cor-borda);
+    color: var(--cor-primaria);
+    transform: none;
+    box-shadow: none;
+}
