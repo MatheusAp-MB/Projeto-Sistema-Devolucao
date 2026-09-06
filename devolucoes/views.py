@@ -3,8 +3,10 @@
 # Função Objetivo: views da tela de nova devolução — busca produto/peças
 # reais do catálogo por código de barras e gera o PDF do relatório na
 # hora (sem salvar nada no banco) — views do catálogo de produtos e
-# peças — criar/consultar/editar/excluir produto, buscar/vincular/
-# cadastrar/desvincular/excluir peça.
+# peças — criar/consultar/editar/excluir produto (tela própria,
+# reaproveitada pros 2 casos), buscar/vincular/cadastrar/desvincular/
+# excluir peça — e cadastro de Marca/Grupo Fornecedor, cada um isolado
+# e salvo na hora (via AJAX), nunca dependente de o Produto ser salvo.
 #
 # * [ATENÇÃO] → nova_devolucao ainda usa produto.pecas.all(), que não
 #               existe mais depois dessa mudança (peça deixou de
@@ -27,7 +29,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from xhtml2pdf import pisa
 
-from .models import Compatibilidade, Peca, Produto
+from .models import Compatibilidade, GrupoFornecedor, Marca, Peca, Produto
 
 
 def formatar_data_br(valor_iso):
@@ -173,47 +175,151 @@ def catalogo(request):
     return render(request, 'devolucoes/catalogo.html', contexto)
 
 
+def _contexto_form_produto(produto=None, valores=None):
+    """Monta o contexto da tela de cadastro/edição de produto — usada
+    tanto pra 'Novo produto' (GET simples) quanto pra 'Editar produto'
+    (GET com produto já preenchido), e também pra re-exibir o formulário
+    com o que a pessoa digitou quando a validação falha."""
+    if valores is None:
+        if produto:
+            valores = {
+                'nome': produto.nome,
+                'codigo_barras': produto.codigo_barras,
+                'sku': produto.sku,
+                'codigo_fabricante': produto.codigo_fabricante,
+                'marca_id': produto.marca_id or '',
+                'marca_nome': produto.marca.nome if produto.marca else '',
+            }
+        else:
+            valores = {
+                'nome': '', 'codigo_barras': '', 'sku': '', 'codigo_fabricante': '',
+                'marca_id': '', 'marca_nome': '',
+            }
+
+    return {
+        'produto': produto,
+        'valores': valores,
+        'marcas': Marca.objects.select_related('grupo_fornecedor'),
+        'grupos': GrupoFornecedor.objects.all(),
+        'pagina_ativa': 'produtos',
+    }
+
+
+def cadastrar_grupo_fornecedor(request):
+    """Cadastro isolado de Grupo Fornecedor — salvo no banco na hora,
+    chamado via AJAX pela tela de produto (mas não depende dela: é um
+    cadastro que existe por si só, reutilizável por qualquer marca)."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    nome = request.POST.get('nome', '').strip()
+    if not nome:
+        return JsonResponse({'erro': 'Nome do grupo é obrigatório.'}, status=400)
+
+    grupo, _ = GrupoFornecedor.objects.get_or_create(nome=nome)
+    return JsonResponse({'id': grupo.id, 'nome': grupo.nome})
+
+
+def cadastrar_marca(request):
+    """Cadastro isolado de Marca — salvo no banco na hora, chamado via
+    AJAX. Só associa um Grupo Fornecedor que já existe (referenciado por
+    id) — não cria grupo nenhum aqui, isso é papel só de
+    cadastrar_grupo_fornecedor."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    nome = request.POST.get('nome', '').strip()
+    if not nome:
+        return JsonResponse({'erro': 'Nome da marca é obrigatório.'}, status=400)
+
+    grupo = None
+    grupo_id = request.POST.get('grupo_fornecedor_id', '').strip()
+    if grupo_id:
+        grupo = GrupoFornecedor.objects.filter(pk=grupo_id).first()
+
+    marca, criada = Marca.objects.get_or_create(nome=nome, defaults={'grupo_fornecedor': grupo})
+
+    return JsonResponse({
+        'id': marca.id,
+        'nome': marca.nome,
+        'grupo': {'id': marca.grupo_fornecedor.id, 'nome': marca.grupo_fornecedor.nome} if marca.grupo_fornecedor else None,
+        'criada': criada,
+    })
+
+
+def cadastrar_produto(request):
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        codigo_barras = request.POST.get('codigo_barras', '').strip()
+        sku = request.POST.get('sku', '').strip()
+        codigo_fabricante = request.POST.get('codigo_fabricante', '').strip()
+        marca_id = request.POST.get('marca_id', '').strip()
+        foto = request.FILES.get('foto')
+
+        valores_digitados = {
+            'nome': nome, 'codigo_barras': codigo_barras,
+            'sku': sku, 'codigo_fabricante': codigo_fabricante,
+            'marca_id': marca_id,
+            'marca_nome': Marca.objects.filter(pk=marca_id).values_list('nome', flat=True).first() or '' if marca_id else '',
+        }
+
+        if not (nome and codigo_barras):
+            messages.error(request, 'Nome e EAN são obrigatórios.')
+            return render(request, 'devolucoes/produto_form.html', _contexto_form_produto(valores=valores_digitados))
+
+        if Produto.objects.filter(codigo_barras=codigo_barras).exists():
+            messages.error(request, f'Já existe um produto cadastrado com o código de barras {codigo_barras}.')
+            return render(request, 'devolucoes/produto_form.html', _contexto_form_produto(valores=valores_digitados))
+
+        marca = Marca.objects.filter(pk=marca_id).first() if marca_id else None
+        produto = Produto.objects.create(
+            codigo_barras=codigo_barras, nome=nome, marca=marca,
+            sku=sku, codigo_fabricante=codigo_fabricante, foto=foto,
+        )
+        messages.success(request, f'Produto "{nome}" cadastrado.')
+        return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+
+    return render(request, 'devolucoes/produto_form.html', _contexto_form_produto())
+
+
 def editar_produto(request, produto_id):
     produto = get_object_or_404(Produto, pk=produto_id)
 
     if request.method == 'POST':
         nome = request.POST.get('nome', '').strip()
-        marca = request.POST.get('marca', '').strip()
         codigo_barras = request.POST.get('codigo_barras', '').strip()
+        sku = request.POST.get('sku', '').strip()
+        codigo_fabricante = request.POST.get('codigo_fabricante', '').strip()
+        marca_id = request.POST.get('marca_id', '').strip()
         foto = request.FILES.get('foto')
 
-        if nome and codigo_barras:
-            if Produto.objects.exclude(pk=produto.pk).filter(codigo_barras=codigo_barras).exists():
-                messages.error(request, f'Já existe outro produto com o código de barras {codigo_barras}.')
-                return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+        valores_digitados = {
+            'nome': nome, 'codigo_barras': codigo_barras,
+            'sku': sku, 'codigo_fabricante': codigo_fabricante,
+            'marca_id': marca_id,
+            'marca_nome': Marca.objects.filter(pk=marca_id).values_list('nome', flat=True).first() or '' if marca_id else '',
+        }
 
-            produto.nome = nome
-            produto.marca = marca
-            produto.codigo_barras = codigo_barras
-            if foto:
-                produto.foto = foto
-            produto.save()
-            messages.success(request, 'Dados do produto atualizados.')
+        if not (nome and codigo_barras):
+            messages.error(request, 'Nome e EAN são obrigatórios.')
+            return render(request, 'devolucoes/produto_form.html', _contexto_form_produto(produto, valores_digitados))
 
-    return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+        if Produto.objects.exclude(pk=produto.pk).filter(codigo_barras=codigo_barras).exists():
+            messages.error(request, f'Já existe outro produto com o código de barras {codigo_barras}.')
+            return render(request, 'devolucoes/produto_form.html', _contexto_form_produto(produto, valores_digitados))
 
+        produto.marca = Marca.objects.filter(pk=marca_id).first() if marca_id else None
+        produto.nome = nome
+        produto.codigo_barras = codigo_barras
+        produto.sku = sku
+        produto.codigo_fabricante = codigo_fabricante
+        if foto:
+            produto.foto = foto
+        produto.save()
+        messages.success(request, 'Dados do produto atualizados.')
+        return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
 
-def cadastrar_produto(request):
-    codigo_barras = request.POST.get('codigo_barras', '').strip()
-
-    if request.method == 'POST' and codigo_barras:
-        if Produto.objects.filter(codigo_barras=codigo_barras).exists():
-            messages.error(request, f'Já existe um produto cadastrado com o código de barras {codigo_barras}.')
-            return redirect('produtos')
-
-        nome = request.POST.get('nome', '').strip()
-        marca = request.POST.get('marca', '').strip()
-        foto = request.FILES.get('foto')
-        if nome:
-            Produto.objects.create(codigo_barras=codigo_barras, nome=nome, marca=marca, foto=foto)
-            messages.success(request, f'Produto "{nome}" cadastrado.')
-
-    return redirect('produtos')
+    return render(request, 'devolucoes/produto_form.html', _contexto_form_produto(produto))
 
 
 def excluir_produto(request, produto_id):

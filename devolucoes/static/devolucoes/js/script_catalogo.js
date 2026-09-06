@@ -2,9 +2,9 @@
 
 // Função Objetivo: comportamentos da tela de catálogo — busca com
 // autocomplete de peças já cadastradas (pra vincular a este produto
-// sem duplicar), preview de imagem nos formulários, modal de foto em
-// tela cheia, e confirmação antes de excluir peça/produto de vez
-// (ações que afetam outros vínculos, não só o que está na tela).
+// sem duplicar), preview de imagem no formulário de peça nova, modal
+// de foto em tela cheia, e confirmação antes de excluir peça de vez
+// (ação que afeta outros vínculos, não só o que está na tela).
 
 (function () {
     var campoBusca = document.getElementById('id_busca_peca');
@@ -118,15 +118,6 @@
             if (!window.confirm('Excluir "' + nome + '" de vez? Ela vai sumir de TODOS os produtos compatíveis, não só deste.')) {
                 evento.preventDefault();
             }
-            return;
-        }
-
-        if (form.classList.contains('catalogo-form-excluir-produto')) {
-            var botaoProduto = form.querySelector('.catalogo-botao-excluir-produto');
-            var nomeProduto = botaoProduto ? botaoProduto.getAttribute('data-produto-nome') : 'este produto';
-            if (!window.confirm('Excluir o produto "' + nomeProduto + '"? As peças vinculadas continuam existindo (só a ligação com este produto some).')) {
-                evento.preventDefault();
-            }
         }
     });
 })();
@@ -149,10 +140,10 @@
             var leitor = new FileReader();
             leitor.onload = function (evento) {
                 previewImagem.src = evento.target.result;
+                previewNomeArquivo.textContent = arquivo.name;
                 previewCartao.hidden = false;
             };
             leitor.readAsDataURL(arquivo);
-            previewNomeArquivo.textContent = arquivo.name;
         });
     }
 
@@ -190,24 +181,5 @@
 
     document.addEventListener('keydown', function (evento) {
         if (!modal.hidden && evento.key === 'Escape') fecharModal();
-    });
-})();
-
-(function () {
-    var campoFoto = document.getElementById('id_foto_editar_produto');
-    var previewFoto = document.getElementById('preview_foto_editar_produto');
-
-    if (!campoFoto || !previewFoto) return;
-
-    campoFoto.addEventListener('change', function () {
-        var arquivo = campoFoto.files && campoFoto.files[0];
-        if (!arquivo) return;
-
-        var leitor = new FileReader();
-        leitor.onload = function (evento) {
-            previewFoto.src = evento.target.result;
-            previewFoto.hidden = false;
-        };
-        leitor.readAsDataURL(arquivo);
     });
 })();

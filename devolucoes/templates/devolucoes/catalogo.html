@@ -27,33 +27,7 @@
                 <div class="catalogo-produto-info">
                     <p class="catalogo-produto-nome">{{ produto.nome }}</p>
                     <p class="catalogo-produto-marca">Marca: {{ produto.marca|default:"—" }}</p>
-                </div>
-
-                <div class="catalogo-dados-produto">
-                    <p class="catalogo-dados-produto-titulo">Dados do produto</p>
-                    <form method="post" action="{% url 'editar_produto' produto.id %}" enctype="multipart/form-data" class="catalogo-form-dados-produto">
-                        {% csrf_token %}
-                        <input type="text" name="nome" value="{{ produto.nome }}" placeholder="Nome do produto" required>
-                        <input type="text" name="marca" value="{{ produto.marca }}" placeholder="Marca">
-                        <input type="text" name="codigo_barras" value="{{ produto.codigo_barras }}" placeholder="Código de barras (EAN)" required>
-
-                        <div class="catalogo-campo-imagem">
-                            <input type="file" name="foto" accept="image/*" id="id_foto_editar_produto" class="catalogo-input-imagem-oculto">
-                            <label for="id_foto_editar_produto" class="catalogo-botao-escolher-imagem">Trocar foto</label>
-                            {% if produto.foto %}
-                                <img id="preview_foto_editar_produto" src="{{ produto.foto.url }}" class="catalogo-preview-imagem-atual" alt="Foto atual do produto">
-                            {% else %}
-                                <img id="preview_foto_editar_produto" class="catalogo-preview-imagem-atual" hidden alt="Foto atual do produto">
-                            {% endif %}
-                        </div>
-
-                        <button type="submit" class="catalogo-botao-salvar-produto">Salvar dados do produto</button>
-                    </form>
-
-                    <form method="post" action="{% url 'excluir_produto' produto.id %}" class="catalogo-form-excluir-produto">
-                        {% csrf_token %}
-                        <button type="submit" class="catalogo-botao-excluir-produto" data-produto-nome="{{ produto.nome }}">Excluir produto</button>
-                    </form>
+                    <a href="{% url 'editar_produto' produto.id %}" class="catalogo-link-editar-produto">Editar produto</a>
                 </div>
 
                 <p class="catalogo-subtitulo">Peças compatíveis</p>

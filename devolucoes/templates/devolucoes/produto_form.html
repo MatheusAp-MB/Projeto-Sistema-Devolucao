@@ -1,0 +1,134 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}{% if produto %}Editar produto{% else %}Novo produto{% endif %}{% endblock %}
+{% block toolbar_titulo %}{% if produto %}Editar produto{% else %}Novo produto{% endif %}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_produto_form.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+    <div class="produto-form-pagina">
+        <a href="{% if produto %}{% url 'catalogo' %}?codigo_barras={{ produto.codigo_barras }}{% else %}{% url 'produtos' %}{% endif %}" class="produto-form-link-voltar">
+            ← {% if produto %}Voltar para o Catálogo{% else %}Voltar para Produtos{% endif %}
+        </a>
+
+        <div class="produto-form-cartao">
+            <form method="post" action="{% if produto %}{% url 'editar_produto' produto.id %}{% else %}{% url 'cadastrar_produto' %}{% endif %}" enctype="multipart/form-data" id="form-dados-produto">
+                {% csrf_token %}
+
+                <div class="produto-form-topo">
+                    <label class="produto-form-foto-uploader" for="id_foto_produto">
+                        <img id="preview_foto_produto" {% if not produto.foto %}hidden{% endif %} src="{% if produto.foto %}{{ produto.foto.url }}{% endif %}" alt="Pré-visualização">
+                        <span class="produto-form-foto-texto" id="foto_produto_texto" {% if produto.foto %}hidden{% endif %}>
+                            <strong>{% if produto %}Trocar foto{% else %}Escolher foto{% endif %}</strong>
+                            clique pra selecionar uma imagem do produto
+                        </span>
+                    </label>
+                    <input type="file" name="foto" accept="image/*" id="id_foto_produto" class="produto-form-input-oculto">
+
+                    <div class="produto-form-identificacao">
+                        <div class="produto-form-campo">
+                            <label for="id_nome">Nome do produto *</label>
+                            <input type="text" name="nome" id="id_nome" value="{{ valores.nome }}" placeholder="Ex: Pulverizador Costal 20L" required>
+                        </div>
+
+                        <div class="produto-form-campo">
+                            <label for="id_marca_busca">Marca</label>
+                            <div class="produto-form-linha-marca-grupo">
+                                <div class="produto-form-marca-busca-wrap">
+                                    <input type="text" id="id_marca_busca" value="{{ valores.marca_nome }}" placeholder="Digite ou escolha a marca" autocomplete="off">
+                                    <input type="hidden" name="marca_id" id="id_marca_id" value="{{ valores.marca_id }}">
+                                    <div id="marca_resultados" class="produto-form-resultados-marca" hidden></div>
+                                </div>
+                                <span class="produto-form-chip-grupo sem-grupo" id="chip_grupo_fornecedor">— grupo —</span>
+                            </div>
+                            <span class="produto-form-link-nova-marca" id="botao_nova_marca">+ Cadastrar marca nova</span>
+
+                            <div class="produto-form-caixa-nova-marca" id="caixa_nova_marca" hidden>
+                                <p class="produto-form-caixa-titulo">Nova marca</p>
+                                <div class="produto-form-caixa-linha">
+                                    <div class="produto-form-campo">
+                                        <label for="id_nova_marca_nome">Nome da marca</label>
+                                        <input type="text" id="id_nova_marca_nome" placeholder="Ex: STANLEY">
+                                    </div>
+                                    <div class="produto-form-campo">
+                                        <label for="id_grupo_fornecedor">Grupo fornecedor</label>
+                                        <select id="id_grupo_fornecedor">
+                                            <option value="">— nenhum —</option>
+                                            {% for grupo in grupos %}
+                                                <option value="{{ grupo.id }}">{{ grupo.nome }}</option>
+                                            {% endfor %}
+                                            <option value="__novo__">+ novo grupo…</option>
+                                        </select>
+                                    </div>
+                                    <button type="button" id="botao_cadastrar_marca">Cadastrar marca</button>
+                                </div>
+
+                                <div class="produto-form-caixa-linha-2col" id="caixa_novo_grupo" hidden>
+                                    <div class="produto-form-campo">
+                                        <label for="id_novo_grupo_fornecedor_nome">Nome do novo grupo</label>
+                                        <input type="text" id="id_novo_grupo_fornecedor_nome" placeholder="Ex: ToolsWorld">
+                                    </div>
+                                    <button type="button" id="botao_cadastrar_grupo">Cadastrar grupo</button>
+                                </div>
+
+                                <p class="produto-form-ajuda" id="marca_feedback"></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="produto-form-secao">
+                    <p class="produto-form-rotulo-secao">Códigos</p>
+                    <div class="produto-form-grade-codigos">
+                        <div class="produto-form-campo">
+                            <label for="id_codigo_barras">EAN (código de barras) *</label>
+                            <input type="text" name="codigo_barras" id="id_codigo_barras" value="{{ valores.codigo_barras }}" placeholder="7891234567890" required>
+                            <p class="produto-form-ajuda">Usado na leitora do estoque.</p>
+                        </div>
+                        <div class="produto-form-campo">
+                            <label for="id_sku">SKU</label>
+                            <input type="text" name="sku" id="id_sku" value="{{ valores.sku }}" placeholder="Ex: PULV-CST-20L">
+                            <p class="produto-form-ajuda">Seu código interno de controle.</p>
+                        </div>
+                        <div class="produto-form-campo">
+                            <label for="id_codigo_fabricante">Código do fabricante</label>
+                            <input type="text" name="codigo_fabricante" id="id_codigo_fabricante" value="{{ valores.codigo_fabricante }}" placeholder="Ex: MTX-8720">
+                            <p class="produto-form-ajuda">Código que o próprio fabricante usa.</p>
+                        </div>
+                    </div>
+                </div>
+            </form>
+
+            <div class="produto-form-rodape">
+                {% if produto %}
+                    <form method="post" action="{% url 'excluir_produto' produto.id %}" class="produto-form-excluir-wrap">
+                        {% csrf_token %}
+                        <button type="submit" class="produto-form-botao-excluir" data-produto-nome="{{ produto.nome }}">Excluir produto</button>
+                    </form>
+                {% endif %}
+                <div class="produto-form-rodape-principais">
+                    <a href="{% if produto %}{% url 'catalogo' %}?codigo_barras={{ produto.codigo_barras }}{% else %}{% url 'produtos' %}{% endif %}" class="produto-form-botao-cancelar">Cancelar</a>
+                    <button type="submit" form="form-dados-produto" class="produto-form-botao-salvar">{% if produto %}Salvar alterações{% else %}Salvar produto{% endif %}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    var URL_CADASTRAR_MARCA = "{% url 'cadastrar_marca' %}";
+    var URL_CADASTRAR_GRUPO_FORNECEDOR = "{% url 'cadastrar_grupo_fornecedor' %}";
+
+    var MARCA_GRUPO_MAP = {
+        {% for marca in marcas %}"{{ marca.nome|lower|escapejs }}": {% if marca.grupo_fornecedor %}"{{ marca.grupo_fornecedor.nome|escapejs }}"{% else %}null{% endif %}{% if not forloop.last %},{% endif %}{% endfor %}
+    };
+    var MARCAS_CADASTRADAS = [
+        {% for marca in marcas %}{id: {{ marca.id }}, nome: "{{ marca.nome|escapejs }}", grupo: {% if marca.grupo_fornecedor %}"{{ marca.grupo_fornecedor.nome|escapejs }}"{% else %}null{% endif %}}{% if not forloop.last %},{% endif %}{% endfor %}
+    ];
+</script>
+<script src="{% static 'devolucoes/js/script_produto_form.js' %}"></script>
+{% endblock %}

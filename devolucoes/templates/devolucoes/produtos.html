@@ -12,28 +12,7 @@
     <div class="produtos-cartao">
         <div class="produtos-cabecalho">
             <p class="produtos-titulo">Produtos cadastrados</p>
-            <button type="button" id="botao-mostrar-cadastro-produto" class="produtos-botao-cadastrar">Cadastrar produto</button>
-        </div>
-
-        <div id="produtos-form-cadastro" class="produtos-cadastro" hidden>
-            <p class="produtos-cadastro-titulo">Novo produto</p>
-            <form method="post" action="{% url 'cadastrar_produto' %}" enctype="multipart/form-data" class="produtos-form-produto">
-                {% csrf_token %}
-                <input type="text" name="nome" placeholder="Nome do produto" required>
-                <input type="text" name="marca" placeholder="Marca">
-                <input type="text" name="codigo_barras" placeholder="Código de barras (EAN)" required>
-
-                <div class="produtos-campo-imagem">
-                    <input type="file" name="foto" accept="image/*" id="id_foto_novo_produto" class="produtos-input-imagem-oculto">
-                    <label for="id_foto_novo_produto" class="produtos-botao-escolher-imagem">Escolher foto</label>
-                    <div id="preview_foto_novo_produto_cartao" class="produtos-preview-cartao" hidden>
-                        <img id="preview_foto_novo_produto" alt="Pré-visualização">
-                        <span id="preview_foto_novo_produto_nome" class="produtos-preview-nome-arquivo"></span>
-                    </div>
-                </div>
-
-                <button type="submit" class="produtos-botao-salvar">Salvar produto</button>
-            </form>
+            <a href="{% url 'cadastrar_produto' %}" class="produtos-botao-cadastrar">Cadastrar produto</a>
         </div>
 
         {% if produtos %}
@@ -59,8 +38,4 @@
             <p class="produtos-vazio">Nenhum produto cadastrado ainda.</p>
         {% endif %}
     </div>
-{% endblock %}
-
-{% block scripts %}
-<script src="{% static 'devolucoes/js/script_produtos.js' %}"></script>
 {% endblock %}
