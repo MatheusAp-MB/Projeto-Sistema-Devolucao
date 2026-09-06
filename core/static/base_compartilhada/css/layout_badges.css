@@ -1,0 +1,25 @@
+/* * [RESUMO] → Badge da empresa ativa, fixa na toolbar — cor muda
+ *              conforme a empresa (Magazine/Samvale). Espelha
+ *              layout_badges.css do Sistema Interno V2 (só a parte
+ *              usada aqui; o resto do arquivo de lá é de badges de
+ *              anúncio do Mercado Livre, que não existem neste
+ *              projeto).
+ */
+
+.badge-empresa {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    white-space: nowrap;
+}
+.badge-empresa:hover { opacity: 0.9; text-decoration: none; color: #fff; }
+
+.badge-empresa-magazine { background: #1F4E78; color: #fff; }
+.badge-empresa-samvale  { background: #7C3AED; color: #fff; }

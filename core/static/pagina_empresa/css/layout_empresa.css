@@ -1,0 +1,115 @@
+/* * [RESUMO] → Estilo da tela de escolher/trocar empresa. Página
+ *              independente — não estende layout_global.css, então
+ *              define suas próprias variáveis aqui. Cada linha mostra
+ *              a logo da empresa + o nome, num botão só (linha
+ *              inteira clicável).
+ */
+
+:root {
+    --cor-primaria:     #1a3a5c;
+    --cor-fundo-pagina: #e9edf4;
+    --cor-fundo-card:   #ffffff;
+    --cor-texto-muted:  #6c757d;
+    --cor-negativo:     #dc3545;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+.escolher-empresa-corpo {
+    min-height: 100vh;
+    background-color: var(--cor-fundo-pagina);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.escolher-empresa-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+}
+
+.escolher-empresa-card {
+    background-color: var(--cor-fundo-card);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(26, 58, 92, 0.15);
+    padding: 48px 40px;
+    width: 100%;
+    max-width: 420px;
+    text-align: center;
+}
+
+.escolher-empresa-titulo {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--cor-primaria);
+    margin-bottom: 4px;
+}
+
+.escolher-empresa-subtitulo {
+    font-size: 0.85rem;
+    color: var(--cor-texto-muted);
+    margin-bottom: 24px;
+}
+
+.escolher-empresa-erro {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fde8e8;
+    color: var(--cor-negativo);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 0.85rem;
+    margin-bottom: 16px;
+    text-align: left;
+}
+
+.escolher-empresa-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.escolher-empresa-form {
+    width: 100%;
+}
+
+.linha-escolher-empresa {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 8px;
+    border: none;
+    border-radius: 10px;
+    background: #f4f6fa;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.linha-escolher-empresa:hover { background: #e9edf4; }
+
+.linha-escolher-empresa-logo {
+    width: 44px;
+    height: 44px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.linha-escolher-empresa-nome {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    color: #fff;
+}
+
+.btn-empresa-magazine { background: #1F4E78; }
+.btn-empresa-samvale  { background: #7C3AED; }

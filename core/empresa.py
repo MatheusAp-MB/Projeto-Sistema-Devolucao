@@ -24,6 +24,15 @@ NOME_EXIBICAO_POR_EMPRESA = {
     EMPRESA_SAMVALE: 'SAMVALE',
 }
 
+# * [EXPLICAÇÃO] → Usado pela sidebar/favicon (core/context_processors.py)
+#                  e pela tela de escolher empresa (core/views.py) — se os
+#                  arquivos que você tem prontos forem .jpg em vez de
+#                  .png, só trocar a extensão nas 2 linhas abaixo.
+LOGO_POR_EMPRESA = {
+    EMPRESA_MAGAZINE: 'base_compartilhada/img/Logo_MB.png',
+    EMPRESA_SAMVALE: 'base_compartilhada/img/Logo_SV.png',
+}
+
 
 def definir_empresa_ativa(empresa):
     _armazenamento_local.empresa = empresa

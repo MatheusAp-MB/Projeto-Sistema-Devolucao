@@ -14,6 +14,7 @@
     --cor-borda:           #dee2e6;
 
     --sidebar-largura:     260px;
+    --sidebar-largura-min: 0px;
     --toolbar-altura:      60px;
 
     --cor-positivo:        #2d7a4f;
@@ -56,21 +57,38 @@ a:hover {
     top: 0;
     background-color: var(--cor-primaria);
     overflow-y: auto;
+    overflow-x: hidden;
+    transition: width 0.3s, min-width 0.3s;
     z-index: 100;
+}
+
+/* Sidebar oculta — ativada pelo JS ao clicar no toggle */
+.sidebar-oculta .sidebar {
+    width: var(--sidebar-largura-min);
+    min-width: var(--sidebar-largura-min);
 }
 
 .sidebar-logo {
     display: flex;
     align-items: center;
+    gap: 10px;
     padding: 16px 20px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     min-height: 70px;
+}
+
+.sidebar-logo img {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    object-fit: cover;
 }
 
 .sidebar-logo span {
     font-weight: 700;
     font-size: 1rem;
     color: var(--cor-texto-claro);
+    white-space: nowrap;
 }
 
 .sidebar-logo:hover {
@@ -91,6 +109,7 @@ a:hover {
     color: rgba(255, 255, 255, 0.85);
     font-size: 0.9rem;
     transition: background 0.2s;
+    white-space: nowrap;
 }
 
 .sidebar-item:hover {
@@ -129,6 +148,22 @@ a:hover {
     padding: 0 20px;
 }
 
+.toolbar-toggle {
+    background: none;
+    border: none;
+    color: var(--cor-texto-claro);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.toolbar-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
 .toolbar-titulo {
     font-size: 1.1rem;
     font-weight: 600;
@@ -141,26 +176,6 @@ a:hover {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.badge-empresa {
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    color: var(--cor-texto-claro);
-    padding: 6px 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.badge-empresa:hover {
-    background: rgba(255, 255, 255, 0.2);
-    color: var(--cor-texto-claro);
-    text-decoration: none;
 }
 
 .conteudo-principal {

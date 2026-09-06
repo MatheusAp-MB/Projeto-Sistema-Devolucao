@@ -7,18 +7,22 @@
 from core.empresa import (
     EMPRESA_MAGAZINE,
     EMPRESA_SAMVALE,
+    LOGO_POR_EMPRESA,
     NOME_EXIBICAO_POR_EMPRESA,
     obter_empresa_ativa,
 )
 
+CLASSE_CSS_POR_EMPRESA = {
+    EMPRESA_MAGAZINE: 'badge-empresa-magazine',
+    EMPRESA_SAMVALE: 'badge-empresa-samvale',
+}
 
 def empresa_ativa(request):
     empresa = obter_empresa_ativa()
-    outra = EMPRESA_SAMVALE if empresa == EMPRESA_MAGAZINE else EMPRESA_MAGAZINE
 
     return {
         'empresa_ativa': empresa,
         'empresa_ativa_nome': NOME_EXIBICAO_POR_EMPRESA.get(empresa, ''),
-        'empresa_outra': outra,
-        'empresa_outra_nome': NOME_EXIBICAO_POR_EMPRESA.get(outra, ''),
+        'empresa_classe_css': CLASSE_CSS_POR_EMPRESA.get(empresa, ''),
+        'empresa_logo': LOGO_POR_EMPRESA.get(empresa, LOGO_POR_EMPRESA[EMPRESA_MAGAZINE]),
     }

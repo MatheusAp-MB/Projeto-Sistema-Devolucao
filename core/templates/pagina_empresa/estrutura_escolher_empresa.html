@@ -1,0 +1,53 @@
+<!--
+* [RESUMO] → Tela de escolher/trocar a empresa ativa. Página
+* independente — sem sidebar/toolbar (não estende o template base).
+* Cada linha mostra a logo + o nome da empresa correspondente — a
+* linha inteira é clicável.
+-->
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escolher empresa — Sistema de Devoluções</title>
+    <link rel="icon" href="{% static empresa_logo %}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'pagina_empresa/css/layout_empresa.css' %}">
+</head>
+
+<body class="escolher-empresa-corpo">
+    <div class="escolher-empresa-wrapper">
+        <div class="escolher-empresa-card">
+            <h1 class="escolher-empresa-titulo">Qual empresa?</h1>
+            <p class="escolher-empresa-subtitulo">Escolha a empresa que você vai usar agora</p>
+
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="escolher-empresa-erro">
+                        <i class="fas fa-exclamation-circle"></i>
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="escolher-empresa-lista">
+                {% for empresa in empresas %}
+                    <form method="post" action="{% url 'escolher_empresa' %}" class="escolher-empresa-form">
+                        {% csrf_token %}
+                        <input type="hidden" name="empresa" value="{{ empresa.valor }}">
+                        <button type="submit" class="linha-escolher-empresa">
+                            <img src="{% static empresa.logo %}" alt="Logo {{ empresa.nome_exibicao }}" class="linha-escolher-empresa-logo">
+                            <span class="linha-escolher-empresa-nome btn-empresa-{{ empresa.valor|lower }}">
+                                {{ empresa.nome_exibicao }}
+                            </span>
+                        </button>
+                    </form>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>
