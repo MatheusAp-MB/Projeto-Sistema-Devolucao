@@ -486,3 +486,193 @@
         min-width: 0;
     }
 }
+
+/* ================================================
+   BUSCA/VINCULAR PEÇA EXISTENTE (Adicionar peça)
+   ================================================ */
+.catalogo-busca-peca {
+    position: relative;
+    margin-bottom: 10px;
+}
+
+.catalogo-input-busca-peca {
+    width: 100%;
+    height: 34px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    font-size: 13px;
+}
+
+.catalogo-resultados-peca {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.catalogo-resultado-peca {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    text-align: left;
+    padding: 8px 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    background-color: #ffffff;
+    cursor: pointer;
+}
+
+.catalogo-resultado-peca:hover {
+    border-color: #2e7bb5;
+    background-color: #f7fbfe;
+}
+
+.catalogo-resultado-peca-foto {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    background-color: #f1f3f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 11px;
+    color: #adb5bd;
+    overflow: hidden;
+}
+
+.catalogo-resultado-peca-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.catalogo-resultado-peca-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.catalogo-resultado-peca-nome {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a3a5c;
+}
+
+.catalogo-resultado-peca-uso {
+    font-size: 11px;
+    color: #6c757d;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.catalogo-painel-secundario {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #dee2e6;
+}
+
+.catalogo-painel-titulo {
+    font-size: 12px;
+    font-weight: 600;
+    color: #1a3a5c;
+    margin: 0 0 8px;
+}
+
+.catalogo-form-vincular {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.catalogo-form-vincular input[type="number"] {
+    width: 100px;
+    height: 32px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    font-size: 13px;
+}
+
+.catalogo-form-vincular button {
+    height: 34px;
+    padding: 0 16px;
+    border: none;
+    border-radius: 4px;
+    background-color: #2e7bb5;
+    color: #ffffff;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.catalogo-link-cadastrar-nova {
+    display: block;
+    width: 100%;
+    text-align: center;
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px dashed #b9d6ec;
+    border-radius: 6px;
+    background: none;
+    color: #2e7bb5;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.catalogo-link-cadastrar-nova:hover {
+    background-color: #f7fbfe;
+}
+
+/* "também em" — aparece no card de uma peça compartilhada */
+.catalogo-peca-tambem-em {
+    font-size: 10px;
+    color: #6c757d;
+    padding: 4px 10px 0;
+    margin: 0;
+}
+
+/* Excluir peça de vez — ação rara e destrutiva, visualmente discreta
+   pra não competir com "Desvincular" (a ação do dia a dia) */
+.catalogo-form-excluir-peca {
+    margin: 0;
+    border-top: 1px solid #dee2e6;
+}
+
+.catalogo-botao-excluir-peca {
+    width: 100%;
+    background: none;
+    border: none;
+    color: #adb5bd;
+    font-size: 10px;
+    cursor: pointer;
+    padding: 4px;
+}
+
+.catalogo-botao-excluir-peca:hover {
+    color: #dc3545;
+}
+
+/* Excluir produto */
+.catalogo-form-excluir-produto {
+    margin-top: 10px;
+}
+
+.catalogo-botao-excluir-produto {
+    background: none;
+    border: 1px solid #dc3545;
+    color: #dc3545;
+    border-radius: 4px;
+    font-size: 12px;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.catalogo-botao-excluir-produto:hover {
+    background-color: #dc3545;
+    color: #ffffff;
+}

@@ -49,49 +49,85 @@
 
                         <button type="submit" class="catalogo-botao-salvar-produto">Salvar dados do produto</button>
                     </form>
+
+                    <form method="post" action="{% url 'excluir_produto' produto.id %}" class="catalogo-form-excluir-produto">
+                        {% csrf_token %}
+                        <button type="submit" class="catalogo-botao-excluir-produto" data-produto-nome="{{ produto.nome }}">Excluir produto</button>
+                    </form>
                 </div>
 
-                <p class="catalogo-subtitulo">Peças cadastradas</p>
+                <p class="catalogo-subtitulo">Peças compatíveis</p>
                 <div class="catalogo-pecas-grade">
-                    {% for peca in pecas %}
+                    {% for comp in compatibilidades %}
                         <div class="catalogo-peca">
-                            <p class="catalogo-peca-nome">{{ peca.nome }}</p>
-                            <div class="catalogo-peca-foto{% if peca.imagem %} catalogo-peca-foto--clicavel{% endif %}"
-                                 {% if peca.imagem %}data-imagem-url="{{ peca.imagem.url }}" data-imagem-titulo="{{ peca.nome }}"{% endif %}>
-                                {% if peca.imagem %}
-                                    <img src="{{ peca.imagem.url }}" alt="{{ peca.nome }}">
+                            <p class="catalogo-peca-nome">{{ comp.peca.nome }}</p>
+                            <div class="catalogo-peca-foto{% if comp.peca.imagem %} catalogo-peca-foto--clicavel{% endif %}"
+                                 {% if comp.peca.imagem %}data-imagem-url="{{ comp.peca.imagem.url }}" data-imagem-titulo="{{ comp.peca.nome }}"{% endif %}>
+                                {% if comp.peca.imagem %}
+                                    <img src="{{ comp.peca.imagem.url }}" alt="{{ comp.peca.nome }}">
                                 {% else %}
                                     <span class="catalogo-peca-foto-vazia">sem foto</span>
                                 {% endif %}
                             </div>
+                            {% if comp.peca.outras_compatibilidades %}
+                                <p class="catalogo-peca-tambem-em">também em: {% for outra in comp.peca.outras_compatibilidades %}{{ outra.produto.nome }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+                            {% endif %}
                             <div class="catalogo-peca-rodape">
-                                <span>Qtd: {{ peca.quantidade_esperada }}</span>
-                                <form method="post" action="{% url 'remover_peca' peca.id %}" class="catalogo-form-remover">
+                                <span>Qtd: {{ comp.quantidade_esperada }}</span>
+                                <form method="post" action="{% url 'desvincular_peca' comp.id %}" class="catalogo-form-remover">
                                     {% csrf_token %}
-                                    <button type="submit" class="catalogo-botao-remover">Remover</button>
+                                    <button type="submit" class="catalogo-botao-remover">Desvincular</button>
                                 </form>
                             </div>
+                            <form method="post" action="{% url 'excluir_peca' comp.peca.id %}" class="catalogo-form-excluir-peca">
+                                {% csrf_token %}
+                                <input type="hidden" name="codigo_barras_origem" value="{{ produto.codigo_barras }}">
+                                <button type="submit" class="catalogo-botao-excluir-peca" data-peca-nome="{{ comp.peca.nome }}">Excluir peça de vez</button>
+                            </form>
                         </div>
                     {% endfor %}
                 </div>
 
                 <div class="catalogo-adicionar-peca">
                     <p class="catalogo-adicionar-titulo">Adicionar peça</p>
-                    <form method="post" action="{% url 'adicionar_peca' produto.id %}" enctype="multipart/form-data" class="catalogo-form-peca">
-                        {% csrf_token %}
-                        <input type="text" name="nome" placeholder="Nome da peça" required>
-                        <input type="number" name="quantidade_esperada" placeholder="Qtd esperada" min="1" value="1" required>
-                        <div class="catalogo-campo-imagem">
-                            <input type="file" name="imagem" accept="image/*" id="id_imagem_nova_peca" class="catalogo-input-imagem-oculto">
-                            <label for="id_imagem_nova_peca" class="catalogo-botao-escolher-imagem">Escolher foto</label>
 
-                            <div id="preview_imagem_nova_peca_cartao" class="catalogo-preview-cartao" hidden>
-                                <img id="preview_imagem_nova_peca" class="catalogo-preview-imagem" alt="Pré-visualização">
-                                <span id="preview_imagem_nova_peca_nome" class="catalogo-preview-nome-arquivo"></span>
+                    <div class="catalogo-busca-peca">
+                        <input type="text" id="id_busca_peca" class="catalogo-input-busca-peca" placeholder="Buscar peça já cadastrada pelo nome..." autocomplete="off">
+                        <div id="catalogo-resultados-peca" class="catalogo-resultados-peca" hidden></div>
+                    </div>
+
+                    <div id="catalogo-painel-vincular" class="catalogo-painel-secundario" hidden>
+                        <p class="catalogo-painel-titulo">Vincular <span id="catalogo-vincular-nome"></span> a este produto</p>
+                        <form method="post" action="{% url 'vincular_peca' produto.id %}" class="catalogo-form-vincular">
+                            {% csrf_token %}
+                            <input type="hidden" name="peca_id" id="catalogo-vincular-peca-id">
+                            <input type="number" name="quantidade_esperada" min="1" value="1" required placeholder="Qtd esperada">
+                            <button type="submit">Vincular peça</button>
+                        </form>
+                    </div>
+
+                    <button type="button" id="catalogo-botao-cadastrar-nova" class="catalogo-link-cadastrar-nova" hidden>
+                        + Não encontrou? Cadastrar peça nova
+                    </button>
+
+                    <div id="catalogo-painel-nova" class="catalogo-painel-secundario" hidden>
+                        <p class="catalogo-painel-titulo">Cadastrar peça nova</p>
+                        <form method="post" action="{% url 'cadastrar_peca' produto.id %}" enctype="multipart/form-data" class="catalogo-form-peca">
+                            {% csrf_token %}
+                            <input type="text" name="nome" id="catalogo-nova-peca-nome" placeholder="Nome da peça" required>
+                            <input type="number" name="quantidade_esperada" placeholder="Qtd esperada" min="1" value="1" required>
+                            <div class="catalogo-campo-imagem">
+                                <input type="file" name="imagem" accept="image/*" id="id_imagem_nova_peca" class="catalogo-input-imagem-oculto">
+                                <label for="id_imagem_nova_peca" class="catalogo-botao-escolher-imagem">Escolher foto</label>
+
+                                <div id="preview_imagem_nova_peca_cartao" class="catalogo-preview-cartao" hidden>
+                                    <img id="preview_imagem_nova_peca" class="catalogo-preview-imagem" alt="Pré-visualização">
+                                    <span id="preview_imagem_nova_peca_nome" class="catalogo-preview-nome-arquivo"></span>
+                                </div>
                             </div>
-                        </div>
-                        <button type="submit">Adicionar peça</button>
-                    </form>
+                            <button type="submit">Cadastrar e vincular</button>
+                        </form>
+                    </div>
                 </div>
             {% else %}
                 <div class="catalogo-nao-encontrado">
@@ -114,5 +150,10 @@
 {% endblock %}
 
 {% block scripts %}
+{% if produto %}
+<script>
+    var CATALOGO_URL_BUSCAR_PECAS = "{% url 'buscar_pecas' produto.id %}";
+</script>
+{% endif %}
 <script src="{% static 'devolucoes/js/script_catalogo.js' %}"></script>
 {% endblock %}

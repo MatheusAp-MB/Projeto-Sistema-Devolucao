@@ -2,22 +2,32 @@
 
 # Função Objetivo: views da tela de nova devolução — busca produto/peças
 # reais do catálogo por código de barras e gera o PDF do relatório na
-# hora (sem salvar nada no banco) — views do catálogo de peças —
-# buscar/criar produto por código de barras, e adicionar/remover peça.
+# hora (sem salvar nada no banco) — views do catálogo de produtos e
+# peças — criar/consultar/editar/excluir produto, buscar/vincular/
+# cadastrar/desvincular/excluir peça.
+#
+# * [ATENÇÃO] → nova_devolucao ainda usa produto.pecas.all(), que não
+#               existe mais depois dessa mudança (peça deixou de
+#               pertencer a um produto só). Isso é esperado — combinado
+#               deixar quebrado por enquanto, a reforma dessa tela fica
+#               pra depois.
 
 import os
 
 from datetime import datetime
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.staticfiles import finders
-from django.http import HttpResponse
+from django.db import transaction
+from django.db.models import Prefetch
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from xhtml2pdf import pisa
 
-from .models import Peca, Produto
+from .models import Compatibilidade, Peca, Produto
 
 
 def formatar_data_br(valor_iso):
@@ -140,17 +150,23 @@ def produtos(request):
 def catalogo(request):
     codigo_barras = request.GET.get('codigo_barras', '').strip()
     produto = None
-    pecas = []
+    compatibilidades = []
 
     if codigo_barras:
         produto = Produto.objects.filter(codigo_barras=codigo_barras).first()
         if produto:
-            pecas = produto.pecas.all()
+            compatibilidades = produto.compatibilidades.select_related('peca').prefetch_related(
+                Prefetch(
+                    'peca__compatibilidades',
+                    queryset=Compatibilidade.objects.exclude(produto=produto).select_related('produto'),
+                    to_attr='outras_compatibilidades',
+                )
+            )
 
     contexto = {
         'codigo_barras': codigo_barras,
         'produto': produto,
-        'pecas': pecas,
+        'compatibilidades': compatibilidades,
         'buscou': bool(codigo_barras),
         'pagina_ativa': 'produtos',
     }
@@ -167,12 +183,17 @@ def editar_produto(request, produto_id):
         foto = request.FILES.get('foto')
 
         if nome and codigo_barras:
+            if Produto.objects.exclude(pk=produto.pk).filter(codigo_barras=codigo_barras).exists():
+                messages.error(request, f'Já existe outro produto com o código de barras {codigo_barras}.')
+                return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+
             produto.nome = nome
             produto.marca = marca
             produto.codigo_barras = codigo_barras
             if foto:
                 produto.foto = foto
             produto.save()
+            messages.success(request, 'Dados do produto atualizados.')
 
     return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
 
@@ -181,41 +202,115 @@ def cadastrar_produto(request):
     codigo_barras = request.POST.get('codigo_barras', '').strip()
 
     if request.method == 'POST' and codigo_barras:
+        if Produto.objects.filter(codigo_barras=codigo_barras).exists():
+            messages.error(request, f'Já existe um produto cadastrado com o código de barras {codigo_barras}.')
+            return redirect('produtos')
+
         nome = request.POST.get('nome', '').strip()
         marca = request.POST.get('marca', '').strip()
         foto = request.FILES.get('foto')
         if nome:
-            Produto.objects.get_or_create(
-                codigo_barras=codigo_barras,
-                defaults={'nome': nome, 'marca': marca, 'foto': foto},
-            )
+            Produto.objects.create(codigo_barras=codigo_barras, nome=nome, marca=marca, foto=foto)
+            messages.success(request, f'Produto "{nome}" cadastrado.')
 
     return redirect('produtos')
 
 
-def adicionar_peca(request, produto_id):
+def excluir_produto(request, produto_id):
+    produto = get_object_or_404(Produto, pk=produto_id)
+
+    if request.method == 'POST':
+        nome = produto.nome
+        produto.delete()
+        messages.success(request, f'Produto "{nome}" excluído.')
+
+    return redirect('produtos')
+
+
+def buscar_pecas(request, produto_id):
+    termo = request.GET.get('q', '').strip()
+
+    resultados = []
+    if len(termo) >= 2:
+        pecas = (
+            Peca.objects.filter(nome__icontains=termo)
+            .exclude(compatibilidades__produto_id=produto_id)
+            .prefetch_related('compatibilidades__produto')[:8]
+        )
+
+        for peca in pecas:
+            resultados.append({
+                'id': peca.id,
+                'nome': peca.nome,
+                'foto_url': peca.imagem.url if peca.imagem else None,
+                'usada_em': [c.produto.nome for c in peca.compatibilidades.all()],
+            })
+
+    return JsonResponse({'resultados': resultados})
+
+
+def vincular_peca(request, produto_id):
+    produto = get_object_or_404(Produto, pk=produto_id)
+
+    if request.method == 'POST':
+        peca_id = request.POST.get('peca_id')
+        quantidade_esperada = request.POST.get('quantidade_esperada') or '1'
+        peca = get_object_or_404(Peca, pk=peca_id)
+
+        _, criada = Compatibilidade.objects.get_or_create(
+            peca=peca, produto=produto,
+            defaults={'quantidade_esperada': int(quantidade_esperada)},
+        )
+        if criada:
+            messages.success(request, f'"{peca.nome}" vinculada a este produto.')
+        else:
+            messages.warning(request, f'"{peca.nome}" já estava vinculada a este produto.')
+
+    return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+
+
+def cadastrar_peca(request, produto_id):
     produto = get_object_or_404(Produto, pk=produto_id)
 
     if request.method == 'POST':
         nome = request.POST.get('nome', '').strip()
         quantidade_esperada = request.POST.get('quantidade_esperada') or '1'
         imagem = request.FILES.get('imagem')
+
         if nome:
-            Peca.objects.create(
-                produto=produto,
-                nome=nome,
-                quantidade_esperada=int(quantidade_esperada),
-                imagem=imagem,
-            )
+            with transaction.atomic():
+                peca = Peca.objects.create(nome=nome, imagem=imagem)
+                Compatibilidade.objects.create(
+                    peca=peca, produto=produto,
+                    quantidade_esperada=int(quantidade_esperada),
+                )
+            messages.success(request, f'Peça "{nome}" cadastrada e vinculada.')
 
     return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
 
 
-def remover_peca(request, peca_id):
-    peca = get_object_or_404(Peca, pk=peca_id)
-    codigo_barras = peca.produto.codigo_barras
+def desvincular_peca(request, compatibilidade_id):
+    compatibilidade = get_object_or_404(Compatibilidade, pk=compatibilidade_id)
+    codigo_barras = compatibilidade.produto.codigo_barras
 
     if request.method == 'POST':
-        peca.delete()
+        nome_peca = compatibilidade.peca.nome
+        compatibilidade.delete()
+        messages.success(request, f'"{nome_peca}" desvinculada deste produto.')
 
     return redirect(f"{reverse('catalogo')}?codigo_barras={codigo_barras}")
+
+
+def excluir_peca(request, peca_id):
+    peca = get_object_or_404(Peca, pk=peca_id)
+
+    if request.method == 'POST':
+        codigo_barras = request.POST.get('codigo_barras_origem', '')
+        nome = peca.nome
+        peca.delete()
+        messages.success(request, f'Peça "{nome}" excluída do sistema.')
+
+        if codigo_barras:
+            return redirect(f"{reverse('catalogo')}?codigo_barras={codigo_barras}")
+
+    return redirect('produtos')

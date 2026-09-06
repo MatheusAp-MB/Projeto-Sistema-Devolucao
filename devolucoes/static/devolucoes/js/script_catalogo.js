@@ -1,10 +1,135 @@
 // devolucoes/static/devolucoes/js/script_catalogo.js
 
-// Função Objetivo: 2 comportamentos da tela de catálogo — preview da
-// imagem escolhida ainda no formulário de "adicionar peça" (antes de
-// enviar), e o modal de foto em tela cheia ao clicar num quadradinho já
-// cadastrado (mesmo padrão do modal do Hub de Fotos, simplificado pra
-// 1 foto só, sem carrossel).
+// Função Objetivo: comportamentos da tela de catálogo — busca com
+// autocomplete de peças já cadastradas (pra vincular a este produto
+// sem duplicar), preview de imagem nos formulários, modal de foto em
+// tela cheia, e confirmação antes de excluir peça/produto de vez
+// (ações que afetam outros vínculos, não só o que está na tela).
+
+(function () {
+    var campoBusca = document.getElementById('id_busca_peca');
+    var listaResultados = document.getElementById('catalogo-resultados-peca');
+    var painelVincular = document.getElementById('catalogo-painel-vincular');
+    var vincularNome = document.getElementById('catalogo-vincular-nome');
+    var vincularPecaId = document.getElementById('catalogo-vincular-peca-id');
+    var botaoCadastrarNova = document.getElementById('catalogo-botao-cadastrar-nova');
+    var painelNova = document.getElementById('catalogo-painel-nova');
+    var campoNovaPecaNome = document.getElementById('catalogo-nova-peca-nome');
+
+    if (!campoBusca || !listaResultados) return;
+
+    var atrasoBusca = null;
+
+    function esconderPaineis() {
+        painelVincular.hidden = true;
+        painelNova.hidden = true;
+    }
+
+    function renderizarResultados(resultados) {
+        listaResultados.innerHTML = '';
+
+        resultados.forEach(function (peca) {
+            var item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'catalogo-resultado-peca';
+
+            var foto = document.createElement('div');
+            foto.className = 'catalogo-resultado-peca-foto';
+            if (peca.foto_url) {
+                var img = document.createElement('img');
+                img.src = peca.foto_url;
+                img.alt = peca.nome;
+                foto.appendChild(img);
+            } else {
+                foto.textContent = '—';
+            }
+
+            var info = document.createElement('div');
+            info.className = 'catalogo-resultado-peca-info';
+            var nome = document.createElement('span');
+            nome.className = 'catalogo-resultado-peca-nome';
+            nome.textContent = peca.nome;
+            info.appendChild(nome);
+
+            if (peca.usada_em.length) {
+                var uso = document.createElement('span');
+                uso.className = 'catalogo-resultado-peca-uso';
+                uso.textContent = 'já usada em: ' + peca.usada_em.join(', ');
+                info.appendChild(uso);
+            }
+
+            item.appendChild(foto);
+            item.appendChild(info);
+
+            item.addEventListener('click', function () {
+                vincularPecaId.value = peca.id;
+                vincularNome.textContent = '"' + peca.nome + '"';
+                painelVincular.hidden = false;
+                painelNova.hidden = true;
+                listaResultados.hidden = true;
+            });
+
+            listaResultados.appendChild(item);
+        });
+
+        listaResultados.hidden = resultados.length === 0;
+    }
+
+    campoBusca.addEventListener('input', function () {
+        var termo = campoBusca.value.trim();
+        esconderPaineis();
+
+        if (atrasoBusca) clearTimeout(atrasoBusca);
+
+        if (termo.length < 2) {
+            listaResultados.hidden = true;
+            botaoCadastrarNova.hidden = true;
+            return;
+        }
+
+        botaoCadastrarNova.hidden = false;
+
+        atrasoBusca = setTimeout(function () {
+            var url = CATALOGO_URL_BUSCAR_PECAS + '?q=' + encodeURIComponent(termo);
+            fetch(url)
+                .then(function (resposta) { return resposta.json(); })
+                .then(function (dados) { renderizarResultados(dados.resultados); });
+        }, 250);
+    });
+
+    if (botaoCadastrarNova) {
+        botaoCadastrarNova.addEventListener('click', function () {
+            painelNova.hidden = false;
+            painelVincular.hidden = true;
+            listaResultados.hidden = true;
+            if (campoNovaPecaNome) campoNovaPecaNome.value = campoBusca.value.trim();
+        });
+    }
+})();
+
+(function () {
+    document.addEventListener('submit', function (evento) {
+        var form = evento.target;
+        if (!form.classList) return;
+
+        if (form.classList.contains('catalogo-form-excluir-peca')) {
+            var botao = form.querySelector('.catalogo-botao-excluir-peca');
+            var nome = botao ? botao.getAttribute('data-peca-nome') : 'esta peça';
+            if (!window.confirm('Excluir "' + nome + '" de vez? Ela vai sumir de TODOS os produtos compatíveis, não só deste.')) {
+                evento.preventDefault();
+            }
+            return;
+        }
+
+        if (form.classList.contains('catalogo-form-excluir-produto')) {
+            var botaoProduto = form.querySelector('.catalogo-botao-excluir-produto');
+            var nomeProduto = botaoProduto ? botaoProduto.getAttribute('data-produto-nome') : 'este produto';
+            if (!window.confirm('Excluir o produto "' + nomeProduto + '"? As peças vinculadas continuam existindo (só a ligação com este produto some).')) {
+                evento.preventDefault();
+            }
+        }
+    });
+})();
 
 (function () {
     var campoImagem = document.getElementById('id_imagem_nova_peca');
