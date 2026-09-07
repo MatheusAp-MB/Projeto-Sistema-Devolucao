@@ -11,7 +11,7 @@
 # isolado de Marca/Grupo Fornecedor via AJAX (chamado de dentro da tela
 # de produto) — e a tela própria de gerenciar Marcas e Grupos
 # Fornecedores (criar/editar/excluir cada um, direto na lista).
-#
+
 # * [ATENÇÃO] → nova_devolucao ainda usa produto.pecas.all(), que não
 #               existe mais depois dessa mudança (peça deixou de
 #               pertencer a um produto só). Isso é esperado — combinado
@@ -207,15 +207,14 @@ def _contexto_form_produto(produto=None, valores=None):
             valores = {
                 'nome': produto.nome,
                 'codigo_barras': produto.codigo_barras,
-                'sku': produto.sku,
-                'codigo_fabricante': produto.codigo_fabricante,
-                'marca_id': produto.marca_id or '',
-                'marca_nome': produto.marca.nome if produto.marca else '',
+                'sku': produto.sku or '',
+                'codigo_fabricante': produto.codigo_fabricante or '',
+                'marca_id': produto.marca_id,
             }
         else:
             valores = {
-                'nome': '', 'codigo_barras': '', 'sku': '', 'codigo_fabricante': '',
-                'marca_id': '', 'marca_nome': '',
+                'nome': '', 'codigo_barras': '', 'sku': '',
+                'codigo_fabricante': '', 'marca_id': '',
             }
 
     return {
@@ -225,7 +224,6 @@ def _contexto_form_produto(produto=None, valores=None):
         'grupos': GrupoFornecedor.objects.all(),
         'pagina_ativa': 'produtos',
     }
-
 
 def _criar_marca(nome, grupo_id):
     """Cria (ou reaproveita, se já existir) uma Marca. Usada tanto pelo
@@ -266,6 +264,42 @@ def _marcas_json():
         for marca in marcas
     ])
 
+def _agrupar_pecas_por_marca_grupo(pecas):
+    """Agrupa uma lista/queryset de Peca por Grupo Fornecedor/Marca — marca
+    sem grupo vira uma seção própria; marca com grupo fica dentro da seção
+    do grupo dela. Extraído de dentro de gaveta_pecas() pra também ser
+    reaproveitado por vincular_pecas_produto() — as 2 telas mostram a
+    mesma visão agrupada do catálogo de peças (a 2ª com um subconjunto
+    marcado como já vinculado ao produto em questão). Retorna
+    (grupos, marcas_sem_grupo, tem_pecas)."""
+    grupos_por_id = {}
+    marcas_sem_grupo_por_id = {}
+
+    for peca in pecas:
+        marca = peca.marca
+        grupo = marca.grupo_fornecedor
+
+        if grupo:
+            grupo_entry = grupos_por_id.setdefault(grupo.id, {'grupo': grupo, 'marcas_por_id': {}})
+            marca_entry = grupo_entry['marcas_por_id'].setdefault(marca.id, {'marca': marca, 'pecas': []})
+        else:
+            marca_entry = marcas_sem_grupo_por_id.setdefault(marca.id, {'marca': marca, 'pecas': []})
+
+        marca_entry['pecas'].append(peca)
+
+    grupos = sorted(
+        (
+            {
+                'grupo': g['grupo'],
+                'marcas': sorted(g['marcas_por_id'].values(), key=lambda m: m['marca'].nome.lower()),
+            }
+            for g in grupos_por_id.values()
+        ),
+        key=lambda g: g['grupo'].nome.lower(),
+    )
+    marcas_sem_grupo = sorted(marcas_sem_grupo_por_id.values(), key=lambda m: m['marca'].nome.lower())
+
+    return grupos, marcas_sem_grupo, bool(grupos_por_id or marcas_sem_grupo_por_id)
 
 def _agrupar_pecas_por_marca_grupo(pecas):
     """Agrupa uma lista/queryset de Peca por Grupo Fornecedor/Marca — marca
@@ -397,6 +431,21 @@ def visualizar_produto(request, produto_id):
     }
     return render(request, 'devolucoes/produto_visualizar.html', contexto)
 
+def visualizar_produto(request, produto_id):
+    """Tela de visualização do produto — só leitura. É o "hub" do fluxo:
+    mostra os dados do produto e a lista de peças vinculadas, e de lá
+    partem as 3 ações irmãs (Editar produto / Vincular peças / Excluir
+    produto). Vincular e desvincular peça não acontece mais aqui —
+    virou responsabilidade exclusiva de vincular_pecas_produto."""
+    produto = get_object_or_404(Produto, pk=produto_id)
+    compatibilidades = produto.compatibilidades.select_related('peca__marca').order_by('peca__nome_generico')
+
+    contexto = {
+        'produto': produto,
+        'compatibilidades': compatibilidades,
+        'pagina_ativa': 'produtos',
+    }
+    return render(request, 'devolucoes/produto_visualizar.html', contexto)
 
 def editar_produto(request, produto_id):
     produto = get_object_or_404(Produto, pk=produto_id)
