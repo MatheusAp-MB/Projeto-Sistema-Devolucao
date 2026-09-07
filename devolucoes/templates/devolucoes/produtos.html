@@ -27,7 +27,7 @@
                         </div>
                         <div class="produtos-grade">
                             {% for produto in item.produtos %}
-                                <a href="{% url 'catalogo' %}?codigo_barras={{ produto.codigo_barras }}" class="produtos-item" data-item data-busca="{{ produto.nome|lower }} {{ produto.sku|default:""|lower }} {{ produto.codigo_barras }} {{ produto.codigo_fabricante|default:""|lower }} {{ produto.marca.nome|lower }}" title="{{ produto.nome }}">
+                                <a href="{% url 'editar_produto' produto.id %" class="produtos-item" data-item data-busca="{{ produto.nome|lower }} {{ produto.sku|default:""|lower }} {{ produto.codigo_barras }} {{ produto.codigo_fabricante|default:""|lower }} {{ produto.marca.nome|lower }}" title="{{ produto.nome }}">
                                     <div class="produtos-item-foto">
                                         {% if produto.foto %}
                                             <img src="{{ produto.foto.url }}" alt="{{ produto.nome }}">
@@ -67,7 +67,7 @@
                                 </div>
                                 <div class="produtos-grade">
                                     {% for produto in item.produtos %}
-                                        <a href="{% url 'catalogo' %}?codigo_barras={{ produto.codigo_barras }}" class="produtos-item" data-item data-busca="{{ produto.nome|lower }} {{ produto.sku|default:""|lower }} {{ produto.codigo_barras }} {{ produto.codigo_fabricante|default:""|lower }} {{ produto.marca.nome|lower }}" title="{{ produto.nome }}">
+                                        <a href="{% url 'editar_produto' produto.id %" class="produtos-item" data-item data-busca="{{ produto.nome|lower }} {{ produto.sku|default:""|lower }} {{ produto.codigo_barras }} {{ produto.codigo_fabricante|default:""|lower }} {{ produto.marca.nome|lower }}" title="{{ produto.nome }}">
                                             <div class="produtos-item-foto">
                                                 {% if produto.foto %}
                                                     <img src="{{ produto.foto.url }}" alt="{{ produto.nome }}">

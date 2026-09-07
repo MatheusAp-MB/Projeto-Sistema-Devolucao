@@ -25,11 +25,10 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.staticfiles import finders
 from django.db import transaction
-from django.db.models import Count, Prefetch
+from django.db.models import Count
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
-from django.urls import reverse
 from xhtml2pdf import pisa
 
 from .models import Compatibilidade, GrupoFornecedor, Marca, Peca, Produto
@@ -191,68 +190,6 @@ def produtos(request):
         'pagina_ativa': 'produtos',
     }
     return render(request, 'devolucoes/produtos.html', contexto)
-
-
-def catalogo(request):
-    codigo_barras = request.GET.get('codigo_barras', '').strip()
-    vincular_peca_id = request.GET.get('vincular_peca_id', '').strip()
-    produto = None
-    compatibilidades = []
-    peca_pendente = None
-
-    if codigo_barras:
-        produto = Produto.objects.filter(codigo_barras=codigo_barras).first()
-        if produto:
-            compatibilidades = produto.compatibilidades.select_related('peca').prefetch_related(
-                Prefetch(
-                    'peca__compatibilidades',
-                    queryset=Compatibilidade.objects.exclude(produto=produto).select_related('produto'),
-                    to_attr='outras_compatibilidades',
-                )
-            )
-
-    if vincular_peca_id:
-        peca_pendente = Peca.objects.filter(pk=vincular_peca_id).first()
-
-    # * [EXPLICAÇÃO] → Monta as 2 seções sempre visíveis da tela: peças
-    #                  sem produto vinculado, e peças agrupadas por
-    #                  produto (estilo hub, como o Hub de Anúncios do
-    #                  Sistema Interno V2). Pra cada peça vinculada,
-    #                  calcula também com quais OUTROS produtos ela é
-    #                  compartilhada, pro badge "peça compartilhada".
-    todas_compatibilidades = list(
-        Compatibilidade.objects.select_related('peca', 'produto').order_by('produto__nome', 'peca__nome_generico')
-    )
-
-    produtos_por_peca_id = {}
-    for comp in todas_compatibilidades:
-        produtos_por_peca_id.setdefault(comp.peca_id, []).append((comp.produto_id, comp.produto.nome))
-
-    produtos_agrupados_por_id = {}
-    for comp in todas_compatibilidades:
-        entry = produtos_agrupados_por_id.setdefault(comp.produto_id, {'produto': comp.produto, 'compatibilidades': []})
-        comp.outros_produtos_da_peca = [
-            nome for pid, nome in produtos_por_peca_id.get(comp.peca_id, []) if pid != comp.produto_id
-        ]
-        entry['compatibilidades'].append(comp)
-
-    produtos_com_pecas = sorted(produtos_agrupados_por_id.values(), key=lambda e: e['produto'].nome.lower())
-    pecas_sem_produto = Peca.objects.filter(compatibilidades__isnull=True).order_by('nome_generico')
-
-    contexto = {
-        'codigo_barras': codigo_barras,
-        'produto': produto,
-        'compatibilidades': compatibilidades,
-        'buscou': bool(codigo_barras),
-        'vincular_peca_id': vincular_peca_id,
-        'peca_pendente': peca_pendente,
-        'pecas_sem_produto': pecas_sem_produto,
-        'produtos_com_pecas': produtos_com_pecas,
-        'marcas_json': _marcas_json(),
-        'grupos': GrupoFornecedor.objects.all(),
-        'pagina_ativa': 'catalogo',
-    }
-    return render(request, 'devolucoes/catalogo.html', contexto)
 
 
 def _contexto_form_produto(produto=None, valores=None):
@@ -641,12 +578,12 @@ def excluir_peca(request, peca_id):
     """Exclui a peça — reaproveitado tanto pelo card na tela de produto
     (POST clássico, com redirect) quanto pelo card na Gaveta de Peças
     (POST via AJAX, com resposta em JSON, pra sumir da grade sem
-    recarregar a página)."""
+    recarregar a página). O fallback não-AJAX volta pra Gaveta de Peças
+    — a peça já não pertence mais a uma tela de produto específica."""
     peca = get_object_or_404(Peca, pk=peca_id)
 
     if request.method == 'POST':
         eh_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-        codigo_barras = request.POST.get('codigo_barras_origem', '')
         nome = peca.nome_generico
         peca.delete()
 
@@ -654,10 +591,8 @@ def excluir_peca(request, peca_id):
             return JsonResponse({'id': peca_id, 'nome': nome})
 
         messages.success(request, f'Peça "{nome}" excluída do sistema.')
-        if codigo_barras:
-            return redirect(f"{reverse('catalogo')}?codigo_barras={codigo_barras}")
 
-    return redirect('catalogo')
+    return redirect('gaveta_pecas')
 
 
 def _contexto_form_peca(peca=None, valores=None):
@@ -679,7 +614,7 @@ def _contexto_form_peca(peca=None, valores=None):
         'qtd_produtos_vinculados': peca.compatibilidades.count(),
         'marcas_json': _marcas_json(),
         'grupos': GrupoFornecedor.objects.all(),
-        'pagina_ativa': 'catalogo',
+        'pagina_ativa': 'gaveta_pecas',
     }
 
 def editar_peca(request, peca_id):
@@ -724,7 +659,7 @@ def editar_peca(request, peca_id):
             peca.imagem = imagem
         peca.save()
         messages.success(request, 'Dados da peça atualizados.')
-        return redirect('catalogo')
+        return redirect('gaveta_pecas')
 
     return render(request, 'devolucoes/peca_form.html', _contexto_form_peca(peca))
 

@@ -10,7 +10,7 @@
 
 {% block conteudo %}
     <div class="produto-form-pagina">
-        <a href="{% url 'catalogo' %}" class="produto-form-link-voltar">← Voltar para o Catálogo</a>
+        <a href="{% url 'gaveta_pecas' %}" class="produto-form-link-voltar">← Voltar para Peças</a>
 
         <div class="produto-form-cartao">
             <form method="post" action="{% url 'editar_peca' peca.id %}" enctype="multipart/form-data" id="form-dados-peca">
@@ -113,7 +113,7 @@
                     <button type="submit" class="produto-form-botao-excluir" data-peca-nome="{{ peca.nome_generico }}" data-qtd-produtos="{{ qtd_produtos_vinculados }}">Excluir peça</button>
                 </form>
                 <div class="produto-form-rodape-principais">
-                    <a href="{% url 'catalogo' %}" class="produto-form-botao-cancelar">Cancelar</a>
+                    <a href="{% url 'gaveta_pecas' %}" class="produto-form-botao-cancelar">Cancelar</a>
                     <button type="submit" form="form-dados-peca" class="produto-form-botao-salvar">Salvar alterações</button>
                 </div>
             </div>

@@ -124,7 +124,7 @@
                     </form>
                 {% endif %}
                 <div class="produto-form-rodape-principais">
-                    <a href="{% if produto %}{% url 'catalogo' %}?codigo_barras={{ produto.codigo_barras }}{% else %}{% url 'produtos' %}{% endif %}" class="produto-form-botao-cancelar">Cancelar</a>
+                    <a href="{% url 'produtos' %}" class="produto-form-botao-cancelar">Cancelar</a>
                     <button type="submit" form="form-dados-produto" class="produto-form-botao-salvar">{% if produto %}Salvar alterações{% else %}Salvar produto{% endif %}</button>
                 </div>
             </div>
