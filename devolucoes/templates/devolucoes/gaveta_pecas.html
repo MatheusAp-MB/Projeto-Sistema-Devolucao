@@ -32,7 +32,9 @@
                 </select>
             </div>
 
-            <div class="gaveta-grade" id="gaveta_grade">
+            <div class="gaveta-grade" id="gaveta_grade"
+                 data-url-excluir-peca-template="{% url 'excluir_peca' 0 %}"
+                 data-url-desvincular-template="{% url 'desvincular_peca' 0 %}">
                 {% for peca in pecas %}
                     {% include 'devolucoes/_card_peca.html' with peca=peca %}
                 {% endfor %}
@@ -54,5 +56,6 @@
 
 {% block scripts %}
 <script src="{% static 'devolucoes/js/script_marca_widget.js' %}"></script>
+<script src="{% static 'devolucoes/js/script_modal_vinculo.js' %}"></script>
 <script src="{% static 'devolucoes/js/script_gaveta_pecas.js' %}"></script>
 {% endblock %}
