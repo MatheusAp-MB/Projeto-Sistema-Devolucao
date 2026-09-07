@@ -1,0 +1,31 @@
+{% load static %}
+<label class="vp-card{% if peca.ja_vinculada %} ja-vinculada{% endif %}" data-item
+       data-peca-id="{{ peca.id }}"
+       data-busca="{{ peca.nome_generico|lower }} {{ peca.marca.nome|lower }}"
+       data-marca-id="{{ peca.marca_id }}">
+    <input type="checkbox" name="peca_id" value="{{ peca.id }}" class="vp-card-checkbox-real"
+           {% if peca.ja_vinculada %}checked{% endif %}>
+    <span class="vp-card-checkbox-visual" aria-hidden="true"><i class="fas fa-check"></i></span>
+    {% if peca.ja_vinculada %}<span class="vp-card-ja-vinculada">Já vinculada</span>{% endif %}
+
+    <div class="vp-card-foto">
+        {% if peca.imagem %}
+            <img src="{{ peca.imagem.url }}" alt="{{ peca.nome_generico }}">
+        {% else %}
+            <i class="fas fa-puzzle-piece"></i>
+        {% endif %}
+    </div>
+
+    <div class="vp-card-info">
+        <p class="vp-card-nome" title="{{ peca.nome_generico }}">{{ peca.nome_generico }}</p>
+        <div class="vp-card-legendas">
+            <p>{{ peca.marca.nome }}{% if peca.marca.grupo_fornecedor %} · {{ peca.marca.grupo_fornecedor.nome }}{% endif %}</p>
+            {% if peca.codigo_fabricante %}<p>Cód.: {{ peca.codigo_fabricante }}</p>{% endif %}
+        </div>
+    </div>
+
+    <div class="vp-card-qtd-wrap">
+        <label>Qtd. esperada</label>
+        <input type="number" name="quantidade_{{ peca.id }}" class="vp-card-qtd-input" min="1" value="{{ peca.quantidade_vinculada }}">
+    </div>
+</label>

@@ -1,0 +1,116 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Vincular peças — {{ produto.nome }}{% endblock %}
+{% block toolbar_titulo %}Vincular peças{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_produto_vincular_pecas.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+    <form method="post" class="vp-pagina" id="form_vincular_pecas">
+        {% csrf_token %}
+
+        <div class="vp-header">
+            <a href="{% url 'visualizar_produto' produto.id %}" class="vp-header-cancelar">
+                <i class="fas fa-arrow-left"></i> Cancelar
+            </a>
+            <div class="vp-header-divisor"></div>
+            <div class="vp-header-produto">
+                <div class="vp-header-foto">
+                    {% if produto.foto %}
+                        <img src="{{ produto.foto.url }}" alt="{{ produto.nome }}">
+                    {% else %}
+                        <i class="fas fa-box"></i>
+                    {% endif %}
+                </div>
+                <div class="vp-header-textos">
+                    <div class="vp-header-rotulo">Vinculando peças a</div>
+                    <div class="vp-header-nome">{{ produto.nome }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="vp-corpo">
+            {% if tem_pecas %}
+                <div class="vp-filtros">
+                    <input type="text" id="vp_busca" class="vp-busca" placeholder="Buscar peça pelo nome..." autocomplete="off">
+                    <select id="vp_filtro_marca" class="vp-filtro">
+                        <option value="">Todas as marcas</option>
+                        {% for marca in marcas %}
+                            <option value="{{ marca.id }}">{{ marca.nome }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="button" id="vp_toggle_selecionadas" class="vp-toggle-selecionadas">
+                        <i class="fas fa-square-check"></i> Ver só as selecionadas
+                    </button>
+                </div>
+                <p class="vp-dica"><i class="fas fa-circle-info"></i> Peças com a faixa verde já estão vinculadas a este produto — desmarque pra desvincular.</p>
+
+                <div id="vp_grade">
+                    {% for item in pecas_marcas_sem_grupo %}
+                        <div class="vp-secao" data-secao data-marca-id="{{ item.marca.id }}">
+                            <div class="vp-secao-cabecalho">
+                                <i class="fas fa-tag"></i>
+                                <span>{{ item.marca.nome }}</span>
+                            </div>
+                            <div class="vp-carrossel" data-carrossel>
+                                {% for peca in item.pecas %}
+                                    {% include 'devolucoes/_card_peca_selecionavel.html' with peca=peca %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+
+                    {% for grupo_item in pecas_grupos %}
+                        <div class="vp-secao vp-secao-grupo" data-secao>
+                            <div class="vp-secao-cabecalho vp-secao-cabecalho--grupo">
+                                <i class="fas fa-layer-group"></i>
+                                <span>{{ grupo_item.grupo.nome }}</span>
+                            </div>
+
+                            {% for item in grupo_item.marcas %}
+                                <div class="vp-subsecao" data-subsecao data-marca-id="{{ item.marca.id }}">
+                                    <div class="vp-secao-cabecalho">
+                                        <i class="fas fa-tag"></i>
+                                        <span>{{ item.marca.nome }}</span>
+                                    </div>
+                                    <div class="vp-carrossel" data-carrossel>
+                                        {% for peca in item.pecas %}
+                                            {% include 'devolucoes/_card_peca_selecionavel.html' with peca=peca %}
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </div>
+
+                <p class="vp-sem-resultado" id="vp_sem_resultado" hidden>Nenhuma peça encontrada.</p>
+            {% else %}
+                <div class="vp-vazio-inicial">
+                    <i class="fas fa-puzzle-piece"></i>
+                    <p>Nenhuma peça cadastrada no sistema ainda.</p>
+                    <a href="{% url 'gaveta_pecas' %}" class="vp-botao-salvar">Ir para Peças</a>
+                </div>
+            {% endif %}
+        </div>
+
+        {% if tem_pecas %}
+            <div class="vp-rodape">
+                <div class="vp-rodape-conteudo">
+                    <div class="vp-rodape-contador"><strong id="vp_contador">{{ qtd_vinculada_inicial }}</strong> peça(s) selecionada(s)</div>
+                    <div class="vp-rodape-botoes">
+                        <a href="{% url 'visualizar_produto' produto.id %}" class="vp-botao-cancelar">Cancelar</a>
+                        <button type="submit" class="vp-botao-salvar">Salvar vínculos</button>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'devolucoes/js/script_produto_vincular_pecas.js' %}"></script>
+{% endblock %}

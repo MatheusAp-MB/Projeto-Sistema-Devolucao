@@ -1,0 +1,102 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}{{ produto.nome }}{% endblock %}
+{% block toolbar_titulo %}Produto{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_produto_visualizar.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+    <div class="produto-view-pagina">
+        <a href="{% url 'produtos' %}" class="produto-form-link-voltar">
+            ← Voltar para Produtos
+        </a>
+
+        <div class="produto-view-cartao">
+            <div class="produto-view-foto">
+                {% if produto.foto %}
+                    <img src="{{ produto.foto.url }}" alt="{{ produto.nome }}">
+                {% else %}
+                    <i class="fas fa-box"></i>
+                {% endif %}
+            </div>
+            <div class="produto-view-info">
+                <span class="produto-view-badge">
+                    <i class="fas fa-eye"></i> Visualização
+                </span>
+                <p class="produto-view-nome">{{ produto.nome }}</p>
+                <div class="produto-view-grade">
+                    <div>
+                        <div class="produto-view-campo-label">Marca</div>
+                        <div class="produto-view-campo-valor">{{ produto.marca.nome }}</div>
+                    </div>
+                    <div>
+                        <div class="produto-view-campo-label">EAN</div>
+                        <div class="produto-view-campo-valor">{{ produto.codigo_barras }}</div>
+                    </div>
+                    <div>
+                        <div class="produto-view-campo-label">SKU</div>
+                        <div class="produto-view-campo-valor">{{ produto.sku|default:"—" }}</div>
+                    </div>
+                    <div>
+                        <div class="produto-view-campo-label">Cód. Fabricante</div>
+                        <div class="produto-view-campo-valor">{{ produto.codigo_fabricante|default:"—" }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="produto-view-acoes">
+            <a href="{% url 'editar_produto' produto.id %}" class="produto-view-acao-irma">
+                <i class="fas fa-pen"></i> Editar produto
+            </a>
+            <a href="{% url 'vincular_pecas_produto' produto.id %}" class="produto-view-acao-irma produto-view-acao-irma--principal">
+                <i class="fas fa-link"></i> Vincular peças
+                {% if compatibilidades %}<span class="produto-view-contador-pill">{{ compatibilidades|length }}</span>{% endif %}
+            </a>
+            <form method="post" action="{% url 'excluir_produto' produto.id %}" class="produto-view-form-excluir">
+                {% csrf_token %}
+                <button type="submit" class="produto-view-acao-irma produto-view-acao-irma--perigo" data-produto-nome="{{ produto.nome }}">
+                    <i class="fas fa-trash"></i> Excluir produto
+                </button>
+            </form>
+        </div>
+
+        <p class="produto-view-secao-titulo">
+            <i class="fas fa-puzzle-piece"></i> Peças vinculadas
+            {% if compatibilidades %}<span class="produto-view-contador-pill produto-view-contador-pill--neutro">{{ compatibilidades|length }}</span>{% endif %}
+        </p>
+
+        {% if compatibilidades %}
+            <div class="produto-view-pecas-lista">
+                {% for comp in compatibilidades %}
+                    <div class="produto-view-peca-linha">
+                        <div class="produto-view-peca-foto-mini">
+                            {% if comp.peca.imagem %}
+                                <img src="{{ comp.peca.imagem.url }}" alt="{{ comp.peca.nome_generico }}">
+                            {% else %}
+                                <i class="fas fa-puzzle-piece"></i>
+                            {% endif %}
+                        </div>
+                        <div class="produto-view-peca-textos">
+                            <p class="produto-view-peca-nome">{{ comp.peca.nome_generico }}</p>
+                            <p class="produto-view-peca-legenda">
+                                {{ comp.peca.marca.nome }}{% if comp.peca.marca.grupo_fornecedor %} · {{ comp.peca.marca.grupo_fornecedor.nome }}{% endif %}
+                                {% if comp.peca.codigo_fabricante %} — Cód.: {{ comp.peca.codigo_fabricante }}{% endif %}
+                            </p>
+                        </div>
+                        <span class="produto-view-peca-qtd">Qtd. esperada: {{ comp.quantidade_esperada }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="produto-view-pecas-vazio">Nenhuma peça vinculada ainda.</p>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'devolucoes/js/script_produto_visualizar.js' %}"></script>
+{% endblock %}
