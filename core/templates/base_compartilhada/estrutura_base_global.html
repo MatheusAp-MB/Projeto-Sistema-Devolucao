@@ -61,6 +61,11 @@
                         <i class="fas fa-box"></i>
                         <span>Produtos</span>
                     </a>
+                    <a href="{% url 'catalogo' %}"
+                       class="sidebar-item{% if pagina_ativa == 'catalogo' %} sidebar-item--ativo{% endif %}">
+                        <i class="fas fa-puzzle-piece"></i>
+                        <span>Catálogo de Peças</span>
+                    </a>
                     <a href="{% url 'marcas_grupos' %}"
                        class="sidebar-item{% if pagina_ativa == 'marcas_grupos' %} sidebar-item--ativo{% endif %}">
                         <i class="fas fa-tags"></i>

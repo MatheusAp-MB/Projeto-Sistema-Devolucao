@@ -16,6 +16,8 @@ urlpatterns = [
     path('catalogo/produto/<int:produto_id>/peca/buscar/', views.buscar_pecas, name='buscar_pecas'),
     path('catalogo/produto/<int:produto_id>/peca/vincular/', views.vincular_peca, name='vincular_peca'),
     path('catalogo/produto/<int:produto_id>/peca/cadastrar/', views.cadastrar_peca, name='cadastrar_peca'),
+    path('catalogo/peca/cadastrar/', views.cadastrar_peca_avulsa, name='cadastrar_peca_avulsa'),
+    path('catalogo/peca/<int:peca_id>/editar/', views.editar_peca, name='editar_peca'),
     path('catalogo/compatibilidade/<int:compatibilidade_id>/desvincular/', views.desvincular_peca, name='desvincular_peca'),
     path('catalogo/peca/<int:peca_id>/excluir/', views.excluir_peca, name='excluir_peca'),
 

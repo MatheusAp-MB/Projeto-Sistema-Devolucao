@@ -16,9 +16,41 @@
             <label for="id_codigo_barras">Código de barras do produto</label>
             <div class="catalogo-linha-busca">
                 <input type="text" id="id_codigo_barras" name="codigo_barras" value="{{ codigo_barras }}" placeholder="Bipar ou digitar" required>
+                <input type="hidden" name="vincular_peca_id" value="{{ vincular_peca_id }}">
                 <button type="submit">Buscar</button>
             </div>
         </form>
+
+        {% if peca_pendente %}
+            <p class="catalogo-aviso-vinculo">
+                <i class="fas fa-link"></i>
+                Buscando produto pra vincular a peça "{{ peca_pendente.nome_generico }}" — bipe ou digite o código de barras do produto.
+            </p>
+        {% endif %}
+
+        <button type="button" id="catalogo-botao-peca-avulsa" class="catalogo-link-cadastrar-nova">
+            + Cadastrar peça avulsa (sem produto vinculado)
+        </button>
+
+        <div id="catalogo-painel-peca-avulsa" class="catalogo-painel-secundario" hidden>
+            <p class="catalogo-painel-titulo">Cadastrar peça avulsa</p>
+            <form method="post" action="{% url 'cadastrar_peca_avulsa' %}" enctype="multipart/form-data" class="catalogo-form-peca">
+                {% csrf_token %}
+                <input type="text" name="nome" placeholder="Nome da peça (genérico)" required>
+                <input type="text" name="nome_tecnico" placeholder="Nome técnico (opcional)">
+                <input type="text" name="codigo_fabricante" placeholder="Código do fabricante (opcional)">
+                <div class="catalogo-campo-imagem">
+                    <input type="file" name="imagem" accept="image/*" id="id_imagem_peca_avulsa" class="catalogo-input-imagem-oculto" required>
+                    <label for="id_imagem_peca_avulsa" class="catalogo-botao-escolher-imagem">Escolher foto *</label>
+
+                    <div id="preview_imagem_peca_avulsa_cartao" class="catalogo-preview-cartao" hidden>
+                        <img id="preview_imagem_peca_avulsa" class="catalogo-preview-imagem" alt="Pré-visualização">
+                        <span id="preview_imagem_peca_avulsa_nome" class="catalogo-preview-nome-arquivo"></span>
+                    </div>
+                </div>
+                <button type="submit">Cadastrar peça avulsa</button>
+            </form>
+        </div>
 
         {% if buscou %}
             {% if produto %}
@@ -29,6 +61,18 @@
                     <p class="catalogo-produto-marca">Marca: {{ produto.marca|default:"—" }}</p>
                     <a href="{% url 'editar_produto' produto.id %}" class="catalogo-link-editar-produto">Editar produto</a>
                 </div>
+
+                {% if peca_pendente %}
+                    <div class="catalogo-vincular-pendente">
+                        <p>Vincular <strong>"{{ peca_pendente.nome_generico }}"</strong> a este produto?</p>
+                        <form method="post" action="{% url 'vincular_peca' produto.id %}" class="catalogo-form-vincular">
+                            {% csrf_token %}
+                            <input type="hidden" name="peca_id" value="{{ peca_pendente.id }}">
+                            <input type="number" name="quantidade_esperada" min="1" value="1" required placeholder="Qtd esperada">
+                            <button type="submit">Vincular peça</button>
+                        </form>
+                    </div>
+                {% endif %}
 
                 <p class="catalogo-subtitulo">Peças compatíveis</p>
                 <div class="catalogo-pecas-grade">
@@ -93,8 +137,8 @@
                             <input type="text" name="codigo_fabricante" placeholder="Código do fabricante (opcional)">
                             <input type="number" name="quantidade_esperada" placeholder="Qtd esperada" min="1" value="1" required>
                             <div class="catalogo-campo-imagem">
-                                <input type="file" name="imagem" accept="image/*" id="id_imagem_nova_peca" class="catalogo-input-imagem-oculto">
-                                <label for="id_imagem_nova_peca" class="catalogo-botao-escolher-imagem">Escolher foto</label>
+                                <input type="file" name="imagem" accept="image/*" id="id_imagem_nova_peca" class="catalogo-input-imagem-oculto" required>
+                                <label for="id_imagem_nova_peca" class="catalogo-botao-escolher-imagem">Escolher foto *</label>
 
                                 <div id="preview_imagem_nova_peca_cartao" class="catalogo-preview-cartao" hidden>
                                     <img id="preview_imagem_nova_peca" class="catalogo-preview-imagem" alt="Pré-visualização">
@@ -112,6 +156,77 @@
                 </div>
             {% endif %}
         {% endif %}
+    </div>
+
+    <div class="catalogo-secoes-pecas">
+        <div class="catalogo-secao-pecas">
+            <p class="catalogo-secao-titulo">Peças sem produto vinculado</p>
+            {% if pecas_sem_produto %}
+                <div class="catalogo-pecas-grade-nova">
+                    {% for peca in pecas_sem_produto %}
+                        <div class="catalogo-peca-card">
+                            <div class="catalogo-peca-card-foto{% if peca.imagem %} catalogo-peca-foto--clicavel{% endif %}"
+                                 {% if peca.imagem %}data-imagem-url="{{ peca.imagem.url }}" data-imagem-titulo="{{ peca.nome_generico }}"{% endif %}>
+                                {% if peca.imagem %}
+                                    <img src="{{ peca.imagem.url }}" alt="{{ peca.nome_generico }}">
+                                {% endif %}
+                            </div>
+                            <div class="catalogo-peca-card-info">
+                                <p class="catalogo-peca-card-nome" title="{{ peca.nome_generico }}">{{ peca.nome_generico }}</p>
+                                <div class="catalogo-peca-card-legendas">
+                                    {% if peca.nome_tecnico %}<p>{{ peca.nome_tecnico }}</p>{% endif %}
+                                    {% if peca.codigo_fabricante %}<p>Cód. Fab.: {{ peca.codigo_fabricante }}</p>{% endif %}
+                                </div>
+                                <a href="{% url 'catalogo' %}?vincular_peca_id={{ peca.id }}" class="catalogo-peca-card-acao">Vincular a um produto</a>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="catalogo-secao-vazia">Nenhuma peça avulsa no momento.</p>
+            {% endif %}
+        </div>
+
+        <div class="catalogo-secao-pecas">
+            <p class="catalogo-secao-titulo">Peças por produto</p>
+            {% if produtos_com_pecas %}
+                {% for grupo in produtos_com_pecas %}
+                    <div class="catalogo-grupo-produto">
+                        <div class="catalogo-grupo-cabecalho">
+                            <i class="fas fa-box"></i>
+                            <span>{{ grupo.produto.nome }}</span>
+                        </div>
+                        <div class="catalogo-pecas-grade-nova">
+                            {% for comp in grupo.compatibilidades %}
+                                <div class="catalogo-peca-card">
+                                    <div class="catalogo-peca-card-foto{% if comp.peca.imagem %} catalogo-peca-foto--clicavel{% endif %}"
+                                         {% if comp.peca.imagem %}data-imagem-url="{{ comp.peca.imagem.url }}" data-imagem-titulo="{{ comp.peca.nome_generico }}"{% endif %}>
+                                        {% if comp.peca.imagem %}
+                                            <img src="{{ comp.peca.imagem.url }}" alt="{{ comp.peca.nome_generico }}">
+                                        {% endif %}
+                                        {% if comp.outros_produtos_da_peca %}
+                                            <span class="catalogo-badge-compartilhada" title="Compartilhada com: {{ comp.outros_produtos_da_peca|join:', ' }}">
+                                                <i class="fas fa-link"></i>
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="catalogo-peca-card-info">
+                                        <p class="catalogo-peca-card-nome" title="{{ comp.peca.nome_generico }}">{{ comp.peca.nome_generico }}</p>
+                                        <div class="catalogo-peca-card-legendas">
+                                            <p>Qtd esperada: {{ comp.quantidade_esperada }}</p>
+                                            {% if comp.peca.codigo_fabricante %}<p>Cód. Fab.: {{ comp.peca.codigo_fabricante }}</p>{% endif %}
+                                        </div>
+                                        <a href="{% url 'editar_peca' comp.peca.id %}" class="catalogo-peca-card-acao">Editar peça</a>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="catalogo-secao-vazia">Nenhum produto com peça vinculada ainda.</p>
+            {% endif %}
+        </div>
     </div>
 
     <div id="modal-foto-catalogo" class="catalogo-modal-overlay" hidden>

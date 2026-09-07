@@ -108,6 +108,17 @@
 })();
 
 (function () {
+    var botaoPecaAvulsa = document.getElementById('catalogo-botao-peca-avulsa');
+    var painelPecaAvulsa = document.getElementById('catalogo-painel-peca-avulsa');
+
+    if (botaoPecaAvulsa && painelPecaAvulsa) {
+        botaoPecaAvulsa.addEventListener('click', function () {
+            painelPecaAvulsa.hidden = !painelPecaAvulsa.hidden;
+        });
+    }
+})();
+
+(function () {
     document.addEventListener('submit', function (evento) {
         var form = evento.target;
         if (!form.classList) return;
@@ -127,12 +138,14 @@
 })();
 
 (function () {
-    var campoImagem = document.getElementById('id_imagem_nova_peca');
-    var previewImagem = document.getElementById('preview_imagem_nova_peca');
-    var previewCartao = document.getElementById('preview_imagem_nova_peca_cartao');
-    var previewNomeArquivo = document.getElementById('preview_imagem_nova_peca_nome');
+    function configurarPreviewImagem(idCampo, idPreviewImagem, idPreviewCartao, idPreviewNome) {
+        var campoImagem = document.getElementById(idCampo);
+        var previewImagem = document.getElementById(idPreviewImagem);
+        var previewCartao = document.getElementById(idPreviewCartao);
+        var previewNomeArquivo = document.getElementById(idPreviewNome);
 
-    if (campoImagem && previewImagem && previewCartao && previewNomeArquivo) {
+        if (!campoImagem || !previewImagem || !previewCartao || !previewNomeArquivo) return;
+
         campoImagem.addEventListener('change', function () {
             var arquivo = campoImagem.files && campoImagem.files[0];
             if (!arquivo) {
@@ -150,6 +163,9 @@
             leitor.readAsDataURL(arquivo);
         });
     }
+
+    configurarPreviewImagem('id_imagem_nova_peca', 'preview_imagem_nova_peca', 'preview_imagem_nova_peca_cartao', 'preview_imagem_nova_peca_nome');
+    configurarPreviewImagem('id_imagem_peca_avulsa', 'preview_imagem_peca_avulsa', 'preview_imagem_peca_avulsa_cartao', 'preview_imagem_peca_avulsa_nome');
 
     var modal = document.getElementById('modal-foto-catalogo');
     if (!modal) return;

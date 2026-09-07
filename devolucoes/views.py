@@ -194,8 +194,10 @@ def produtos(request):
 
 def catalogo(request):
     codigo_barras = request.GET.get('codigo_barras', '').strip()
+    vincular_peca_id = request.GET.get('vincular_peca_id', '').strip()
     produto = None
     compatibilidades = []
+    peca_pendente = None
 
     if codigo_barras:
         produto = Produto.objects.filter(codigo_barras=codigo_barras).first()
@@ -208,12 +210,44 @@ def catalogo(request):
                 )
             )
 
+    if vincular_peca_id:
+        peca_pendente = Peca.objects.filter(pk=vincular_peca_id).first()
+
+    # * [EXPLICAÇÃO] → Monta as 2 seções sempre visíveis da tela: peças
+    #                  sem produto vinculado, e peças agrupadas por
+    #                  produto (estilo hub, como o Hub de Anúncios do
+    #                  Sistema Interno V2). Pra cada peça vinculada,
+    #                  calcula também com quais OUTROS produtos ela é
+    #                  compartilhada, pro badge "peça compartilhada".
+    todas_compatibilidades = list(
+        Compatibilidade.objects.select_related('peca', 'produto').order_by('produto__nome', 'peca__nome_generico')
+    )
+
+    produtos_por_peca_id = {}
+    for comp in todas_compatibilidades:
+        produtos_por_peca_id.setdefault(comp.peca_id, []).append((comp.produto_id, comp.produto.nome))
+
+    produtos_agrupados_por_id = {}
+    for comp in todas_compatibilidades:
+        entry = produtos_agrupados_por_id.setdefault(comp.produto_id, {'produto': comp.produto, 'compatibilidades': []})
+        comp.outros_produtos_da_peca = [
+            nome for pid, nome in produtos_por_peca_id.get(comp.peca_id, []) if pid != comp.produto_id
+        ]
+        entry['compatibilidades'].append(comp)
+
+    produtos_com_pecas = sorted(produtos_agrupados_por_id.values(), key=lambda e: e['produto'].nome.lower())
+    pecas_sem_produto = Peca.objects.filter(compatibilidades__isnull=True).order_by('nome_generico')
+
     contexto = {
         'codigo_barras': codigo_barras,
         'produto': produto,
         'compatibilidades': compatibilidades,
         'buscou': bool(codigo_barras),
-        'pagina_ativa': 'produtos',
+        'vincular_peca_id': vincular_peca_id,
+        'peca_pendente': peca_pendente,
+        'pecas_sem_produto': pecas_sem_produto,
+        'produtos_com_pecas': produtos_com_pecas,
+        'pagina_ativa': 'catalogo',
     }
     return render(request, 'devolucoes/catalogo.html', contexto)
 
@@ -473,6 +507,10 @@ def cadastrar_peca(request, produto_id):
             messages.error(request, 'Nome da peça é obrigatório.')
             return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
 
+        if not imagem:
+            messages.error(request, 'Foto da peça é obrigatória.')
+            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+
         if quantidade_esperada < 1:
             messages.error(request, 'Quantidade esperada precisa ser 1 ou mais.')
             return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
@@ -495,6 +533,36 @@ def cadastrar_peca(request, produto_id):
         messages.success(request, f'Peça "{nome_generico}" cadastrada e vinculada.')
 
     return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+
+
+def cadastrar_peca_avulsa(request):
+    if request.method == 'POST':
+        nome_generico = request.POST.get('nome', '').strip()
+        nome_tecnico = request.POST.get('nome_tecnico', '').strip()
+        codigo_fabricante = request.POST.get('codigo_fabricante', '').strip()
+        imagem = request.FILES.get('imagem')
+
+        if not nome_generico:
+            messages.error(request, 'Nome da peça é obrigatório.')
+            return redirect('catalogo')
+
+        if not imagem:
+            messages.error(request, 'Foto da peça é obrigatória.')
+            return redirect('catalogo')
+
+        if codigo_fabricante and Peca.objects.filter(codigo_fabricante=codigo_fabricante).exists():
+            messages.error(request, f'Já existe uma peça cadastrada com o código do fabricante {codigo_fabricante}.')
+            return redirect('catalogo')
+
+        Peca.objects.create(
+            nome_generico=nome_generico,
+            nome_tecnico=nome_tecnico or '',
+            codigo_fabricante=codigo_fabricante or None,
+            imagem=imagem,
+        )
+        messages.success(request, f'Peça "{nome_generico}" cadastrada — ainda sem produto vinculado. Vincule ela depois pela busca dentro de um produto.')
+
+    return redirect('catalogo')
 
 
 def desvincular_peca(request, compatibilidade_id):
@@ -521,7 +589,58 @@ def excluir_peca(request, peca_id):
         if codigo_barras:
             return redirect(f"{reverse('catalogo')}?codigo_barras={codigo_barras}")
 
-    return redirect('produtos')
+    return redirect('catalogo')
+
+
+def _contexto_form_peca(peca=None, valores=None):
+    """Monta o contexto da tela de edição de peça — só 'Editar peça'
+    existe por enquanto (cadastro acontece dentro do produto ou na
+    tela/painel de peça avulsa, não aqui)."""
+    if valores is None:
+        valores = {
+            'nome': peca.nome_generico,
+            'nome_tecnico': peca.nome_tecnico,
+            'codigo_fabricante': peca.codigo_fabricante,
+        }
+
+    return {
+        'peca': peca,
+        'valores': valores,
+        'qtd_produtos_vinculados': peca.compatibilidades.count(),
+        'pagina_ativa': 'catalogo',
+    }
+
+
+def editar_peca(request, peca_id):
+    peca = get_object_or_404(Peca, pk=peca_id)
+
+    if request.method == 'POST':
+        nome_generico = request.POST.get('nome', '').strip()
+        nome_tecnico = request.POST.get('nome_tecnico', '').strip()
+        codigo_fabricante = request.POST.get('codigo_fabricante', '').strip()
+        imagem = request.FILES.get('imagem')
+
+        valores_digitados = {'nome': nome_generico, 'nome_tecnico': nome_tecnico, 'codigo_fabricante': codigo_fabricante}
+        rerenderizar = lambda: render(request, 'devolucoes/peca_form.html', _contexto_form_peca(peca, valores_digitados))
+
+        if not nome_generico:
+            messages.error(request, 'Nome da peça é obrigatório.')
+            return rerenderizar()
+
+        if codigo_fabricante and Peca.objects.exclude(pk=peca.pk).filter(codigo_fabricante=codigo_fabricante).exists():
+            messages.error(request, f'Já existe outra peça com o código do fabricante {codigo_fabricante}.')
+            return rerenderizar()
+
+        peca.nome_generico = nome_generico
+        peca.nome_tecnico = nome_tecnico
+        peca.codigo_fabricante = codigo_fabricante or None
+        if imagem:
+            peca.imagem = imagem
+        peca.save()
+        messages.success(request, 'Dados da peça atualizados.')
+        return redirect('catalogo')
+
+    return render(request, 'devolucoes/peca_form.html', _contexto_form_peca(peca))
 
 
 def marcas_grupos(request):

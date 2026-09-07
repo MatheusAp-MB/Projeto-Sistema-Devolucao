@@ -1,7 +1,8 @@
 <!--
 * [RESUMO] → Template da homepage do sistema.
-* Módulos reais hoje: Nova Devolução, Produtos e Marcas e Grupos. 1 card
-* "em breve" reservado pra próximos módulos (mesmo padrão do Sistema Interno V2).
+* Módulos reais hoje: Nova Devolução, Produtos, Catálogo de Peças e
+* Marcas e Grupos. 1 card "em breve" reservado pra próximos módulos
+* (mesmo padrão do Sistema Interno V2).
 -->
 {% extends 'base_compartilhada/estrutura_base_grid_card.html' %}
 {% load static %}
@@ -44,6 +45,17 @@
             <i class="fas fa-tags fa-2x mb-3"></i>
             <h5>Marcas e Grupos</h5>
             <p>Gerenciar marcas e grupos fornecedores</p>
+        </div>
+    </a>
+</div>
+
+<!-- Card: Catálogo de Peças -->
+<div class="col-md-4">
+    <a href="{% url 'catalogo' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-puzzle-piece fa-2x mb-3"></i>
+            <h5>Catálogo de Peças</h5>
+            <p>Consultar e cadastrar peças compatíveis com os produtos</p>
         </div>
     </a>
 </div>
