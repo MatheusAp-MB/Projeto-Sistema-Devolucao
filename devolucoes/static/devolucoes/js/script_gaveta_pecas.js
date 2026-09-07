@@ -9,14 +9,19 @@
 // de cada card (excluir peça, desvincular de um produto). Tudo isso
 // atualiza a grade na hora, sem recarregar a página.
 //
-// * [ATENÇÃO] → a ÚNICA situação que ainda recarrega a página é a
-//               transição do estado vazio (nenhuma peça cadastrada ainda)
-//               pro estado populado (grade + filtros) — o HTML dos dois
-//               estados é bem diferente e só acontece uma vez na vida do
-//               sistema (a primeira peça cadastrada), então não vale a
-//               pena remontar essa estrutura inteira via JS. O mesmo vale
-//               ao excluir a última peça restante: volta pro estado vazio
-//               recarregando.
+// * [ATENÇÃO] → os cards ficam agrupados por Grupo Fornecedor/Marca (cada
+//               marca com seu carrossel — ver Objetivo 8/layout), e a
+//               grade continua atualizando na hora pra quase tudo. Só
+//               recarrega a página nos casos em que montar a estrutura
+//               nova via JS não compensaria por ser rara: a transição do
+//               estado vazio (nenhuma peça cadastrada ainda) pro estado
+//               populado; excluir a última peça restante do sistema
+//               (mesma ida pro estado vazio); cadastrar a 1ª peça de uma
+//               marca (ou grupo) que ainda não tem seção nenhuma na
+//               página; e editar uma peça trocando a marca dela (o card
+//               precisaria mudar de seção). Em todos esses casos o
+//               recarregar já entrega a página com tudo no lugar certo —
+//               não vale complicar o JS pra evitar um recarregamento raro.
 //
 // * [ATENÇÃO] → a foto da peça no card tem a classe
 //               catalogo-peca-foto--clicavel (reaproveitada do antigo
@@ -109,26 +114,57 @@
     });
 
     // ---------- busca + filtros da grade ----------
+    //
+    // Desde que os cards passaram a ficar agrupados por Grupo/Marca (cada
+    // marca com seu carrossel), filtrar não é mais só mostrar/esconder o
+    // card — precisa também esconder a seção (grupo) ou subseção (marca)
+    // inteira quando ela zera resultado, senão sobra cabeçalho sem nada
+    // embaixo. Mesmo padrão de script_produtos.js.
+
+    function bateFiltros(card, termos, marcaFiltrada, statusFiltrado) {
+        var textoCard = normalizar(card.getAttribute('data-busca'));
+        var bateTexto = termos.every(function (termo) { return textoCard.indexOf(termo) !== -1; });
+        var bateMarca = !marcaFiltrada || card.getAttribute('data-marca-id') === marcaFiltrada;
+        var bateStatus = !statusFiltrado || card.getAttribute('data-status') === statusFiltrado;
+        return bateTexto && bateMarca && bateStatus;
+    }
+
+    function filtrarCarrossel(container, termos, marcaFiltrada, statusFiltrado) {
+        var algumVisivel = false;
+        container.querySelectorAll('[data-item]').forEach(function (card) {
+            var visivel = bateFiltros(card, termos, marcaFiltrada, statusFiltrado);
+            card.style.display = visivel ? '' : 'none';
+            if (visivel) algumVisivel = true;
+        });
+        return algumVisivel;
+    }
 
     function aplicarFiltros() {
         if (!grade) return;
         var termos = normalizar(campoBusca ? campoBusca.value : '').split(/\s+/).filter(Boolean);
         var marcaFiltrada = filtroMarca ? filtroMarca.value : '';
         var statusFiltrado = filtroStatus ? filtroStatus.value : '';
-        var algumVisivel = false;
+        var algumaSecaoVisivel = false;
 
-        grade.querySelectorAll('[data-item]').forEach(function (card) {
-            var textoCard = normalizar(card.getAttribute('data-busca'));
-            var bateTexto = termos.every(function (termo) { return textoCard.indexOf(termo) !== -1; });
-            var bateMarca = !marcaFiltrada || card.getAttribute('data-marca-id') === marcaFiltrada;
-            var bateStatus = !statusFiltrado || card.getAttribute('data-status') === statusFiltrado;
-            var visivel = bateTexto && bateMarca && bateStatus;
+        grade.querySelectorAll('[data-secao]').forEach(function (secao) {
+            var algumNaSecao = false;
+            var subsecoes = secao.querySelectorAll('[data-subsecao]');
 
-            card.style.display = visivel ? '' : 'none';
-            if (visivel) algumVisivel = true;
+            if (subsecoes.length > 0) {
+                subsecoes.forEach(function (sub) {
+                    var algumNaSub = filtrarCarrossel(sub, termos, marcaFiltrada, statusFiltrado);
+                    sub.hidden = !algumNaSub;
+                    if (algumNaSub) algumNaSecao = true;
+                });
+            } else {
+                algumNaSecao = filtrarCarrossel(secao, termos, marcaFiltrada, statusFiltrado);
+            }
+
+            secao.hidden = !algumNaSecao;
+            if (algumNaSecao) algumaSecaoVisivel = true;
         });
 
-        if (vazioBusca) vazioBusca.hidden = algumVisivel;
+        if (vazioBusca) vazioBusca.hidden = algumaSecaoVisivel;
     }
 
     if (campoBusca) campoBusca.addEventListener('input', aplicarFiltros);
@@ -355,6 +391,20 @@
 
     // ---------- montar um card novo do zero (depois de um cadastro) ----------
 
+    // Marca/Grupo, Nome técnico, Código do fabricante — mesmas 3 linhas
+    // de legenda do template (_card_peca.html), na mesma ordem, cada uma
+    // só aparecendo se tiver conteúdo. Usada tanto pra montar um card novo
+    // quanto pra atualizar um já existente depois de editar.
+    function montarLinhasLegenda(dados) {
+        var linhas = [];
+        var linhaMarca = dados.marcaNome || '';
+        if (dados.marcaGrupo) linhaMarca += ' · ' + dados.marcaGrupo;
+        linhas.push(linhaMarca);
+        if (dados.nomeTecnico) linhas.push(dados.nomeTecnico);
+        if (dados.codigoFabricante) linhas.push('Cód.: ' + dados.codigoFabricante);
+        return linhas;
+    }
+
     function criarCard(dados) {
         var card = document.createElement('div');
         card.className = 'gaveta-peca-card';
@@ -390,20 +440,26 @@
         nomeEl.textContent = dados.nome;
         info.appendChild(nomeEl);
 
-        var marcaEl = document.createElement('p');
-        marcaEl.className = 'gaveta-peca-card-marca';
-        marcaEl.textContent = dados.marcaNome;
-        info.appendChild(marcaEl);
+        var legendas = document.createElement('div');
+        legendas.className = 'gaveta-peca-card-legendas';
+        montarLinhasLegenda(dados).forEach(function (texto) {
+            var p = document.createElement('p');
+            p.textContent = texto;
+            legendas.appendChild(p);
+        });
+        info.appendChild(legendas);
 
         info.appendChild(construirSecaoAvulsa());
         card.appendChild(info);
 
-        var rodape = document.createElement('div');
-        rodape.className = 'gaveta-peca-card-rodape';
+        var acoesSecundarias = document.createElement('div');
+        acoesSecundarias.className = 'gaveta-peca-card-acoes-secundarias';
 
         var botaoEditar = document.createElement('button');
         botaoEditar.type = 'button';
-        botaoEditar.className = 'gaveta-peca-card-acao';
+        botaoEditar.className = 'gaveta-peca-card-acao-icone';
+        botaoEditar.title = 'Editar';
+        botaoEditar.innerHTML = '<i class="fas fa-pen"></i>';
         botaoEditar.setAttribute('data-abrir-modal-peca', '');
         botaoEditar.setAttribute('data-peca-id', dados.id);
         botaoEditar.setAttribute('data-peca-nome', dados.nome);
@@ -412,8 +468,7 @@
         botaoEditar.setAttribute('data-peca-marca-id', dados.marcaId);
         botaoEditar.setAttribute('data-peca-marca-nome', dados.marcaNome);
         botaoEditar.setAttribute('data-peca-imagem-url', dados.imagemUrl || '');
-        botaoEditar.textContent = 'Editar';
-        rodape.appendChild(botaoEditar);
+        acoesSecundarias.appendChild(botaoEditar);
 
         if (urlExcluirPecaTemplate) {
             var formExcluir = document.createElement('form');
@@ -430,26 +485,43 @@
 
             var botaoExcluir = document.createElement('button');
             botaoExcluir.type = 'submit';
-            botaoExcluir.className = 'gaveta-peca-card-acao';
+            botaoExcluir.className = 'gaveta-peca-card-acao-icone gaveta-peca-card-acao-icone--excluir';
+            botaoExcluir.title = 'Excluir';
+            botaoExcluir.innerHTML = '<i class="fas fa-trash"></i>';
             botaoExcluir.setAttribute('data-peca-nome', dados.nome);
             botaoExcluir.setAttribute('data-qtd-produtos', '0');
-            botaoExcluir.textContent = 'Excluir';
             formExcluir.appendChild(botaoExcluir);
 
-            rodape.appendChild(formExcluir);
+            acoesSecundarias.appendChild(formExcluir);
         }
+
+        card.appendChild(acoesSecundarias);
 
         var botaoVincular = document.createElement('button');
         botaoVincular.type = 'button';
-        botaoVincular.className = 'gaveta-peca-card-acao gaveta-peca-card-acao--destaque';
+        botaoVincular.className = 'gaveta-peca-card-acao-vincular';
+        botaoVincular.innerHTML = '<i class="fas fa-link"></i> Vincular a um produto';
         botaoVincular.setAttribute('data-abrir-modal-vinculo', '');
         botaoVincular.setAttribute('data-peca-id', dados.id);
         botaoVincular.setAttribute('data-peca-nome', dados.nome);
-        botaoVincular.textContent = 'Vincular a um produto';
-        rodape.appendChild(botaoVincular);
+        card.appendChild(botaoVincular);
 
-        card.appendChild(rodape);
         return card;
+    }
+
+    // Acha o carrossel (fileira horizontal) da marca informada — a marca
+    // pode estar direto num [data-secao] (sem grupo) ou dentro de um
+    // [data-subsecao] (com grupo); os dois têm data-marca-id, então um
+    // seletor só resolve os dois casos. [data-item] também tem
+    // data-marca-id (o card em si), por isso o seletor exige
+    // data-secao/data-subsecao junto — senão podia casar com um card em
+    // vez da seção.
+    function acharCarrosselDaMarca(marcaId) {
+        if (!grade) return null;
+        var wrapper = grade.querySelector(
+            '[data-secao][data-marca-id="' + marcaId + '"], [data-subsecao][data-marca-id="' + marcaId + '"]'
+        );
+        return wrapper ? wrapper.querySelector('[data-carrossel]') : null;
     }
 
     function inserirNovoCard(dados, continuarCadastrando) {
@@ -469,6 +541,20 @@
             return true;
         }
 
+        var carrossel = acharCarrosselDaMarca(dados.marca_id);
+        if (!carrossel) {
+            // 1ª peça dessa marca (ou marca cadastrada na hora, ainda sem
+            // nenhuma peça) — a seção dela (com cabeçalho de marca e,
+            // se for o caso, de grupo) ainda não existe na página. Mesmo
+            // raciocínio da 1ª peça do sistema: mais simples e seguro
+            // recarregar do que montar uma seção nova via JS.
+            if (continuarCadastrando) {
+                try { sessionStorage.setItem('gaveta_reabrir_modal_peca', '1'); } catch (erro) {}
+            }
+            window.location.reload();
+            return true;
+        }
+
         var card = criarCard({
             id: dados.id,
             nome: dados.nome,
@@ -476,25 +562,46 @@
             codigoFabricante: dados.codigo_fabricante,
             marcaId: dados.marca_id,
             marcaNome: dados.marca_nome,
+            marcaGrupo: dados.marca_grupo,
             imagemUrl: dados.imagem_url,
         });
-        grade.insertBefore(card, grade.firstChild);
+        carrossel.insertBefore(card, carrossel.firstChild);
         aplicarFiltros();
     }
 
     function atualizarCardExistente(dados) {
-        if (!grade) return;
+        if (!grade) return false;
         var card = grade.querySelector('.gaveta-peca-card[data-peca-id="' + dados.id + '"]');
-        if (!card) return;
+        if (!card) return false;
+
+        if (card.getAttribute('data-marca-id') !== String(dados.marca_id)) {
+            // Mudou de marca durante a edição — o card pertence a outra
+            // seção agora (ou a uma seção que ainda nem existe). Mover
+            // isso em JS é bem mais complicado do que vale a pena aqui;
+            // recarrega e a página já nasce com o card no lugar certo.
+            window.location.reload();
+            return true;
+        }
 
         card.setAttribute('data-busca', normalizar(dados.nome) + ' ' + normalizar(dados.marca_nome));
-        card.setAttribute('data-marca-id', dados.marca_id);
 
         var nomeEl = card.querySelector('.gaveta-peca-card-nome');
         if (nomeEl) { nomeEl.textContent = dados.nome; nomeEl.title = dados.nome; }
 
-        var marcaEl = card.querySelector('.gaveta-peca-card-marca');
-        if (marcaEl) marcaEl.textContent = dados.marca_nome;
+        var legendas = card.querySelector('.gaveta-peca-card-legendas');
+        if (legendas) {
+            legendas.innerHTML = '';
+            montarLinhasLegenda({
+                marcaNome: dados.marca_nome,
+                marcaGrupo: dados.marca_grupo,
+                nomeTecnico: dados.nome_tecnico,
+                codigoFabricante: dados.codigo_fabricante,
+            }).forEach(function (texto) {
+                var p = document.createElement('p');
+                p.textContent = texto;
+                legendas.appendChild(p);
+            });
+        }
 
         var fotoEl = card.querySelector('.gaveta-peca-card-foto');
         if (fotoEl && dados.imagem_url) {
@@ -525,6 +632,7 @@
         if (botaoExcluir) botaoExcluir.setAttribute('data-peca-nome', dados.nome);
 
         aplicarFiltros();
+        return false;
     }
 
     // ---------- submit do Modal de Peça (cadastro e edição, via AJAX) ----------
@@ -563,12 +671,13 @@
                     return;
                 }
 
+                var recarregouAPagina;
                 if (ehEdicao) {
-                    atualizarCardExistente(resultado.dados);
+                    recarregouAPagina = atualizarCardExistente(resultado.dados);
                 } else {
-                    var recarregouAPagina = inserirNovoCard(resultado.dados, continuarCadastrando);
-                    if (recarregouAPagina) return;
+                    recarregouAPagina = inserirNovoCard(resultado.dados, continuarCadastrando);
                 }
+                if (recarregouAPagina) return;
 
                 if (continuarCadastrando) {
                     resetarFormularioPeca();
@@ -635,6 +744,7 @@
                 evento.preventDefault();
 
                 var card = formExcluir.closest('.gaveta-peca-card');
+                var carrosselDoCard = card ? card.closest('[data-carrossel]') : null;
                 var botao = formExcluir.querySelector('button[type=submit]');
                 var nome = botao ? botao.getAttribute('data-peca-nome') : 'esta peça';
                 var qtd = botao ? parseInt(botao.getAttribute('data-qtd-produtos') || '0', 10) : 0;
@@ -653,13 +763,27 @@
                     .then(function () {
                         if (card) card.remove();
 
-                        if (grade.children.length === 0) {
+                        if (grade.querySelectorAll('.gaveta-peca-card').length === 0) {
                             // Última peça excluída — volta pro estado vazio,
                             // que tem HTML diferente da grade. Mesmo raciocínio
                             // do cadastro da primeira peça: recarregar aqui é
                             // mais simples e seguro do que remontar via JS.
                             window.location.reload();
                             return;
+                        }
+
+                        // A marca (ou o grupo inteiro) ficou sem nenhuma
+                        // peça — some com a seção vazia em vez de deixar
+                        // um cabeçalho "fantasma" sem carrossel embaixo.
+                        if (carrosselDoCard && carrosselDoCard.querySelectorAll('.gaveta-peca-card').length === 0) {
+                            var subsecao = carrosselDoCard.closest('[data-subsecao]');
+                            var secao = carrosselDoCard.closest('[data-secao]');
+                            if (subsecao) {
+                                subsecao.remove();
+                                if (secao && secao.querySelectorAll('[data-subsecao]').length === 0) secao.remove();
+                            } else if (secao) {
+                                secao.remove();
+                            }
                         }
 
                         aplicarFiltros();

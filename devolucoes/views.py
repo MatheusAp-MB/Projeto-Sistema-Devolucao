@@ -668,16 +668,53 @@ def gaveta_pecas(request):
     """Tela própria de Peça — objeto autossuficiente, com CRUD completo
     independente de vínculo. A busca/filtro (nome, marca, status) é
     client-side, feita por script_gaveta_pecas.js — mesmo padrão já
-    usado em produtos() e marcas_grupos()."""
+    usado em produtos() e marcas_grupos().
+
+    Os cards vêm agrupados por Grupo Fornecedor/Marca — mesma lógica de
+    agrupamento de produtos() (marca sem grupo vira seção própria; marca
+    com grupo fica dentro da seção do grupo dela), só que aqui cada marca
+    virou um carrossel horizontal em vez de uma fileira só. Os nomes das
+    chaves de contexto são "pecas_..." pra não colidir com 'grupos' (a
+    lista simples de GrupoFornecedor que já ia pro <select> de "novo
+    grupo" dentro do Modal de Peça — ver _modal_peca.html)."""
     pecas = (
-        Peca.objects.select_related('marca')
+        Peca.objects.select_related('marca__grupo_fornecedor')
         .prefetch_related('compatibilidades__produto')
         .annotate(qtd_produtos_vinculados=Count('compatibilidades', distinct=True))
         .order_by('nome_generico')
     )
 
+    grupos_por_id = {}
+    marcas_sem_grupo_por_id = {}
+
+    for peca in pecas:
+        marca = peca.marca
+        grupo = marca.grupo_fornecedor
+
+        if grupo:
+            grupo_entry = grupos_por_id.setdefault(grupo.id, {'grupo': grupo, 'marcas_por_id': {}})
+            marca_entry = grupo_entry['marcas_por_id'].setdefault(marca.id, {'marca': marca, 'pecas': []})
+        else:
+            marca_entry = marcas_sem_grupo_por_id.setdefault(marca.id, {'marca': marca, 'pecas': []})
+
+        marca_entry['pecas'].append(peca)
+
+    pecas_grupos = sorted(
+        (
+            {
+                'grupo': g['grupo'],
+                'marcas': sorted(g['marcas_por_id'].values(), key=lambda m: m['marca'].nome.lower()),
+            }
+            for g in grupos_por_id.values()
+        ),
+        key=lambda g: g['grupo'].nome.lower(),
+    )
+    pecas_marcas_sem_grupo = sorted(marcas_sem_grupo_por_id.values(), key=lambda m: m['marca'].nome.lower())
+
     contexto = {
-        'pecas': pecas,
+        'pecas_grupos': pecas_grupos,
+        'pecas_marcas_sem_grupo': pecas_marcas_sem_grupo,
+        'tem_pecas': bool(grupos_por_id or marcas_sem_grupo_por_id),
         'marcas': Marca.objects.all(),
         'marcas_json': _marcas_json(),
         'grupos': GrupoFornecedor.objects.all(),
@@ -733,6 +770,7 @@ def cadastrar_peca_gaveta(request):
         'codigo_fabricante': peca.codigo_fabricante or '',
         'marca_id': peca.marca_id,
         'marca_nome': peca.marca.nome,
+        'marca_grupo': peca.marca.grupo_fornecedor.nome if peca.marca.grupo_fornecedor else None,
         'imagem_url': peca.imagem.url if peca.imagem else None,
         'qtd_produtos_vinculados': 0,
     })
@@ -784,6 +822,7 @@ def editar_peca_gaveta(request, peca_id):
         'codigo_fabricante': peca.codigo_fabricante or '',
         'marca_id': peca.marca_id,
         'marca_nome': peca.marca.nome,
+        'marca_grupo': peca.marca.grupo_fornecedor.nome if peca.marca.grupo_fornecedor else None,
         'imagem_url': peca.imagem.url if peca.imagem else None,
         'qtd_produtos_vinculados': peca.compatibilidades.count(),
     })

@@ -16,7 +16,7 @@
             <button type="button" id="gaveta_botao_nova_peca" class="gaveta-botao-nova-peca">+ Nova peça</button>
         </div>
 
-        {% if pecas %}
+        {% if tem_pecas %}
             <div class="gaveta-filtros">
                 <input type="text" id="gaveta_busca" class="gaveta-busca" placeholder="Buscar peça pelo nome..." autocomplete="off">
                 <select id="gaveta_filtro_marca" class="gaveta-filtro">
@@ -35,8 +35,41 @@
             <div class="gaveta-grade" id="gaveta_grade"
                  data-url-excluir-peca-template="{% url 'excluir_peca' 0 %}"
                  data-url-desvincular-template="{% url 'desvincular_peca' 0 %}">
-                {% for peca in pecas %}
-                    {% include 'devolucoes/_card_peca.html' with peca=peca %}
+                {% for item in pecas_marcas_sem_grupo %}
+                    <div class="gaveta-secao-marca" data-secao data-marca-id="{{ item.marca.id }}">
+                        <div class="gaveta-secao-cabecalho">
+                            <i class="fas fa-tag"></i>
+                            <span>{{ item.marca.nome }}</span>
+                        </div>
+                        <div class="gaveta-carrossel" data-carrossel>
+                            {% for peca in item.pecas %}
+                                {% include 'devolucoes/_card_peca.html' with peca=peca %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endfor %}
+
+                {% for grupo_item in pecas_grupos %}
+                    <div class="gaveta-secao-marca gaveta-secao-grupo" data-secao>
+                        <div class="gaveta-secao-cabecalho gaveta-secao-cabecalho--grupo">
+                            <i class="fas fa-layer-group"></i>
+                            <span>{{ grupo_item.grupo.nome }}</span>
+                        </div>
+
+                        {% for item in grupo_item.marcas %}
+                            <div class="gaveta-subsecao-marca" data-subsecao data-marca-id="{{ item.marca.id }}">
+                                <div class="gaveta-secao-cabecalho gaveta-secao-cabecalho--sub">
+                                    <i class="fas fa-tag"></i>
+                                    <span>{{ item.marca.nome }}</span>
+                                </div>
+                                <div class="gaveta-carrossel" data-carrossel>
+                                    {% for peca in item.pecas %}
+                                        {% include 'devolucoes/_card_peca.html' with peca=peca %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
                 {% endfor %}
             </div>
 

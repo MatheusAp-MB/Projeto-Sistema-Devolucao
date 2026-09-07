@@ -14,7 +14,12 @@
 
     <div class="gaveta-peca-card-info">
         <p class="gaveta-peca-card-nome" title="{{ peca.nome_generico }}">{{ peca.nome_generico }}</p>
-        <p class="gaveta-peca-card-marca">{{ peca.marca.nome }}</p>
+
+        <div class="gaveta-peca-card-legendas">
+            <p>{{ peca.marca.nome }}{% if peca.marca.grupo_fornecedor %} · {{ peca.marca.grupo_fornecedor.nome }}{% endif %}</p>
+            {% if peca.nome_tecnico %}<p>{{ peca.nome_tecnico }}</p>{% endif %}
+            {% if peca.codigo_fabricante %}<p>Cód.: {{ peca.codigo_fabricante }}</p>{% endif %}
+        </div>
 
         {% if peca.qtd_produtos_vinculados %}
             <button type="button" class="gaveta-peca-card-badge vinculada" data-badge-vinculo>
@@ -38,29 +43,33 @@
         {% endif %}
     </div>
 
-    <div class="gaveta-peca-card-rodape">
-        <button type="button" class="gaveta-peca-card-acao" data-abrir-modal-peca
+    <div class="gaveta-peca-card-acoes-secundarias">
+        <button type="button" class="gaveta-peca-card-acao-icone" data-abrir-modal-peca
                 data-peca-id="{{ peca.id }}"
                 data-peca-nome="{{ peca.nome_generico }}"
                 data-peca-nome-tecnico="{{ peca.nome_tecnico }}"
                 data-peca-codigo-fabricante="{{ peca.codigo_fabricante|default:'' }}"
                 data-peca-marca-id="{{ peca.marca_id }}"
                 data-peca-marca-nome="{{ peca.marca.nome }}"
-                data-peca-imagem-url="{{ peca.imagem.url|default:'' }}">
-            Editar
+                data-peca-imagem-url="{{ peca.imagem.url|default:'' }}"
+                title="Editar">
+            <i class="fas fa-pen"></i>
         </button>
 
         <form method="post" action="{% url 'excluir_peca' peca.id %}" class="gaveta-form-excluir-peca" data-form-excluir-peca>
             {% csrf_token %}
-            <button type="submit" class="gaveta-peca-card-acao"
+            <button type="submit" class="gaveta-peca-card-acao-icone gaveta-peca-card-acao-icone--excluir"
                     data-peca-nome="{{ peca.nome_generico }}"
-                    data-qtd-produtos="{{ peca.qtd_produtos_vinculados }}">Excluir</button>
+                    data-qtd-produtos="{{ peca.qtd_produtos_vinculados }}"
+                    title="Excluir">
+                <i class="fas fa-trash"></i>
+            </button>
         </form>
-
-        <button type="button" class="gaveta-peca-card-acao gaveta-peca-card-acao--destaque" data-abrir-modal-vinculo
-                data-peca-id="{{ peca.id }}"
-                data-peca-nome="{{ peca.nome_generico }}">
-            Vincular a um produto
-        </button>
     </div>
+
+    <button type="button" class="gaveta-peca-card-acao-vincular" data-abrir-modal-vinculo
+            data-peca-id="{{ peca.id }}"
+            data-peca-nome="{{ peca.nome_generico }}">
+        <i class="fas fa-link"></i> Vincular a um produto
+    </button>
 </div>
