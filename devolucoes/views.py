@@ -279,6 +279,10 @@ def _contexto_form_produto(produto=None, valores=None):
     return {
         'produto': produto,
         'valores': valores,
+        'compatibilidades': (
+            produto.compatibilidades.select_related('peca__marca').order_by('peca__nome_generico')
+            if produto else []
+        ),
         'marcas_json': _marcas_json(),
         'grupos': GrupoFornecedor.objects.all(),
         'pagina_ativa': 'produtos',
@@ -607,17 +611,18 @@ def cadastrar_peca_avulsa(request):
 
 
 def desvincular_peca(request, compatibilidade_id):
-    """Desfaz o vínculo peça-produto — reaproveitado tanto pela tela de
-    produto (POST clássico, com redirect) quanto pela Gaveta de Peças,
-    no card expandido (POST via AJAX, com resposta em JSON)."""
+    """Desfaz o vínculo peça-produto — reaproveitado tanto pela página
+    do produto (POST clássico, com redirect pra lá) quanto pela Gaveta
+    de Peças, no card expandido (POST via AJAX, com resposta em JSON).
+    O destino do redirect clássico mudou de catalogo pra editar_produto
+    — a página do produto agora é quem mostra as peças vinculadas."""
     compatibilidade = get_object_or_404(Compatibilidade, pk=compatibilidade_id)
-    codigo_barras = compatibilidade.produto.codigo_barras
+    produto_id = compatibilidade.produto_id
 
     if request.method == 'POST':
         eh_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         nome_peca = compatibilidade.peca.nome_generico
         peca_id = compatibilidade.peca_id
-        produto_id = compatibilidade.produto_id
         compatibilidade.delete()
 
         if eh_ajax:
@@ -629,7 +634,7 @@ def desvincular_peca(request, compatibilidade_id):
 
         messages.success(request, f'"{nome_peca}" desvinculada deste produto.')
 
-    return redirect(f"{reverse('catalogo')}?codigo_barras={codigo_barras}")
+    return redirect('editar_produto', produto_id=produto_id)
 
 
 def excluir_peca(request, peca_id):

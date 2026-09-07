@@ -129,6 +129,38 @@
                 </div>
             </div>
         </div>
+
+        {% if produto %}
+            <div class="produto-form-cartao produto-form-pecas-cartao">
+                <div class="produto-form-pecas-cabecalho">
+                    <p class="produto-form-pecas-titulo">Peças vinculadas</p>
+                    <button type="button" class="gaveta-botao-nova-peca" data-abrir-modal-vinculo-produto
+                            data-produto-id="{{ produto.id }}" data-produto-nome="{{ produto.nome }}">
+                        Vincular peça existente
+                    </button>
+                </div>
+
+                {% if compatibilidades %}
+                    <div class="produto-form-pecas-lista">
+                        {% for comp in compatibilidades %}
+                            <div class="produto-form-pecas-linha">
+                                <span class="produto-form-pecas-linha-nome">{{ comp.peca.nome_generico }}</span>
+                                <span class="produto-form-pecas-linha-marca">{{ comp.peca.marca.nome }}</span>
+                                <span class="produto-form-pecas-linha-qtd">Qtd: {{ comp.quantidade_esperada }}</span>
+                                <form method="post" action="{% url 'desvincular_peca' comp.id %}" class="produto-form-pecas-form-desvincular">
+                                    {% csrf_token %}
+                                    <button type="submit" class="produto-form-pecas-botao-desvincular">Desvincular</button>
+                                </form>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="produto-form-pecas-vazio">Nenhuma peça vinculada ainda.</p>
+                {% endif %}
+            </div>
+
+            {% include 'devolucoes/_modal_vinculo.html' %}
+        {% endif %}
     </div>
 {% endblock %}
 
