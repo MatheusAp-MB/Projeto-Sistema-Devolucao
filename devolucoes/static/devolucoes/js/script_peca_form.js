@@ -9,7 +9,7 @@ inicializarSeletorMarca({
     caixa: 'id_marca_caixa_peca',
     caixaTexto: 'marca_caixa_texto_peca',
     campoMarcaId: 'id_marca_id_peca',
-    seletorWrap: 'marca_seletor_wrap_peca',
+    wrap: 'marca_seletor_wrap_peca',
     painel: 'marca_painel_peca',
     busca: 'marca_busca_peca',
     lista: 'marca_lista_peca',

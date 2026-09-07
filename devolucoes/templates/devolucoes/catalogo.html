@@ -44,7 +44,10 @@
                 <div class="produto-form-campo">
                     <label for="id_marca_caixa_peca_avulsa">Marca *</label>
                     <div class="produto-form-linha-marca-grupo">
-                        <div class="produto-form-marca-seletor-wrap" id="marca_seletor_wrap_peca_avulsa">
+                        <div class="produto-form-marca-seletor-wrap" id="marca_seletor_wrap_peca_avulsa"
+                             data-url-cadastrar-marca="{% url 'cadastrar_marca' %}"
+                             data-url-cadastrar-grupo-fornecedor="{% url 'cadastrar_grupo_fornecedor' %}"
+                             data-marcas="{{ marcas_json }}">
                             <div class="produto-form-marca-caixa vazio" id="id_marca_caixa_peca_avulsa" tabindex="0">
                                 <span id="marca_caixa_texto_peca_avulsa">Selecione uma marca</span>
                                 <i class="fas fa-chevron-down"></i>
@@ -167,7 +170,7 @@
                     <p class="catalogo-adicionar-titulo">Adicionar peça</p>
 
                     <div class="catalogo-busca-peca">
-                        <input type="text" id="id_busca_peca" class="catalogo-input-busca-peca" placeholder="Buscar peça já cadastrada pelo nome..." autocomplete="off">
+                        <input type="text" id="id_busca_peca" class="catalogo-input-busca-peca" placeholder="Buscar peça já cadastrada pelo nome..." autocomplete="off" data-url-buscar-pecas="{% url 'buscar_pecas' produto.id %}">
                         <div id="catalogo-resultados-peca" class="catalogo-resultados-peca" hidden></div>
                     </div>
 
@@ -196,7 +199,10 @@
                             <div class="produto-form-campo">
                                 <label for="id_marca_caixa_peca_produto">Marca *</label>
                                 <div class="produto-form-linha-marca-grupo">
-                                    <div class="produto-form-marca-seletor-wrap" id="marca_seletor_wrap_peca_produto">
+                                    <div class="produto-form-marca-seletor-wrap" id="marca_seletor_wrap_peca_produto"
+                                         data-url-cadastrar-marca="{% url 'cadastrar_marca' %}"
+                                         data-url-cadastrar-grupo-fornecedor="{% url 'cadastrar_grupo_fornecedor' %}"
+                                         data-marcas="{{ marcas_json }}">
                                         <div class="produto-form-marca-caixa vazio" id="id_marca_caixa_peca_produto" tabindex="0">
                                             <span id="marca_caixa_texto_peca_produto">Selecione uma marca</span>
                                             <i class="fas fa-chevron-down"></i>
@@ -354,64 +360,6 @@
 {% endblock %}
 
 {% block scripts %}
-{% if produto %}
-<script>
-    var CATALOGO_URL_BUSCAR_PECAS = "{% url 'buscar_pecas' produto.id %}";
-</script>
-{% endif %}
-<script>
-    var URL_CADASTRAR_MARCA = "{% url 'cadastrar_marca' %}";
-    var URL_CADASTRAR_GRUPO_FORNECEDOR = "{% url 'cadastrar_grupo_fornecedor' %}";
-
-    var MARCAS_CADASTRADAS = [
-        {% for marca in marcas %}{id: {{ marca.id }}, nome: "{{ marca.nome|escapejs }}", grupo: {% if marca.grupo_fornecedor %}"{{ marca.grupo_fornecedor.nome|escapejs }}"{% else %}null{% endif %}}{% if not forloop.last %},{% endif %}{% endfor %}
-    ];
-</script>
 <script src="{% static 'devolucoes/js/script_marca_widget.js' %}"></script>
-<script>
-    inicializarSeletorMarca({
-        caixa: 'id_marca_caixa_peca_produto',
-        caixaTexto: 'marca_caixa_texto_peca_produto',
-        campoMarcaId: 'id_marca_id_peca_produto',
-        seletorWrap: 'marca_seletor_wrap_peca_produto',
-        painel: 'marca_painel_peca_produto',
-        busca: 'marca_busca_peca_produto',
-        lista: 'marca_lista_peca_produto',
-        chipGrupo: 'chip_grupo_fornecedor_peca_produto',
-        marcaErro: 'marca_erro_peca_produto',
-        botaoNovaMarca: 'botao_nova_marca_peca_produto',
-        caixaNovaMarca: 'caixa_nova_marca_peca_produto',
-        selectGrupo: 'id_grupo_fornecedor_peca_produto',
-        caixaNovoGrupo: 'caixa_novo_grupo_peca_produto',
-        campoNovoGrupoNome: 'id_novo_grupo_fornecedor_nome_peca_produto',
-        marcaFeedback: 'marca_feedback_peca_produto',
-        botaoCadastrarGrupo: 'botao_cadastrar_grupo_peca_produto',
-        botaoCadastrarMarca: 'botao_cadastrar_marca_peca_produto',
-        campoNovaMarcaNome: 'id_nova_marca_nome_peca_produto',
-        form: 'form-peca-produto',
-    });
-
-    inicializarSeletorMarca({
-        caixa: 'id_marca_caixa_peca_avulsa',
-        caixaTexto: 'marca_caixa_texto_peca_avulsa',
-        campoMarcaId: 'id_marca_id_peca_avulsa',
-        seletorWrap: 'marca_seletor_wrap_peca_avulsa',
-        painel: 'marca_painel_peca_avulsa',
-        busca: 'marca_busca_peca_avulsa',
-        lista: 'marca_lista_peca_avulsa',
-        chipGrupo: 'chip_grupo_fornecedor_peca_avulsa',
-        marcaErro: 'marca_erro_peca_avulsa',
-        botaoNovaMarca: 'botao_nova_marca_peca_avulsa',
-        caixaNovaMarca: 'caixa_nova_marca_peca_avulsa',
-        selectGrupo: 'id_grupo_fornecedor_peca_avulsa',
-        caixaNovoGrupo: 'caixa_novo_grupo_peca_avulsa',
-        campoNovoGrupoNome: 'id_novo_grupo_fornecedor_nome_peca_avulsa',
-        marcaFeedback: 'marca_feedback_peca_avulsa',
-        botaoCadastrarGrupo: 'botao_cadastrar_grupo_peca_avulsa',
-        botaoCadastrarMarca: 'botao_cadastrar_marca_peca_avulsa',
-        campoNovaMarcaNome: 'id_nova_marca_nome_peca_avulsa',
-        form: 'form-peca-avulsa',
-    });
-</script>
 <script src="{% static 'devolucoes/js/script_catalogo.js' %}"></script>
 {% endblock %}

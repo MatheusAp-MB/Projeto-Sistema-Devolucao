@@ -791,10 +791,16 @@
 
 /* O seletor de marca (componente compartilhado com a tela de produto,
    layout_produto_form.css) dentro dos formulários de peça, que são
-   flex-wrap — força ele a ocupar a linha inteira em vez de espremer ao
-   lado dos outros campos. */
-.catalogo-form-peca .produto-form-campo {
-    flex: 1 1 100%;
+   flex-wrap. Child direto (>) pra não afetar os campos internos do
+   popover "cadastrar marca nova" (nome/grupo), que também usam
+   .produto-form-campo mas não devem virar full-width. */
+.catalogo-form-peca > .produto-form-campo {
+    flex: 1 1 260px;
+    min-width: 220px;
     margin-bottom: 0;
+}
+
+.catalogo-form-peca .produto-form-erro-marca {
+    width: 100%;
 }
 

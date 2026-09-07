@@ -18,6 +18,7 @@
 
     if (!campoBusca || !listaResultados) return;
 
+    var urlBuscarPecas = campoBusca.getAttribute('data-url-buscar-pecas');
     var atrasoBusca = null;
 
     function esconderPaineis() {
@@ -90,7 +91,7 @@
         botaoCadastrarNova.hidden = false;
 
         atrasoBusca = setTimeout(function () {
-            var url = CATALOGO_URL_BUSCAR_PECAS + '?q=' + encodeURIComponent(termo);
+            var url = urlBuscarPecas + '?q=' + encodeURIComponent(termo);
             fetch(url)
                 .then(function (resposta) { return resposta.json(); })
                 .then(function (dados) { renderizarResultados(dados.resultados); });
@@ -117,6 +118,54 @@
         });
     }
 })();
+
+// Seletor de marca (mesmo widget da tela de produto/peça, ver
+// script_marca_widget.js) das 2 formas de cadastrar peça desta tela —
+// a "peça avulsa" (sempre no DOM, só escondida) e a "peça dentro do
+// produto" (só existe quando um produto foi encontrado na busca).
+inicializarSeletorMarca({
+    wrap: 'marca_seletor_wrap_peca_avulsa',
+    caixa: 'id_marca_caixa_peca_avulsa',
+    caixaTexto: 'marca_caixa_texto_peca_avulsa',
+    campoMarcaId: 'id_marca_id_peca_avulsa',
+    painel: 'marca_painel_peca_avulsa',
+    busca: 'marca_busca_peca_avulsa',
+    lista: 'marca_lista_peca_avulsa',
+    chipGrupo: 'chip_grupo_fornecedor_peca_avulsa',
+    marcaErro: 'marca_erro_peca_avulsa',
+    botaoNovaMarca: 'botao_nova_marca_peca_avulsa',
+    caixaNovaMarca: 'caixa_nova_marca_peca_avulsa',
+    selectGrupo: 'id_grupo_fornecedor_peca_avulsa',
+    caixaNovoGrupo: 'caixa_novo_grupo_peca_avulsa',
+    campoNovoGrupoNome: 'id_novo_grupo_fornecedor_nome_peca_avulsa',
+    marcaFeedback: 'marca_feedback_peca_avulsa',
+    botaoCadastrarGrupo: 'botao_cadastrar_grupo_peca_avulsa',
+    botaoCadastrarMarca: 'botao_cadastrar_marca_peca_avulsa',
+    campoNovaMarcaNome: 'id_nova_marca_nome_peca_avulsa',
+    form: 'form-peca-avulsa',
+});
+
+inicializarSeletorMarca({
+    wrap: 'marca_seletor_wrap_peca_produto',
+    caixa: 'id_marca_caixa_peca_produto',
+    caixaTexto: 'marca_caixa_texto_peca_produto',
+    campoMarcaId: 'id_marca_id_peca_produto',
+    painel: 'marca_painel_peca_produto',
+    busca: 'marca_busca_peca_produto',
+    lista: 'marca_lista_peca_produto',
+    chipGrupo: 'chip_grupo_fornecedor_peca_produto',
+    marcaErro: 'marca_erro_peca_produto',
+    botaoNovaMarca: 'botao_nova_marca_peca_produto',
+    caixaNovaMarca: 'caixa_nova_marca_peca_produto',
+    selectGrupo: 'id_grupo_fornecedor_peca_produto',
+    caixaNovoGrupo: 'caixa_novo_grupo_peca_produto',
+    campoNovoGrupoNome: 'id_novo_grupo_fornecedor_nome_peca_produto',
+    marcaFeedback: 'marca_feedback_peca_produto',
+    botaoCadastrarGrupo: 'botao_cadastrar_grupo_peca_produto',
+    botaoCadastrarMarca: 'botao_cadastrar_marca_peca_produto',
+    campoNovaMarcaNome: 'id_nova_marca_nome_peca_produto',
+    form: 'form-peca-produto',
+});
 
 (function () {
     document.addEventListener('submit', function (evento) {
