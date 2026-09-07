@@ -147,8 +147,49 @@ def nova_devolucao(request):
 
 
 def produtos(request):
-    lista_produtos = Produto.objects.all()
-    return render(request, 'devolucoes/produtos.html', {'produtos': lista_produtos, 'pagina_ativa': 'produtos'})
+    """Lista todos os produtos agrupados por Marca/Grupo Fornecedor —
+    marca sem grupo vira uma seção própria; marca com grupo fica dentro
+    da seção do grupo dela. A busca em si (Nome/SKU/EAN/Cód. Fabricante/
+    Marca) é só client-side, feita pelo script_produtos.js."""
+    lista_produtos = (
+        Produto.objects.select_related('marca__grupo_fornecedor')
+        .order_by('marca__nome', 'nome')
+    )
+
+    grupos_por_id = {}
+    marcas_sem_grupo_por_id = {}
+
+    for produto in lista_produtos:
+        marca = produto.marca
+        grupo = marca.grupo_fornecedor
+
+        if grupo:
+            grupo_entry = grupos_por_id.setdefault(grupo.id, {'grupo': grupo, 'marcas_por_id': {}})
+            marca_entry = grupo_entry['marcas_por_id'].setdefault(marca.id, {'marca': marca, 'produtos': []})
+        else:
+            marca_entry = marcas_sem_grupo_por_id.setdefault(marca.id, {'marca': marca, 'produtos': []})
+
+        marca_entry['produtos'].append(produto)
+
+    grupos = sorted(
+        (
+            {
+                'grupo': g['grupo'],
+                'marcas': sorted(g['marcas_por_id'].values(), key=lambda m: m['marca'].nome.lower()),
+            }
+            for g in grupos_por_id.values()
+        ),
+        key=lambda g: g['grupo'].nome.lower(),
+    )
+    marcas_sem_grupo = sorted(marcas_sem_grupo_por_id.values(), key=lambda m: m['marca'].nome.lower())
+
+    contexto = {
+        'marcas_sem_grupo': marcas_sem_grupo,
+        'grupos': grupos,
+        'tem_produtos': bool(grupos_por_id or marcas_sem_grupo_por_id),
+        'pagina_ativa': 'produtos',
+    }
+    return render(request, 'devolucoes/produtos.html', contexto)
 
 
 def catalogo(request):

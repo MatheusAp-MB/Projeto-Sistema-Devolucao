@@ -15,27 +15,93 @@
             <a href="{% url 'cadastrar_produto' %}" class="produtos-botao-cadastrar">Cadastrar produto</a>
         </div>
 
-        {% if produtos %}
-            <div class="produtos-grade">
-                {% for produto in produtos %}
-                    <a href="{% url 'catalogo' %}?codigo_barras={{ produto.codigo_barras }}" class="produtos-item">
-                        <div class="produtos-item-foto">
-                            {% if produto.foto %}
-                                <img src="{{ produto.foto.url }}" alt="{{ produto.nome }}">
-                            {% else %}
-                                <span class="produtos-item-foto-vazia">sem foto</span>
-                            {% endif %}
+        {% if tem_produtos %}
+            <input type="text" class="produtos-busca" id="produtos_busca" placeholder="Buscar por Nome, SKU, EAN, Cód. Fabricante ou Marca...">
+
+            <div id="produtos_lista">
+                {% for item in marcas_sem_grupo %}
+                    <div class="produtos-secao-marca" data-secao>
+                        <div class="produtos-secao-cabecalho">
+                            <i class="fas fa-tag"></i>
+                            <span>{{ item.marca.nome }}</span>
                         </div>
-                        <div class="produtos-item-info">
-                            <p class="produtos-item-nome">{{ produto.nome }}</p>
-                            <p class="produtos-item-marca">{{ produto.marca|default:"—" }}</p>
-                            <p class="produtos-item-ean">EAN: {{ produto.codigo_barras }}</p>
+                        <div class="produtos-grade">
+                            {% for produto in item.produtos %}
+                                <a href="{% url 'catalogo' %}?codigo_barras={{ produto.codigo_barras }}" class="produtos-item" data-item data-busca="{{ produto.nome|lower }} {{ produto.sku|default:""|lower }} {{ produto.codigo_barras }} {{ produto.codigo_fabricante|default:""|lower }} {{ produto.marca.nome|lower }}" title="{{ produto.nome }}">
+                                    <div class="produtos-item-foto">
+                                        {% if produto.foto %}
+                                            <img src="{{ produto.foto.url }}" alt="{{ produto.nome }}">
+                                        {% else %}
+                                            <div class="produtos-item-foto-vazia">
+                                                <i class="fas fa-image"></i>
+                                                <span>sem foto</span>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="produtos-item-info">
+                                        <p class="produtos-item-nome">{{ produto.nome }}</p>
+                                        <div class="produtos-item-legendas">
+                                            <p>EAN: {{ produto.codigo_barras }}</p>
+                                            {% if produto.sku %}<p>SKU: {{ produto.sku }}</p>{% endif %}
+                                            {% if produto.codigo_fabricante %}<p>Cód. Fab.: {{ produto.codigo_fabricante }}</p>{% endif %}
+                                        </div>
+                                    </div>
+                                </a>
+                            {% endfor %}
                         </div>
-                    </a>
+                    </div>
+                {% endfor %}
+
+                {% for grupo_item in grupos %}
+                    <div class="produtos-secao-marca produtos-secao-grupo" data-secao>
+                        <div class="produtos-secao-cabecalho">
+                            <i class="fas fa-layer-group"></i>
+                            <span>{{ grupo_item.grupo.nome }}</span>
+                        </div>
+
+                        {% for item in grupo_item.marcas %}
+                            <div class="produtos-subsecao-marca" data-subsecao>
+                                <div class="produtos-subsecao-cabecalho">
+                                    <i class="fas fa-tag"></i>
+                                    <span>{{ item.marca.nome }}</span>
+                                </div>
+                                <div class="produtos-grade">
+                                    {% for produto in item.produtos %}
+                                        <a href="{% url 'catalogo' %}?codigo_barras={{ produto.codigo_barras }}" class="produtos-item" data-item data-busca="{{ produto.nome|lower }} {{ produto.sku|default:""|lower }} {{ produto.codigo_barras }} {{ produto.codigo_fabricante|default:""|lower }} {{ produto.marca.nome|lower }}" title="{{ produto.nome }}">
+                                            <div class="produtos-item-foto">
+                                                {% if produto.foto %}
+                                                    <img src="{{ produto.foto.url }}" alt="{{ produto.nome }}">
+                                                {% else %}
+                                                    <div class="produtos-item-foto-vazia">
+                                                        <i class="fas fa-image"></i>
+                                                        <span>sem foto</span>
+                                                    </div>
+                                                {% endif %}
+                                            </div>
+                                            <div class="produtos-item-info">
+                                                <p class="produtos-item-nome">{{ produto.nome }}</p>
+                                                <div class="produtos-item-legendas">
+                                                    <p>EAN: {{ produto.codigo_barras }}</p>
+                                                    {% if produto.sku %}<p>SKU: {{ produto.sku }}</p>{% endif %}
+                                                    {% if produto.codigo_fabricante %}<p>Cód. Fab.: {{ produto.codigo_fabricante }}</p>{% endif %}
+                                                </div>
+                                            </div>
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
                 {% endfor %}
             </div>
+
+            <p class="produtos-vazio-busca" id="produtos_vazio_busca" hidden>Nenhum produto encontrado com esse termo.</p>
         {% else %}
             <p class="produtos-vazio">Nenhum produto cadastrado ainda.</p>
         {% endif %}
     </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'devolucoes/js/script_produtos.js' %}"></script>
 {% endblock %}
