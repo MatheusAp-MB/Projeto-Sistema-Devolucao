@@ -337,7 +337,7 @@ def cadastrar_produto(request):
             sku=sku or None, codigo_fabricante=codigo_fabricante or None, foto=foto,
         )
         messages.success(request, f'Produto "{nome}" cadastrado.')
-        return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+        return redirect('editar_produto', produto_id=produto.id)
 
     return render(request, 'devolucoes/produto_form.html', _contexto_form_produto())
 
@@ -391,7 +391,7 @@ def editar_produto(request, produto_id):
             produto.foto = foto
         produto.save()
         messages.success(request, 'Dados do produto atualizados.')
-        return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+        return redirect('editar_produto', produto_id=produto.id)
 
     return render(request, 'devolucoes/produto_form.html', _contexto_form_produto(produto))
 
@@ -439,7 +439,7 @@ def vincular_peca(request, produto_id):
 
         if quantidade_esperada < 1:
             messages.error(request, 'Quantidade esperada precisa ser 1 ou mais.')
-            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+            return redirect('gaveta_pecas')
 
         _, criada = Compatibilidade.objects.get_or_create(
             peca=peca, produto=produto,
@@ -450,7 +450,7 @@ def vincular_peca(request, produto_id):
         else:
             messages.warning(request, f'"{peca.nome_generico}" já estava vinculada a este produto.')
 
-    return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+    return redirect('gaveta_pecas')
 
 
 def cadastrar_peca(request, produto_id):
@@ -466,28 +466,28 @@ def cadastrar_peca(request, produto_id):
 
         if not nome_generico:
             messages.error(request, 'Nome da peça é obrigatório.')
-            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+            return redirect('gaveta_pecas')
 
         if not imagem:
             messages.error(request, 'Foto da peça é obrigatória.')
-            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+            return redirect('gaveta_pecas')
 
         if not marca_id:
             messages.error(request, 'Marca é obrigatória — selecione uma marca da lista.')
-            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+            return redirect('gaveta_pecas')
 
         marca = Marca.objects.filter(pk=marca_id).first()
         if not marca:
             messages.error(request, 'Marca inválida — selecione uma marca da lista.')
-            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+            return redirect('gaveta_pecas')
 
         if quantidade_esperada < 1:
             messages.error(request, 'Quantidade esperada precisa ser 1 ou mais.')
-            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+            return redirect('gaveta_pecas')
 
         if codigo_fabricante and Peca.objects.filter(codigo_fabricante=codigo_fabricante).exists():
             messages.error(request, f'Já existe uma peça cadastrada com o código do fabricante {codigo_fabricante}.')
-            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+            return redirect('gaveta_pecas')
 
         with transaction.atomic():
             peca = Peca.objects.create(
@@ -503,7 +503,7 @@ def cadastrar_peca(request, produto_id):
             )
         messages.success(request, f'Peça "{nome_generico}" cadastrada e vinculada.')
 
-    return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+    return redirect('gaveta_pecas')
 
 
 def cadastrar_peca_avulsa(request):
@@ -516,24 +516,24 @@ def cadastrar_peca_avulsa(request):
 
         if not nome_generico:
             messages.error(request, 'Nome da peça é obrigatório.')
-            return redirect('catalogo')
+            return redirect('gaveta_pecas')
 
         if not imagem:
             messages.error(request, 'Foto da peça é obrigatória.')
-            return redirect('catalogo')
+            return redirect('gaveta_pecas')
 
         if not marca_id:
             messages.error(request, 'Marca é obrigatória — selecione uma marca da lista.')
-            return redirect('catalogo')
+            return redirect('gaveta_pecas')
 
         marca = Marca.objects.filter(pk=marca_id).first()
         if not marca:
             messages.error(request, 'Marca inválida — selecione uma marca da lista.')
-            return redirect('catalogo')
+            return redirect('gaveta_pecas')
 
         if codigo_fabricante and Peca.objects.filter(codigo_fabricante=codigo_fabricante).exists():
             messages.error(request, f'Já existe uma peça cadastrada com o código do fabricante {codigo_fabricante}.')
-            return redirect('catalogo')
+            return redirect('gaveta_pecas')
 
         Peca.objects.create(
             nome_generico=nome_generico,
@@ -544,7 +544,7 @@ def cadastrar_peca_avulsa(request):
         )
         messages.success(request, f'Peça "{nome_generico}" cadastrada — ainda sem produto vinculado. Vincule ela depois pela busca dentro de um produto.')
 
-    return redirect('catalogo')
+    return redirect('gaveta_pecas')
 
 
 def desvincular_peca(request, compatibilidade_id):

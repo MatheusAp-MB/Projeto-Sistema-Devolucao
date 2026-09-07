@@ -10,8 +10,8 @@
 
 {% block conteudo %}
     <div class="produto-form-pagina">
-        <a href="{% if produto %}{% url 'catalogo' %}?codigo_barras={{ produto.codigo_barras }}{% else %}{% url 'produtos' %}{% endif %}" class="produto-form-link-voltar">
-            ← {% if produto %}Voltar para o Catálogo{% else %}Voltar para Produtos{% endif %}
+        <a href="{% url 'produtos' %}" class="produto-form-link-voltar">
+            ← Voltar para Produtos
         </a>
 
         <div class="produto-form-cartao">
