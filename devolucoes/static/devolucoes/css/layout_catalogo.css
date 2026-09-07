@@ -789,3 +789,12 @@
     }
 }
 
+/* O seletor de marca (componente compartilhado com a tela de produto,
+   layout_produto_form.css) dentro dos formulários de peça, que são
+   flex-wrap — força ele a ocupar a linha inteira em vez de espremer ao
+   lado dos outros campos. */
+.catalogo-form-peca .produto-form-campo {
+    flex: 1 1 100%;
+    margin-bottom: 0;
+}
+

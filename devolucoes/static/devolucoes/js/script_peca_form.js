@@ -1,8 +1,31 @@
 // devolucoes/static/devolucoes/js/script_peca_form.js
 
-// Função Objetivo: comportamentos da tela de editar peça — preview de
+// Função Objetivo: comportamentos da tela de editar peça — seletor de
+// marca (componente compartilhado, script_marca_widget.js), preview de
 // foto (mesmo padrão da tela de produto) e confirmação antes de
 // excluir, avisando quantos produtos perderiam a peça.
+
+inicializarSeletorMarca({
+    caixa: 'id_marca_caixa_peca',
+    caixaTexto: 'marca_caixa_texto_peca',
+    campoMarcaId: 'id_marca_id_peca',
+    seletorWrap: 'marca_seletor_wrap_peca',
+    painel: 'marca_painel_peca',
+    busca: 'marca_busca_peca',
+    lista: 'marca_lista_peca',
+    chipGrupo: 'chip_grupo_fornecedor_peca',
+    marcaErro: 'marca_erro_peca',
+    botaoNovaMarca: 'botao_nova_marca_peca',
+    caixaNovaMarca: 'caixa_nova_marca_peca',
+    selectGrupo: 'id_grupo_fornecedor_peca',
+    caixaNovoGrupo: 'caixa_novo_grupo_peca',
+    campoNovoGrupoNome: 'id_novo_grupo_fornecedor_nome_peca',
+    marcaFeedback: 'marca_feedback_peca',
+    botaoCadastrarGrupo: 'botao_cadastrar_grupo_peca',
+    botaoCadastrarMarca: 'botao_cadastrar_marca_peca',
+    campoNovaMarcaNome: 'id_nova_marca_nome_peca',
+    form: 'form-dados-peca',
+});
 
 (function () {
     var campoFoto = document.getElementById('id_foto_peca');

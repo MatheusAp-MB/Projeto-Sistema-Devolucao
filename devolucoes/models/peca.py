@@ -1,9 +1,12 @@
 from django.db import models
 
+from .marca import Marca
+
 
 class Peca(models.Model):
     nome_generico = models.CharField('Nome genérico', max_length=200)
     nome_tecnico = models.CharField('Nome técnico', max_length=200, blank=True)
+    marca = models.ForeignKey(Marca, on_delete=models.PROTECT, related_name='pecas')
     codigo_fabricante = models.CharField('Código do fabricante', max_length=100, unique=True, null=True, blank=True)
     imagem = models.ImageField(upload_to='catalogo_pecas/')
 

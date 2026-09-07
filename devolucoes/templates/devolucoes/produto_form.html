@@ -37,7 +37,10 @@
                         <div class="produto-form-campo">
                             <label for="id_marca_caixa">Marca *</label>
                             <div class="produto-form-linha-marca-grupo">
-                                <div class="produto-form-marca-seletor-wrap" id="marca_seletor_wrap">
+                                <div class="produto-form-marca-seletor-wrap" id="marca_seletor_wrap"
+                                     data-url-cadastrar-marca="{% url 'cadastrar_marca' %}"
+                                     data-url-cadastrar-grupo-fornecedor="{% url 'cadastrar_grupo_fornecedor' %}"
+                                     data-marcas="{{ marcas_json }}">
                                     <div class="produto-form-marca-caixa{% if not valores.marca_id %} vazio{% endif %}" id="id_marca_caixa" tabindex="0">
                                         <span id="marca_caixa_texto">{{ valores.marca_nome|default:"Selecione uma marca" }}</span>
                                         <i class="fas fa-chevron-down"></i>
@@ -130,13 +133,6 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-    var URL_CADASTRAR_MARCA = "{% url 'cadastrar_marca' %}";
-    var URL_CADASTRAR_GRUPO_FORNECEDOR = "{% url 'cadastrar_grupo_fornecedor' %}";
-
-    var MARCAS_CADASTRADAS = [
-        {% for marca in marcas %}{id: {{ marca.id }}, nome: "{{ marca.nome|escapejs }}", grupo: {% if marca.grupo_fornecedor %}"{{ marca.grupo_fornecedor.nome|escapejs }}"{% else %}null{% endif %}}{% if not forloop.last %},{% endif %}{% endfor %}
-    ];
-</script>
+<script src="{% static 'devolucoes/js/script_marca_widget.js' %}"></script>
 <script src="{% static 'devolucoes/js/script_produto_form.js' %}"></script>
 {% endblock %}

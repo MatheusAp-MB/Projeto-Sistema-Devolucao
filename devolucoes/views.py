@@ -16,6 +16,7 @@
 #               deixar quebrado por enquanto, a reforma dessa tela fica
 #               pra depois.
 
+import json
 import os
 
 from datetime import datetime
@@ -247,6 +248,8 @@ def catalogo(request):
         'peca_pendente': peca_pendente,
         'pecas_sem_produto': pecas_sem_produto,
         'produtos_com_pecas': produtos_com_pecas,
+        'marcas_json': _marcas_json(),
+        'grupos': GrupoFornecedor.objects.all(),
         'pagina_ativa': 'catalogo',
     }
     return render(request, 'devolucoes/catalogo.html', contexto)
@@ -276,7 +279,7 @@ def _contexto_form_produto(produto=None, valores=None):
     return {
         'produto': produto,
         'valores': valores,
-        'marcas': Marca.objects.select_related('grupo_fornecedor'),
+        'marcas_json': _marcas_json(),
         'grupos': GrupoFornecedor.objects.all(),
         'pagina_ativa': 'produtos',
     }
@@ -304,6 +307,22 @@ def _criar_grupo_fornecedor(nome):
 
     grupo, _ = GrupoFornecedor.objects.get_or_create(nome=nome)
     return grupo, None
+
+
+def _marcas_json():
+    """JSON com todas as Marcas cadastradas, pro widget de seletor de
+    marca (reaproveitado em Produto e Peça — ver script_marca_widget.js).
+    Vai pro template como atributo data-marcas de um elemento HTML; o
+    widget nunca lê marca de variável JS global, só do próprio DOM."""
+    marcas = Marca.objects.select_related('grupo_fornecedor')
+    return json.dumps([
+        {
+            'id': marca.id,
+            'nome': marca.nome,
+            'grupo': marca.grupo_fornecedor.nome if marca.grupo_fornecedor else None,
+        }
+        for marca in marcas
+    ])
 
 
 def cadastrar_grupo_fornecedor(request):
@@ -500,6 +519,7 @@ def cadastrar_peca(request, produto_id):
         nome_generico = request.POST.get('nome', '').strip()
         nome_tecnico = request.POST.get('nome_tecnico', '').strip()
         codigo_fabricante = request.POST.get('codigo_fabricante', '').strip()
+        marca_id = request.POST.get('marca_id', '').strip()
         quantidade_esperada = int(request.POST.get('quantidade_esperada') or '1')
         imagem = request.FILES.get('imagem')
 
@@ -509,6 +529,15 @@ def cadastrar_peca(request, produto_id):
 
         if not imagem:
             messages.error(request, 'Foto da peça é obrigatória.')
+            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+
+        if not marca_id:
+            messages.error(request, 'Marca é obrigatória — selecione uma marca da lista.')
+            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+
+        marca = Marca.objects.filter(pk=marca_id).first()
+        if not marca:
+            messages.error(request, 'Marca inválida — selecione uma marca da lista.')
             return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
 
         if quantidade_esperada < 1:
@@ -524,6 +553,7 @@ def cadastrar_peca(request, produto_id):
                 nome_generico=nome_generico,
                 nome_tecnico=nome_tecnico or '',
                 codigo_fabricante=codigo_fabricante or None,
+                marca=marca,
                 imagem=imagem,
             )
             Compatibilidade.objects.create(
@@ -540,6 +570,7 @@ def cadastrar_peca_avulsa(request):
         nome_generico = request.POST.get('nome', '').strip()
         nome_tecnico = request.POST.get('nome_tecnico', '').strip()
         codigo_fabricante = request.POST.get('codigo_fabricante', '').strip()
+        marca_id = request.POST.get('marca_id', '').strip()
         imagem = request.FILES.get('imagem')
 
         if not nome_generico:
@@ -550,6 +581,15 @@ def cadastrar_peca_avulsa(request):
             messages.error(request, 'Foto da peça é obrigatória.')
             return redirect('catalogo')
 
+        if not marca_id:
+            messages.error(request, 'Marca é obrigatória — selecione uma marca da lista.')
+            return redirect('catalogo')
+
+        marca = Marca.objects.filter(pk=marca_id).first()
+        if not marca:
+            messages.error(request, 'Marca inválida — selecione uma marca da lista.')
+            return redirect('catalogo')
+
         if codigo_fabricante and Peca.objects.filter(codigo_fabricante=codigo_fabricante).exists():
             messages.error(request, f'Já existe uma peça cadastrada com o código do fabricante {codigo_fabricante}.')
             return redirect('catalogo')
@@ -558,6 +598,7 @@ def cadastrar_peca_avulsa(request):
             nome_generico=nome_generico,
             nome_tecnico=nome_tecnico or '',
             codigo_fabricante=codigo_fabricante or None,
+            marca=marca,
             imagem=imagem,
         )
         messages.success(request, f'Peça "{nome_generico}" cadastrada — ainda sem produto vinculado. Vincule ela depois pela busca dentro de um produto.')
@@ -601,15 +642,18 @@ def _contexto_form_peca(peca=None, valores=None):
             'nome': peca.nome_generico,
             'nome_tecnico': peca.nome_tecnico,
             'codigo_fabricante': peca.codigo_fabricante,
+            'marca_id': peca.marca_id or '',
+            'marca_nome': peca.marca.nome if peca.marca else '',
         }
 
     return {
         'peca': peca,
         'valores': valores,
         'qtd_produtos_vinculados': peca.compatibilidades.count(),
+        'marcas_json': _marcas_json(),
+        'grupos': GrupoFornecedor.objects.all(),
         'pagina_ativa': 'catalogo',
     }
-
 
 def editar_peca(request, peca_id):
     peca = get_object_or_404(Peca, pk=peca_id)
@@ -618,19 +662,34 @@ def editar_peca(request, peca_id):
         nome_generico = request.POST.get('nome', '').strip()
         nome_tecnico = request.POST.get('nome_tecnico', '').strip()
         codigo_fabricante = request.POST.get('codigo_fabricante', '').strip()
+        marca_id = request.POST.get('marca_id', '').strip()
         imagem = request.FILES.get('imagem')
 
-        valores_digitados = {'nome': nome_generico, 'nome_tecnico': nome_tecnico, 'codigo_fabricante': codigo_fabricante}
+        valores_digitados = {
+            'nome': nome_generico, 'nome_tecnico': nome_tecnico, 'codigo_fabricante': codigo_fabricante,
+            'marca_id': marca_id,
+            'marca_nome': Marca.objects.filter(pk=marca_id).values_list('nome', flat=True).first() or '' if marca_id else '',
+        }
         rerenderizar = lambda: render(request, 'devolucoes/peca_form.html', _contexto_form_peca(peca, valores_digitados))
 
         if not nome_generico:
             messages.error(request, 'Nome da peça é obrigatório.')
             return rerenderizar()
 
+        if not marca_id:
+            messages.error(request, 'Marca é obrigatória — selecione uma marca da lista.')
+            return rerenderizar()
+
+        marca = Marca.objects.filter(pk=marca_id).first()
+        if not marca:
+            messages.error(request, 'Marca inválida — selecione uma marca da lista.')
+            return rerenderizar()
+
         if codigo_fabricante and Peca.objects.exclude(pk=peca.pk).filter(codigo_fabricante=codigo_fabricante).exists():
             messages.error(request, f'Já existe outra peça com o código do fabricante {codigo_fabricante}.')
             return rerenderizar()
 
+        peca.marca = marca
         peca.nome_generico = nome_generico
         peca.nome_tecnico = nome_tecnico
         peca.codigo_fabricante = codigo_fabricante or None
@@ -687,8 +746,8 @@ def excluir_marca(request, marca_id):
     marca = get_object_or_404(Marca, pk=marca_id)
 
     if request.method == 'POST':
-        if marca.produtos.exists():
-            messages.error(request, f'A marca "{marca.nome}" tem produtos vinculados e não pode ser excluída.')
+        if marca.produtos.exists() or marca.pecas.exists():
+            messages.error(request, f'A marca "{marca.nome}" tem produtos ou peças vinculados e não pode ser excluída.')
             return redirect('marcas_grupos')
 
         marca.delete()
