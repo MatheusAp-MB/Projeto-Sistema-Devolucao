@@ -223,6 +223,25 @@
         if (evento.key === 'Escape' && !modalPeca.hidden) fecharModalPeca();
     });
 
+    // ---------- reabre o modal sozinho se a página recarregou por causa
+    // da 1ª peça cadastrada via "Salvar e cadastrar outra" ----------
+    //
+    // [ATENÇÃO] → inserirNovoCard() ainda recarrega a página quando a
+    // grade não existe (1ª peça do sistema — ver comentário lá). Sem
+    // isso aqui, "Salvar e cadastrar outra" se comportaria diferente só
+    // por ser a primeira peça (fecharia o cadastro em vez de continuar),
+    // o que não faz sentido pro usuário. O sessionStorage é o jeito de
+    // carregar esse aviso de um carregamento de página pro outro.
+    try {
+        if (sessionStorage.getItem('gaveta_reabrir_modal_peca')) {
+            sessionStorage.removeItem('gaveta_reabrir_modal_peca');
+            abrirModalPecaCadastro();
+        }
+    } catch (erro) {
+        // sessionStorage indisponível (ex: modo privado) — sem problema,
+        // só não reabre sozinho; o usuário clica em "+ Nova peça" de novo.
+    }
+
     // ---------- preview de imagem ao escolher arquivo ----------
 
     campoImagem.addEventListener('change', function () {
@@ -433,14 +452,21 @@
         return card;
     }
 
-    function inserirNovoCard(dados) {
+    function inserirNovoCard(dados, continuarCadastrando) {
         if (!grade) {
             // Primeira peça cadastrada no sistema — o estado vazio tem um
             // HTML totalmente diferente (sem grade, sem filtros). Mais
             // simples e seguro recarregar aqui do que remontar tudo isso
-            // via JS pra um caso que só acontece uma vez.
+            // via JS pra um caso que só acontece uma vez. Mas se o clique
+            // foi em "Salvar e cadastrar outra", esse recarregar não pode
+            // virar um "fechar o modal sem querer" só por ser a primeira
+            // peça — guarda o aviso pra reabrir o modal (já limpo) assim
+            // que a página nova carregar, ver mais abaixo.
+            if (continuarCadastrando) {
+                try { sessionStorage.setItem('gaveta_reabrir_modal_peca', '1'); } catch (erro) {}
+            }
             window.location.reload();
-            return;
+            return true;
         }
 
         var card = criarCard({
@@ -540,7 +566,8 @@
                 if (ehEdicao) {
                     atualizarCardExistente(resultado.dados);
                 } else {
-                    inserirNovoCard(resultado.dados);
+                    var recarregouAPagina = inserirNovoCard(resultado.dados, continuarCadastrando);
+                    if (recarregouAPagina) return;
                 }
 
                 if (continuarCadastrando) {
