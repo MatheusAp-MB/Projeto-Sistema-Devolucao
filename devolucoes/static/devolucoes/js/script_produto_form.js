@@ -3,9 +3,9 @@
 // Função Objetivo: comportamentos da tela de cadastro/edição de produto.
 // Marca e Grupo Fornecedor são cadastros isolados: cada "Cadastrar" aqui
 // chama o servidor na hora (AJAX) e já fica salvo no banco, independente
-// de o Produto em si ser salvo depois — só a busca/seleção de uma marca
-// já existente é que preenche o campo escondido marca_id, que é o único
-// dado sobre marca que o formulário do produto realmente envia.
+// de o Produto em si ser salvo depois. Marca em si é sempre selecionada
+// de uma lista (nunca digitada livre) — o usuário abre o painel, busca
+// ou clica direto numa marca existente, ou cadastra uma nova ali mesmo.
 
 function obterCsrfToken() {
     var campo = document.querySelector('input[name=csrfmiddlewaretoken]');
@@ -13,43 +13,50 @@ function obterCsrfToken() {
 }
 
 (function () {
-    var campoBusca = document.getElementById('id_marca_busca');
+    var caixa = document.getElementById('id_marca_caixa');
+    var caixaTexto = document.getElementById('marca_caixa_texto');
     var campoMarcaId = document.getElementById('id_marca_id');
+    var seletorWrap = document.getElementById('marca_seletor_wrap');
+    var painel = document.getElementById('marca_painel');
+    var busca = document.getElementById('marca_busca');
+    var lista = document.getElementById('marca_lista');
     var chipGrupo = document.getElementById('chip_grupo_fornecedor');
-    var resultadosMarca = document.getElementById('marca_resultados');
+    var marcaErro = document.getElementById('marca_erro');
 
-    function atualizarChipGrupo() {
-        if (!campoBusca || !chipGrupo) return;
-        var nome = campoBusca.value.trim().toLowerCase();
+    if (!caixa || !campoMarcaId) return;
 
-        if (!nome) {
-            chipGrupo.className = 'produto-form-chip-grupo sem-grupo';
-            chipGrupo.textContent = '— grupo —';
-            return;
-        }
-
-        var grupo = window.MARCA_GRUPO_MAP ? window.MARCA_GRUPO_MAP[nome] : undefined;
-        if (grupo) {
+    function atualizarChipGrupo(grupoNome) {
+        if (!chipGrupo) return;
+        if (grupoNome) {
             chipGrupo.className = 'produto-form-chip-grupo com-grupo';
-            chipGrupo.textContent = 'Grupo: ' + grupo;
+            chipGrupo.textContent = 'Grupo: ' + grupoNome;
         } else {
             chipGrupo.className = 'produto-form-chip-grupo sem-grupo';
             chipGrupo.textContent = 'Sem grupo';
         }
     }
 
-    function renderizarResultadosMarca(termo) {
-        if (!resultadosMarca) return;
-        resultadosMarca.innerHTML = '';
+    function renderizarLista(termo) {
+        termo = (termo || '').trim().toLowerCase();
+        lista.innerHTML = '';
 
-        var lista = (window.MARCAS_CADASTRADAS || []).filter(function (marca) {
+        var marcaIdAtual = campoMarcaId.value;
+        var filtradas = (window.MARCAS_CADASTRADAS || []).filter(function (marca) {
             return marca.nome.toLowerCase().indexOf(termo) !== -1;
-        }).slice(0, 10);
+        });
 
-        lista.forEach(function (marca) {
+        if (filtradas.length === 0) {
+            var vazio = document.createElement('div');
+            vazio.className = 'produto-form-marca-painel-vazio';
+            vazio.textContent = 'Nenhuma marca encontrada.';
+            lista.appendChild(vazio);
+            return;
+        }
+
+        filtradas.forEach(function (marca) {
             var item = document.createElement('button');
             item.type = 'button';
-            item.className = 'produto-form-resultado-marca';
+            item.className = 'produto-form-marca-opcao' + (String(marca.id) === String(marcaIdAtual) ? ' selecionada' : '');
 
             var nomeSpan = document.createElement('span');
             nomeSpan.textContent = marca.nome;
@@ -57,57 +64,67 @@ function obterCsrfToken() {
 
             if (marca.grupo) {
                 var grupoSpan = document.createElement('span');
-                grupoSpan.className = 'produto-form-resultado-marca-grupo';
+                grupoSpan.className = 'produto-form-marca-opcao-grupo';
                 grupoSpan.textContent = marca.grupo;
                 item.appendChild(grupoSpan);
             }
 
-            item.addEventListener('click', function () {
-                campoBusca.value = marca.nome;
-                campoMarcaId.value = marca.id;
-                resultadosMarca.hidden = true;
-                if (marcaErro) marcaErro.hidden = true;
-                atualizarChipGrupo();
-            });
-
-            resultadosMarca.appendChild(item);
+            item.addEventListener('click', function () { selecionarMarca(marca); });
+            lista.appendChild(item);
         });
-
-        resultadosMarca.hidden = lista.length === 0;
     }
 
-    var marcaErro = document.getElementById('marca_erro');
+    function selecionarMarca(marca) {
+        campoMarcaId.value = marca.id;
+        caixaTexto.textContent = marca.nome;
+        caixa.classList.remove('vazio');
+        if (marcaErro) marcaErro.hidden = true;
+        atualizarChipGrupo(marca.grupo);
+        fecharPainel();
+    }
 
-    if (campoBusca && campoMarcaId) {
-        campoBusca.addEventListener('input', function () {
-            var termo = campoBusca.value.trim().toLowerCase();
+    function abrirPainel() {
+        painel.hidden = false;
+        caixa.classList.add('aberto');
+        if (busca) {
+            busca.value = '';
+            renderizarLista('');
+            setTimeout(function () { busca.focus(); }, 0);
+        }
+    }
 
-            // Digitar invalida a seleção anterior — só volta a valer
-            // marca_id se o texto bater exatamente com uma marca que
-            // já existe (permite digitar o nome certinho sem precisar
-            // clicar no resultado).
-            campoMarcaId.value = '';
-            var correspondenciaExata = (window.MARCAS_CADASTRADAS || []).find(function (marca) {
-                return marca.nome.toLowerCase() === termo;
-            });
-            if (correspondenciaExata) campoMarcaId.value = correspondenciaExata.id;
+    function fecharPainel() {
+        painel.hidden = true;
+        caixa.classList.remove('aberto');
+    }
 
-            if (marcaErro) marcaErro.hidden = true;
-            atualizarChipGrupo();
-            renderizarResultadosMarca(termo);
+    caixa.addEventListener('click', function () {
+        if (painel.hidden) abrirPainel(); else fecharPainel();
+    });
+    caixa.addEventListener('keydown', function (evento) {
+        if (evento.key === 'Enter' || evento.key === ' ') {
+            evento.preventDefault();
+            if (painel.hidden) abrirPainel(); else fecharPainel();
+        }
+    });
+
+    if (busca) busca.addEventListener('input', function () { renderizarLista(busca.value); });
+
+    document.addEventListener('click', function (evento) {
+        if (!seletorWrap.contains(evento.target)) fecharPainel();
+    });
+    document.addEventListener('keydown', function (evento) {
+        if (evento.key === 'Escape') fecharPainel();
+    });
+
+    // Estado inicial — editando um produto (ou reexibindo o formulário
+    // depois de um erro de validação) já vem com marca_id preenchido:
+    // só falta acender o chip de grupo certo.
+    if (campoMarcaId.value) {
+        var marcaInicial = (window.MARCAS_CADASTRADAS || []).find(function (marca) {
+            return String(marca.id) === String(campoMarcaId.value);
         });
-
-        campoBusca.addEventListener('focus', function () {
-            renderizarResultadosMarca(campoBusca.value.trim().toLowerCase());
-        });
-
-        document.addEventListener('click', function (evento) {
-            if (!resultadosMarca) return;
-            if (evento.target === campoBusca || resultadosMarca.contains(evento.target)) return;
-            resultadosMarca.hidden = true;
-        });
-
-        atualizarChipGrupo();
+        if (marcaInicial) atualizarChipGrupo(marcaInicial.grupo);
     }
 
     var botaoNovaMarca = document.getElementById('botao_nova_marca');
@@ -116,24 +133,6 @@ function obterCsrfToken() {
     if (botaoNovaMarca && caixaNovaMarca) {
         botaoNovaMarca.addEventListener('click', function () {
             caixaNovaMarca.hidden = !caixaNovaMarca.hidden;
-        });
-    }
-
-    var formProduto = document.getElementById('form-dados-produto');
-    if (formProduto && campoBusca && campoMarcaId) {
-        formProduto.addEventListener('submit', function (evento) {
-            var textoDigitado = campoBusca.value.trim();
-
-            // Campo de marca vazio de propósito passa liso (marca é
-            // opcional). O problema é só texto digitado que não virou
-            // nenhum marca_id — aí bloqueia, senão o produto salva sem
-            // marca e o texto some em silêncio.
-            if (!textoDigitado || campoMarcaId.value) return;
-
-            evento.preventDefault();
-            if (marcaErro) marcaErro.hidden = false;
-            renderizarResultadosMarca(textoDigitado.toLowerCase());
-            campoBusca.focus();
         });
     }
 
@@ -185,7 +184,7 @@ function obterCsrfToken() {
     var botaoCadastrarMarca = document.getElementById('botao_cadastrar_marca');
     var campoNovaMarcaNome = document.getElementById('id_nova_marca_nome');
 
-    if (botaoCadastrarMarca && campoNovaMarcaNome && campoBusca && campoMarcaId) {
+    if (botaoCadastrarMarca && campoNovaMarcaNome) {
         botaoCadastrarMarca.addEventListener('click', function () {
             var nome = campoNovaMarcaNome.value.trim();
             if (!nome) return;
@@ -211,20 +210,28 @@ function obterCsrfToken() {
                         return;
                     }
 
+                    var novaMarca = {id: dados.id, nome: dados.nome, grupo: dados.grupo ? dados.grupo.nome : null};
                     window.MARCAS_CADASTRADAS = window.MARCAS_CADASTRADAS || [];
-                    window.MARCAS_CADASTRADAS.push({id: dados.id, nome: dados.nome, grupo: dados.grupo ? dados.grupo.nome : null});
-                    window.MARCA_GRUPO_MAP = window.MARCA_GRUPO_MAP || {};
-                    window.MARCA_GRUPO_MAP[dados.nome.toLowerCase()] = dados.grupo ? dados.grupo.nome : null;
+                    window.MARCAS_CADASTRADAS.push(novaMarca);
 
-                    campoBusca.value = dados.nome;
-                    campoMarcaId.value = dados.id;
-                    if (marcaErro) marcaErro.hidden = true;
-                    atualizarChipGrupo();
-
-                    caixaNovaMarca.hidden = true;
                     campoNovaMarcaNome.value = '';
+                    caixaNovaMarca.hidden = true;
                     if (marcaFeedback) marcaFeedback.textContent = '';
+
+                    selecionarMarca(novaMarca);
                 });
+        });
+    }
+
+    var formProduto = document.getElementById('form-dados-produto');
+    if (formProduto) {
+        formProduto.addEventListener('submit', function (evento) {
+            if (campoMarcaId.value) return;
+
+            evento.preventDefault();
+            if (marcaErro) marcaErro.hidden = false;
+            abrirPainel();
+            caixa.focus();
         });
     }
 })();

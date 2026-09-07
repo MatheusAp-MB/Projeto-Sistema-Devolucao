@@ -257,12 +257,6 @@
     font-weight: 600;
 }
 
-.produto-form-erro-marca {
-    font-size: 11px;
-    color: #dc3545;
-    margin-top: 4px;
-}
-
 .produto-form-chip-grupo {
     height: 36px;
     display: flex;
