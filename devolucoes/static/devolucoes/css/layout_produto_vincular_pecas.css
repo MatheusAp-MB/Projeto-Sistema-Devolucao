@@ -92,9 +92,9 @@
 }
 
 .vp-header-foto {
-    width: 34px;
-    height: 34px;
-    border-radius: 6px;
+    width: 100px;
+    height: 100px;
+    border-radius: 8px;
     background-color: rgba(255, 255, 255, 0.12);
     display: flex;
     align-items: center;
@@ -111,7 +111,7 @@
 }
 
 .vp-header-foto i {
-    font-size: 14px;
+    font-size: 19px;
 }
 
 .vp-header-textos {
@@ -120,14 +120,14 @@
 }
 
 .vp-header-rotulo {
-    font-size: 10.5px;
+    font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: #a8c4dd;
 }
 
 .vp-header-nome {
-    font-size: 14px;
+    font-size: 21px;
     font-weight: 700;
     white-space: nowrap;
     overflow: hidden;
@@ -288,8 +288,8 @@
    cai num outro controle de formulário dentro do label). ===== */
 
 .vp-card {
-    flex: 0 0 230px;
-    width: 230px;
+    flex: 0 0 205px;
+    width: 205px;
     border: 2px solid #dee2e6;
     border-radius: 8px;
     background-color: #ffffff;
@@ -323,11 +323,11 @@
 
 .vp-card-checkbox-real {
     position: absolute;
-    top: 9px;
-    left: 9px;
+    top: 8px;
+    left: 8px;
     z-index: 3;
-    width: 24px;
-    height: 24px;
+    width: 23px;
+    height: 23px;
     margin: 0;
     opacity: 0;
     cursor: pointer;
@@ -335,11 +335,11 @@
 
 .vp-card-checkbox-visual {
     position: absolute;
-    top: 9px;
-    left: 9px;
+    top: 8px;
+    left: 8px;
     z-index: 2;
-    width: 24px;
-    height: 24px;
+    width: 23px;
+    height: 23px;
     border-radius: 5px;
     border: 2px solid #fff;
     background-color: rgba(255, 255, 255, 0.85);
@@ -348,7 +348,7 @@
     align-items: center;
     justify-content: center;
     color: transparent;
-    font-size: 12px;
+    font-size: 11.5px;
     pointer-events: none;
 }
 
@@ -368,16 +368,16 @@
 
 .vp-card-ja-vinculada {
     position: absolute;
-    top: 9px;
-    right: 9px;
+    top: 8px;
+    right: 8px;
     z-index: 2;
     background-color: #2e9e5b;
     color: #ffffff;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;
-    padding: 3px 8px;
+    padding: 2px 7px;
     border-radius: 10px;
 }
 
@@ -407,17 +407,17 @@
 }
 
 .vp-card-foto i {
-    font-size: 30px;
+    font-size: 26px;
     color: #adb5bd;
 }
 
 .vp-card-info {
-    padding: 12px 14px 0;
+    padding: 11px 13px 0;
     flex: 1;
 }
 
 .vp-card-nome {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: #1a3a5c;
     margin: 0 0 6px;
@@ -430,7 +430,7 @@
 }
 
 .vp-card-legendas p {
-    font-size: 11.5px;
+    font-size: 11px;
     color: #6c757d;
     margin: 2px 0;
     white-space: nowrap;
@@ -445,7 +445,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 14px;
+    padding: 11px 13px;
     border-top: 1px solid #eef1f4;
     margin-top: 8px;
     background-color: #f7fbff;
@@ -456,18 +456,18 @@
 }
 
 .vp-card-qtd-wrap label {
-    font-size: 11.5px;
+    font-size: 11px;
     color: #1a3a5c;
     font-weight: 600;
 }
 
 .vp-card-qtd-input {
-    width: 58px;
-    height: 28px;
+    width: 54px;
+    height: 27px;
     border: 1px solid #dee2e6;
     border-radius: 5px;
     text-align: center;
-    font-size: 13px;
+    font-size: 12.5px;
     font-family: inherit;
 }
 
