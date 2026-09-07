@@ -24,6 +24,8 @@ urlpatterns = [
     path('pecas/', views.gaveta_pecas, name='gaveta_pecas'),
     path('pecas/cadastrar/', views.cadastrar_peca_gaveta, name='cadastrar_peca_gaveta'),
     path('pecas/<int:peca_id>/editar/', views.editar_peca_gaveta, name='editar_peca_gaveta'),
+    path('pecas/vincular/', views.vincular_peca_gaveta, name='vincular_peca_gaveta'),
+    path('pecas/<int:peca_id>/produtos/buscar/', views.buscar_produtos, name='buscar_produtos'),
 
     path('marcas-grupos/', views.marcas_grupos, name='marcas_grupos'),
     path('marcas-grupos/marca/cadastrar/', views.cadastrar_marca_avulsa, name='cadastrar_marca_avulsa'),

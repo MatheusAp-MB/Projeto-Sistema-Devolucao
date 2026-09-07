@@ -607,12 +607,26 @@ def cadastrar_peca_avulsa(request):
 
 
 def desvincular_peca(request, compatibilidade_id):
+    """Desfaz o vínculo peça-produto — reaproveitado tanto pela tela de
+    produto (POST clássico, com redirect) quanto pela Gaveta de Peças,
+    no card expandido (POST via AJAX, com resposta em JSON)."""
     compatibilidade = get_object_or_404(Compatibilidade, pk=compatibilidade_id)
     codigo_barras = compatibilidade.produto.codigo_barras
 
     if request.method == 'POST':
+        eh_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         nome_peca = compatibilidade.peca.nome_generico
+        peca_id = compatibilidade.peca_id
+        produto_id = compatibilidade.produto_id
         compatibilidade.delete()
+
+        if eh_ajax:
+            return JsonResponse({
+                'peca_id': peca_id,
+                'produto_id': produto_id,
+                'qtd_produtos_vinculados': Peca.objects.get(pk=peca_id).compatibilidades.count(),
+            })
+
         messages.success(request, f'"{nome_peca}" desvinculada deste produto.')
 
     return redirect(f"{reverse('catalogo')}?codigo_barras={codigo_barras}")
@@ -832,6 +846,100 @@ def editar_peca_gaveta(request, peca_id):
         'imagem_url': peca.imagem.url if peca.imagem else None,
         'qtd_produtos_vinculados': peca.compatibilidades.count(),
     })
+
+
+def vincular_peca_gaveta(request):
+    """Endpoint AJAX (JSON) — cria (ou atualiza) o vínculo entre uma
+    peça e um produto. Chamado tanto do Modal de Vínculo aberto a
+    partir da Gaveta de Peças (peça travada) quanto do aberto a partir
+    da página de Produto (produto travado) — é o mesmo componente dos
+    dois lados.
+
+    Se o vínculo já existir, não cria duplicado — devolve a quantidade
+    atual pro modal mostrar o aviso de duplicidade. Só atualiza de
+    fato quando o pedido chega com confirmar_atualizacao=1 (segunda
+    chamada, depois que a pessoa confirma no modal)."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    peca_id = request.POST.get('peca_id', '').strip()
+    produto_id = request.POST.get('produto_id', '').strip()
+    confirmar_atualizacao = request.POST.get('confirmar_atualizacao') == '1'
+
+    try:
+        quantidade_esperada = int(request.POST.get('quantidade_esperada') or '0')
+    except ValueError:
+        quantidade_esperada = 0
+
+    if not peca_id or not produto_id:
+        return JsonResponse({'erro': 'Selecione a peça e o produto.'}, status=400)
+
+    peca = Peca.objects.filter(pk=peca_id).first()
+    if not peca:
+        return JsonResponse({'erro': 'Peça inválida.'}, status=400)
+
+    produto = Produto.objects.filter(pk=produto_id).first()
+    if not produto:
+        return JsonResponse({'erro': 'Produto inválido.'}, status=400)
+
+    if quantidade_esperada < 1:
+        return JsonResponse({'erro': 'Quantidade esperada precisa ser 1 ou mais.', 'campo': 'quantidade_esperada'}, status=400)
+
+    existente = Compatibilidade.objects.filter(peca=peca, produto=produto).first()
+
+    if existente and not confirmar_atualizacao:
+        return JsonResponse({
+            'duplicidade': True,
+            'quantidade_atual': existente.quantidade_esperada,
+        })
+
+    if existente:
+        existente.quantidade_esperada = quantidade_esperada
+        existente.save()
+        compatibilidade = existente
+        criada = False
+    else:
+        compatibilidade = Compatibilidade.objects.create(
+            peca=peca, produto=produto, quantidade_esperada=quantidade_esperada,
+        )
+        criada = True
+
+    return JsonResponse({
+        'id': compatibilidade.id,
+        'peca_id': peca.id,
+        'peca_nome': peca.nome_generico,
+        'produto_id': produto.id,
+        'produto_nome': produto.nome,
+        'quantidade_esperada': compatibilidade.quantidade_esperada,
+        'criada': criada,
+    })
+
+
+def buscar_produtos(request, peca_id):
+    """Busca de produtos pra vincular a esta peça — simétrico ao
+    buscar_pecas (busca de peças pra vincular a um produto). Exclui
+    produtos já vinculados a esta peça, pelo mesmo motivo: quem já
+    está vinculado já aparece na lista, a busca é só pra achar algo
+    novo pra adicionar."""
+    termo = request.GET.get('q', '').strip()
+
+    resultados = []
+    if len(termo) >= 2:
+        produtos = (
+            Produto.objects.filter(nome__icontains=termo)
+            .exclude(compatibilidades__peca_id=peca_id)
+            .select_related('marca')[:8]
+        )
+
+        for produto in produtos:
+            resultados.append({
+                'id': produto.id,
+                'nome': produto.nome,
+                'foto_url': produto.foto.url if produto.foto else None,
+                'marca_nome': produto.marca.nome,
+            })
+
+    return JsonResponse({'resultados': resultados})
 
 
 def marcas_grupos(request):
