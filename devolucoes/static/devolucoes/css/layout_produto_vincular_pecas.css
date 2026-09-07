@@ -32,16 +32,28 @@
 }
 
 /* ===== Cabeçalho fixo — sempre visível, contexto de qual produto está
-   recebendo os vínculos, pra nunca confundir com "editar produto" ===== */
+   recebendo os vínculos, pra nunca confundir com "editar produto".
+
+   * [ATENÇÃO] → NÃO usar margin negativa aqui pra tentar colar o cabeçalho
+   na toolbar de cima. .conteudo-principal (do template base) tem
+   overflow-y/x: auto, e um elemento position:sticky dentro de um
+   container com overflow diferente de visible IGNORA margin negativa na
+   direção do sticky — o resultado não é "colar", é um espaço em branco do
+   tamanho do padding do .conteudo-principal aparecendo entre a toolbar e
+   o cabeçalho (foi exatamente esse o bug visual relatado e confirmado por
+   medição direta). Sem margin negativa, o cabeçalho fica com o respiro
+   normal de 24px como qualquer outra seção da página — sem tentar
+   nenhum truque de "colar na borda". ===== */
 
 .vp-header {
     position: sticky;
     top: 0;
     z-index: 20;
-    margin: -24px -24px 20px;
+    margin: 0 0 20px;
     background-color: #1a3a5c;
     color: #ffffff;
     padding: 14px 32px;
+    border-radius: 8px;
     display: flex;
     align-items: center;
     gap: 16px;
@@ -276,8 +288,8 @@
    cai num outro controle de formulário dentro do label). ===== */
 
 .vp-card {
-    flex: 0 0 190px;
-    width: 190px;
+    flex: 0 0 230px;
+    width: 230px;
     border: 2px solid #dee2e6;
     border-radius: 8px;
     background-color: #ffffff;
@@ -311,11 +323,11 @@
 
 .vp-card-checkbox-real {
     position: absolute;
-    top: 8px;
-    left: 8px;
+    top: 9px;
+    left: 9px;
     z-index: 3;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     margin: 0;
     opacity: 0;
     cursor: pointer;
@@ -323,11 +335,11 @@
 
 .vp-card-checkbox-visual {
     position: absolute;
-    top: 8px;
-    left: 8px;
+    top: 9px;
+    left: 9px;
     z-index: 2;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 5px;
     border: 2px solid #fff;
     background-color: rgba(255, 255, 255, 0.85);
@@ -336,7 +348,7 @@
     align-items: center;
     justify-content: center;
     color: transparent;
-    font-size: 11px;
+    font-size: 12px;
     pointer-events: none;
 }
 
@@ -356,16 +368,16 @@
 
 .vp-card-ja-vinculada {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 9px;
+    right: 9px;
     z-index: 2;
     background-color: #2e9e5b;
     color: #ffffff;
-    font-size: 9.5px;
+    font-size: 10.5px;
     font-weight: 700;
     letter-spacing: 0.02em;
     text-transform: uppercase;
-    padding: 2px 7px;
+    padding: 3px 8px;
     border-radius: 10px;
 }
 
@@ -395,17 +407,17 @@
 }
 
 .vp-card-foto i {
-    font-size: 24px;
+    font-size: 30px;
     color: #adb5bd;
 }
 
 .vp-card-info {
-    padding: 10px 12px 0;
+    padding: 12px 14px 0;
     flex: 1;
 }
 
 .vp-card-nome {
-    font-size: 12.5px;
+    font-size: 14px;
     font-weight: 600;
     color: #1a3a5c;
     margin: 0 0 6px;
@@ -418,7 +430,7 @@
 }
 
 .vp-card-legendas p {
-    font-size: 10.5px;
+    font-size: 11.5px;
     color: #6c757d;
     margin: 2px 0;
     white-space: nowrap;
@@ -433,7 +445,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 12px;
+    padding: 12px 14px;
     border-top: 1px solid #eef1f4;
     margin-top: 8px;
     background-color: #f7fbff;
@@ -444,18 +456,18 @@
 }
 
 .vp-card-qtd-wrap label {
-    font-size: 10.5px;
+    font-size: 11.5px;
     color: #1a3a5c;
     font-weight: 600;
 }
 
 .vp-card-qtd-input {
-    width: 52px;
-    height: 26px;
+    width: 58px;
+    height: 28px;
     border: 1px solid #dee2e6;
     border-radius: 5px;
     text-align: center;
-    font-size: 12.5px;
+    font-size: 13px;
     font-family: inherit;
 }
 
@@ -558,7 +570,7 @@
 
 @media (max-width: 480px) {
     .vp-header {
-        margin: -24px -24px 16px;
+        margin: 0 0 16px;
         padding: 12px 16px;
     }
 
