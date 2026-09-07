@@ -446,8 +446,9 @@
 }
 
 .gaveta-modal-cartao {
-    width: min(92vw, 560px);
-    max-height: 90vh;
+    width: min(95vw, 820px);
+    min-height: 70vh;
+    max-height: 98vh;
     background-color: #ffffff;
     border-radius: 8px;
     display: flex;
@@ -492,6 +493,17 @@
 .gaveta-modal-corpo {
     padding: 20px;
     overflow-y: auto;
+}
+
+/* O painel de marca (#modal_peca_marca_painel) é position:absolute —
+   flutua por cima do resto do formulário sem empurrar nada pra baixo,
+   então o corpo do Modal de Peça nunca cresce sozinho pra acomodar
+   "Nova marca"/"novo grupo" abertos (é por isso que só mexer no
+   max-height do cartão não fazia diferença nenhuma). Dando um
+   min-height pro corpo, ele já nasce com espaço de sobra pra esse
+   estado mais alto, sem precisar rolar na maioria das telas. */
+#modal_peca .gaveta-modal-corpo {
+    min-height: 450px;
 }
 
 .gaveta-modal-rodape {

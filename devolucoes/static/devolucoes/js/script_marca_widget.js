@@ -149,15 +149,31 @@ function inicializarSeletorMarca(ids) {
         if (marcaInicial) atualizarChipGrupo(marcaInicial.grupo);
     }
 
+    // Dentro do Modal de Peça (bem mais baixo que a página de Produto),
+    // essas caixas reveladas podem nascer fora da área visível, sem
+    // nenhuma pista de que precisa rolar pra baixo pra achar o que
+    // acabou de abrir. scrollIntoView com "nearest" só rola quando a
+    // caixa realmente não está visível — na página de Produto, onde
+    // normalmente já cabe, não faz nada.
+    function rolarAteVisivel(elemento) {
+        requestAnimationFrame(function () {
+            if (elemento.scrollIntoView) {
+                elemento.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+            }
+        });
+    }
+
     if (botaoNovaMarca && caixaNovaMarca) {
         botaoNovaMarca.addEventListener('click', function () {
             caixaNovaMarca.hidden = !caixaNovaMarca.hidden;
+            if (!caixaNovaMarca.hidden) rolarAteVisivel(caixaNovaMarca);
         });
     }
 
     if (selectGrupo && caixaNovoGrupo) {
         selectGrupo.addEventListener('change', function () {
             caixaNovoGrupo.hidden = selectGrupo.value !== '__novo__';
+            if (!caixaNovoGrupo.hidden) rolarAteVisivel(caixaNovoGrupo);
         });
     }
 
