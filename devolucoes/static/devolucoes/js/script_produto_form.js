@@ -61,3 +61,28 @@ inicializarSeletorMarca({
         }
     });
 })();
+
+// ---------- Modal de Vínculo com o produto travado (Objetivo 7) ----------
+//
+// [ATENÇÃO] → Produto não muda de mecanismo (decisão do Objetivo 0): a tela
+// continua com formulário clássico e redirect. Por isso, diferente da
+// Gaveta de Peças (que atualiza o card na hora via JS), aqui a gente só
+// recarrega a página depois de vincular — o servidor já sabe montar a
+// linha completa (com marca) a partir do banco, então não faz sentido
+// duplicar essa montagem em JS pra um caso que também já teria que lidar
+// com o estado vazio ("Nenhuma peça vinculada ainda" → lista). O
+// "Desvincular" de cada linha já segue esse mesmo padrão (form clássico,
+// sem JS nenhum aqui) — isso já funcionava antes do Objetivo 7.
+(function () {
+    var botaoVincular = document.querySelector('[data-abrir-modal-vinculo-produto]');
+    if (!botaoVincular) return;
+
+    botaoVincular.addEventListener('click', function () {
+        var produtoId = botaoVincular.getAttribute('data-produto-id');
+        var produtoNome = botaoVincular.getAttribute('data-produto-nome');
+
+        ModalVinculo.abrirComProduto(produtoId, produtoNome, function () {
+            window.location.reload();
+        });
+    });
+})();
