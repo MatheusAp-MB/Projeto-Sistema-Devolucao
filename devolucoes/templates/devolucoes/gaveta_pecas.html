@@ -1,0 +1,58 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Peças{% endblock %}
+{% block toolbar_titulo %}Peças{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_produto_form.css' %}">
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_gaveta_pecas.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+    <div class="gaveta-cartao">
+        <div class="gaveta-cabecalho">
+            <p class="gaveta-titulo">Peças cadastradas</p>
+            <button type="button" id="gaveta_botao_nova_peca" class="gaveta-botao-nova-peca">+ Nova peça</button>
+        </div>
+
+        {% if pecas %}
+            <div class="gaveta-filtros">
+                <input type="text" id="gaveta_busca" class="gaveta-busca" placeholder="Buscar peça pelo nome..." autocomplete="off">
+                <select id="gaveta_filtro_marca" class="gaveta-filtro">
+                    <option value="">Todas as marcas</option>
+                    {% for marca in marcas %}
+                        <option value="{{ marca.id }}">{{ marca.nome }}</option>
+                    {% endfor %}
+                </select>
+                <select id="gaveta_filtro_status" class="gaveta-filtro">
+                    <option value="">Todas</option>
+                    <option value="vinculada">Vinculadas</option>
+                    <option value="avulsa">Avulsas</option>
+                </select>
+            </div>
+
+            <div class="gaveta-grade" id="gaveta_grade">
+                {% for peca in pecas %}
+                    {% include 'devolucoes/_card_peca.html' with peca=peca %}
+                {% endfor %}
+            </div>
+
+            <p class="gaveta-vazio-busca" id="gaveta_vazio_busca" hidden>Nenhuma peça encontrada.</p>
+        {% else %}
+            <div class="gaveta-vazio-inicial">
+                <i class="fas fa-puzzle-piece"></i>
+                <p>Nenhuma peça cadastrada ainda.</p>
+                <button type="button" id="gaveta_botao_nova_peca_vazio" class="gaveta-botao-nova-peca">+ Cadastrar a primeira peça</button>
+            </div>
+        {% endif %}
+    </div>
+
+    {% include 'devolucoes/_modal_peca.html' %}
+    {% include 'devolucoes/_modal_vinculo.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'devolucoes/js/script_marca_widget.js' %}"></script>
+<script src="{% static 'devolucoes/js/script_gaveta_pecas.js' %}"></script>
+{% endblock %}

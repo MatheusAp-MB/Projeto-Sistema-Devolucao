@@ -1,0 +1,66 @@
+{% load static %}
+<div class="gaveta-peca-card" data-item data-peca-id="{{ peca.id }}"
+     data-busca="{{ peca.nome_generico|lower }} {{ peca.marca.nome|lower }}"
+     data-marca-id="{{ peca.marca_id }}"
+     data-status="{% if peca.qtd_produtos_vinculados %}vinculada{% else %}avulsa{% endif %}">
+    <div class="gaveta-peca-card-foto{% if peca.imagem %} catalogo-peca-foto--clicavel{% endif %}"
+         {% if peca.imagem %}data-imagem-url="{{ peca.imagem.url }}" data-imagem-titulo="{{ peca.nome_generico }}"{% endif %}>
+        {% if peca.imagem %}
+            <img src="{{ peca.imagem.url }}" alt="{{ peca.nome_generico }}">
+        {% else %}
+            <span class="gaveta-peca-card-foto-vazia">sem foto</span>
+        {% endif %}
+    </div>
+
+    <div class="gaveta-peca-card-info">
+        <p class="gaveta-peca-card-nome" title="{{ peca.nome_generico }}">{{ peca.nome_generico }}</p>
+        <p class="gaveta-peca-card-marca">{{ peca.marca.nome }}</p>
+
+        {% if peca.qtd_produtos_vinculados %}
+            <button type="button" class="gaveta-peca-card-badge vinculada" data-badge-vinculo>
+                Vinculada a {{ peca.qtd_produtos_vinculados }} produto{{ peca.qtd_produtos_vinculados|pluralize }}
+            </button>
+            <div class="gaveta-peca-card-produtos" data-lista-produtos-vinculados hidden>
+                {% for comp in peca.compatibilidades.all %}
+                    <div class="gaveta-peca-card-produto-linha">
+                        <span>{{ comp.produto.nome }}</span>
+                        <form method="post" action="{% url 'desvincular_peca' comp.id %}" class="gaveta-form-desvincular" data-form-desvincular>
+                            {% csrf_token %}
+                            <button type="submit" class="gaveta-botao-desvincular"
+                                    data-nome-produto="{{ comp.produto.nome }}"
+                                    data-nome-peca="{{ peca.nome_generico }}">Desvincular</button>
+                        </form>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <span class="gaveta-peca-card-badge avulsa">Avulsa</span>
+        {% endif %}
+    </div>
+
+    <div class="gaveta-peca-card-rodape">
+        <button type="button" class="gaveta-peca-card-acao" data-abrir-modal-peca
+                data-peca-id="{{ peca.id }}"
+                data-peca-nome="{{ peca.nome_generico }}"
+                data-peca-nome-tecnico="{{ peca.nome_tecnico }}"
+                data-peca-codigo-fabricante="{{ peca.codigo_fabricante|default:'' }}"
+                data-peca-marca-id="{{ peca.marca_id }}"
+                data-peca-marca-nome="{{ peca.marca.nome }}"
+                data-peca-imagem-url="{{ peca.imagem.url|default:'' }}">
+            Editar
+        </button>
+
+        <form method="post" action="{% url 'excluir_peca' peca.id %}" class="gaveta-form-excluir-peca" data-form-excluir-peca>
+            {% csrf_token %}
+            <button type="submit" class="gaveta-peca-card-acao"
+                    data-peca-nome="{{ peca.nome_generico }}"
+                    data-qtd-produtos="{{ peca.qtd_produtos_vinculados }}">Excluir</button>
+        </form>
+
+        <button type="button" class="gaveta-peca-card-acao gaveta-peca-card-acao--destaque" data-abrir-modal-vinculo
+                data-peca-id="{{ peca.id }}"
+                data-peca-nome="{{ peca.nome_generico }}">
+            Vincular a um produto
+        </button>
+    </div>
+</div>

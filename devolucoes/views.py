@@ -738,6 +738,7 @@ def gaveta_pecas(request):
 
     contexto = {
         'pecas': pecas,
+        'marcas': Marca.objects.all(),
         'marcas_json': _marcas_json(),
         'grupos': GrupoFornecedor.objects.all(),
         'pagina_ativa': 'gaveta_pecas',

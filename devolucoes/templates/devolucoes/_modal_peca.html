@@ -1,0 +1,113 @@
+{% load static %}
+<div id="modal_peca" class="gaveta-modal-overlay" hidden
+     data-url-cadastrar="{% url 'cadastrar_peca_gaveta' %}"
+     data-url-editar-template="{% url 'editar_peca_gaveta' 0 %}">
+    <div class="gaveta-modal-cartao">
+        <div class="gaveta-modal-cabecalho">
+            <span class="gaveta-modal-titulo" id="modal_peca_titulo">Cadastrar peça</span>
+            <button type="button" class="gaveta-modal-fechar" id="modal_peca_fechar" aria-label="Fechar">&times;</button>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" id="form_modal_peca" class="gaveta-modal-corpo">
+            {% csrf_token %}
+            <input type="hidden" id="modal_peca_id" value="">
+
+            <div class="produto-form-topo">
+                <label class="produto-form-foto-uploader" for="modal_peca_imagem">
+                    <img id="modal_peca_preview_imagem" hidden alt="Pré-visualização">
+                    <span class="produto-form-foto-texto" id="modal_peca_foto_texto">
+                        <strong id="modal_peca_foto_texto_titulo">Escolher foto *</strong>
+                        clique pra selecionar uma imagem da peça
+                    </span>
+                </label>
+                <input type="file" name="imagem" accept="image/*" id="modal_peca_imagem" class="produto-form-input-oculto">
+
+                <div class="produto-form-identificacao">
+                    <div class="produto-form-campo">
+                        <label for="modal_peca_nome">Nome genérico *</label>
+                        <input type="text" name="nome" id="modal_peca_nome" placeholder="Ex: Apoio de braço" required>
+                    </div>
+
+                    <div class="produto-form-campo">
+                        <label for="modal_peca_nome_tecnico">Nome técnico</label>
+                        <input type="text" name="nome_tecnico" id="modal_peca_nome_tecnico" placeholder="Nome oficial do fabricante">
+                    </div>
+
+                    <div class="produto-form-campo">
+                        <label for="modal_peca_marca_caixa">Marca *</label>
+                        <div class="produto-form-linha-marca-grupo">
+                            <div class="produto-form-marca-seletor-wrap" id="modal_peca_marca_seletor_wrap"
+                                 data-url-cadastrar-marca="{% url 'cadastrar_marca' %}"
+                                 data-url-cadastrar-grupo-fornecedor="{% url 'cadastrar_grupo_fornecedor' %}"
+                                 data-marcas="{{ marcas_json }}">
+                                <div class="produto-form-marca-caixa vazio" id="modal_peca_marca_caixa" tabindex="0">
+                                    <span id="modal_peca_marca_caixa_texto">Selecione uma marca</span>
+                                    <i class="fas fa-chevron-down"></i>
+                                </div>
+                                <input type="hidden" name="marca_id" id="modal_peca_marca_id" value="">
+
+                                <div class="produto-form-marca-painel" id="modal_peca_marca_painel" hidden>
+                                    <input type="text" class="produto-form-marca-painel-busca" id="modal_peca_marca_busca" placeholder="Buscar marca...">
+                                    <div class="produto-form-marca-painel-lista" id="modal_peca_marca_lista"></div>
+                                    <div class="produto-form-marca-painel-divisor"></div>
+                                    <button type="button" class="produto-form-marca-opcao produto-form-marca-opcao-nova" id="modal_peca_botao_nova_marca">
+                                        <span><i class="fas fa-plus" style="font-size:10px;margin-right:6px;"></i>Cadastrar marca nova</span>
+                                    </button>
+
+                                    <div class="produto-form-caixa-nova-marca" id="modal_peca_caixa_nova_marca" hidden>
+                                        <p class="produto-form-caixa-titulo">Nova marca</p>
+                                        <div class="produto-form-caixa-linha">
+                                            <div class="produto-form-campo">
+                                                <label for="modal_peca_nova_marca_nome">Nome da marca</label>
+                                                <input type="text" id="modal_peca_nova_marca_nome" placeholder="Ex: STANLEY">
+                                            </div>
+                                            <div class="produto-form-campo">
+                                                <label for="modal_peca_grupo_fornecedor">Grupo fornecedor</label>
+                                                <select id="modal_peca_grupo_fornecedor">
+                                                    <option value="">— nenhum —</option>
+                                                    {% for grupo in grupos %}
+                                                        <option value="{{ grupo.id }}">{{ grupo.nome }}</option>
+                                                    {% endfor %}
+                                                    <option value="__novo__">+ novo grupo…</option>
+                                                </select>
+                                            </div>
+                                            <button type="button" id="modal_peca_botao_cadastrar_marca">Cadastrar marca</button>
+                                        </div>
+
+                                        <div class="produto-form-caixa-linha-2col" id="modal_peca_caixa_novo_grupo" hidden>
+                                            <div class="produto-form-campo">
+                                                <label for="modal_peca_novo_grupo_nome">Nome do novo grupo</label>
+                                                <input type="text" id="modal_peca_novo_grupo_nome" placeholder="Ex: ToolsWorld">
+                                            </div>
+                                            <button type="button" id="modal_peca_botao_cadastrar_grupo">Cadastrar grupo</button>
+                                        </div>
+
+                                        <p class="produto-form-ajuda" id="modal_peca_marca_feedback"></p>
+                                    </div>
+                                </div>
+                            </div>
+                            <span class="produto-form-chip-grupo sem-grupo" id="modal_peca_chip_grupo">— grupo —</span>
+                        </div>
+                        <p class="produto-form-erro-marca" id="modal_peca_marca_erro" hidden>Marca é obrigatória — selecione uma marca da lista.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="produto-form-secao">
+                <p class="produto-form-rotulo-secao">Código</p>
+                <div class="produto-form-campo">
+                    <label for="modal_peca_codigo_fabricante">Código do fabricante</label>
+                    <input type="text" name="codigo_fabricante" id="modal_peca_codigo_fabricante" placeholder="Ex: MTX-8720">
+                </div>
+            </div>
+
+            <p class="gaveta-modal-erro-geral" id="modal_peca_erro_geral" hidden></p>
+        </form>
+
+        <div class="gaveta-modal-rodape">
+            <button type="button" class="produto-form-botao-cancelar" id="modal_peca_cancelar">Cancelar</button>
+            <button type="submit" form="form_modal_peca" class="produto-form-botao-salvar produto-form-botao-salvar--secundario" id="modal_peca_botao_salvar_outra" data-salvar-e-continuar>Salvar e cadastrar outra</button>
+            <button type="submit" form="form_modal_peca" class="produto-form-botao-salvar" id="modal_peca_botao_salvar">Salvar</button>
+        </div>
+    </div>
+</div>

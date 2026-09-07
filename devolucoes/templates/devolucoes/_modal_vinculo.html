@@ -1,0 +1,59 @@
+{% load static %}
+<div id="modal_vinculo" class="gaveta-modal-overlay" hidden
+     data-url-vincular="{% url 'vincular_peca_gaveta' %}"
+     data-url-buscar-produtos-template="{% url 'buscar_produtos' 0 %}"
+     data-url-buscar-pecas-template="{% url 'buscar_pecas' 0 %}"
+     data-url-gaveta-pecas="{% url 'gaveta_pecas' %}">
+    <div class="gaveta-modal-cartao gaveta-modal-cartao--vinculo">
+        <div class="gaveta-modal-cabecalho">
+            <span class="gaveta-modal-titulo" id="modal_vinculo_titulo">Vincular peça a um produto</span>
+            <button type="button" class="gaveta-modal-fechar" id="modal_vinculo_fechar" aria-label="Fechar">&times;</button>
+        </div>
+
+        <div class="gaveta-modal-corpo">
+            <div class="gaveta-vinculo-lado" id="modal_vinculo_lado_peca">
+                <p class="gaveta-vinculo-rotulo">Peça</p>
+                <div class="gaveta-vinculo-chip" id="modal_vinculo_chip_peca" hidden>
+                    <span id="modal_vinculo_chip_peca_nome"></span>
+                    <button type="button" id="modal_vinculo_trocar_peca" hidden>trocar</button>
+                </div>
+                <div class="gaveta-vinculo-busca" id="modal_vinculo_busca_peca_wrap" hidden>
+                    <input type="text" id="modal_vinculo_busca_peca" placeholder="Buscar peça pelo nome..." autocomplete="off">
+                    <div id="modal_vinculo_resultados_peca" class="gaveta-vinculo-resultados" hidden></div>
+                </div>
+            </div>
+
+            <div class="gaveta-vinculo-lado" id="modal_vinculo_lado_produto">
+                <p class="gaveta-vinculo-rotulo">Produto</p>
+                <div class="gaveta-vinculo-chip" id="modal_vinculo_chip_produto" hidden>
+                    <span id="modal_vinculo_chip_produto_nome"></span>
+                    <button type="button" id="modal_vinculo_trocar_produto" hidden>trocar</button>
+                </div>
+                <div class="gaveta-vinculo-busca" id="modal_vinculo_busca_produto_wrap" hidden>
+                    <input type="text" id="modal_vinculo_busca_produto" placeholder="Buscar produto pelo nome..." autocomplete="off">
+                    <div id="modal_vinculo_resultados_produto" class="gaveta-vinculo-resultados" hidden></div>
+                </div>
+            </div>
+
+            <p class="gaveta-vinculo-nao-encontrado" id="modal_vinculo_nao_encontrado" hidden></p>
+
+            <div class="gaveta-vinculo-quantidade" id="modal_vinculo_quantidade_wrap" hidden>
+                <label for="modal_vinculo_quantidade">Quantidade esperada *</label>
+                <input type="number" id="modal_vinculo_quantidade" min="1" value="1">
+            </div>
+
+            <div class="gaveta-vinculo-duplicidade" id="modal_vinculo_duplicidade" hidden>
+                <p id="modal_vinculo_duplicidade_texto"></p>
+                <label for="modal_vinculo_nova_quantidade">Nova quantidade</label>
+                <input type="number" id="modal_vinculo_nova_quantidade" min="1" value="1">
+            </div>
+
+            <p class="gaveta-modal-erro-geral" id="modal_vinculo_erro_geral" hidden></p>
+        </div>
+
+        <div class="gaveta-modal-rodape">
+            <button type="button" class="produto-form-botao-cancelar" id="modal_vinculo_cancelar">Cancelar</button>
+            <button type="button" class="produto-form-botao-salvar" id="modal_vinculo_confirmar">Vincular</button>
+        </div>
+    </div>
+</div>
