@@ -10,16 +10,22 @@
    uma com seu próprio prefixo).
 
    * [ATENÇÃO] → o realce de seleção (borda azul, quadradinho preenchido,
-   campo de quantidade aparecendo) depende de :has() — suportado por todo
-   navegador moderno (Chrome/Edge/Firefox/Safari, desde 2023), mas
-   degrada com segurança num navegador muito antigo: a peça continua
-   marcável/desmarcável normalmente (checkbox nativo dentro do <label> do
-   card, sem JS nenhum envolvido nisso) e o campo de quantidade fica
-   sempre visível por padrão (só é esse "sempre visível" que muda; nunca
-   vira "sempre escondido"). O estado inicial (peça já vinculada antes de
-   abrir a tela) sempre pinta certo em qualquer navegador, via a classe
-   .ja-vinculada vinda do servidor — só a repintura ao vivo depois de um
-   clique é que depende de :has(). */
+   selo "Já vinculada", campo de quantidade aparecendo) depende de :has()
+   — suportado por todo navegador moderno (Chrome/Edge/Firefox/Safari,
+   desde 2023) — e em todos eles reflete o estado ATUAL do checkbox, não
+   o estado do carregamento da página: desmarcar uma peça que já estava
+   vinculada tira a borda azul, o quadradinho preenchido e o selo "Já
+   vinculada" na hora, exatamente como marcar uma peça nova os traz. A
+   classe .ja-vinculada (vinda do servidor) só entra em ação dentro do
+   @supports not selector(:has(a)) — ou seja, é usada apenas por um
+   navegador tão antigo que nem suporta :has(): nesse caso a pintura do
+   estado inicial (peça já vinculada antes de abrir a tela) ainda sai
+   certa, mas não atualiza mais depois de um clique (a peça continua
+   marcável/desmarcável normalmente, via checkbox nativo dentro do
+   <label> do card, sem JS nenhum envolvido nisso — só o realce visual
+   ao vivo que fica parado). O campo de quantidade segue a mesma regra:
+   sempre visível por padrão, e é o :has() quem decide escondê-lo quando
+   a peça não está selecionada — nunca o contrário. */
 
 .vp-pagina {
     display: block;
@@ -287,10 +293,20 @@
     border-color: #b7d3e8;
 }
 
-.vp-card.ja-vinculada,
 .vp-card:has(.vp-card-checkbox-real:checked) {
     border-color: #2e7bb5;
     box-shadow: 0 0 0 3px rgba(46, 123, 181, 0.12);
+}
+
+/* Fallback só pra navegador sem :has() — pinta certo a peça já vinculada
+   no carregamento da página, mas nunca atualiza ao vivo (sem JS pra isso).
+   Em navegador com :has() essa regra nem entra em ação: a de cima já
+   cobre certinho tanto o estado inicial quanto o clique. */
+@supports not selector(:has(a)) {
+    .vp-card.ja-vinculada {
+        border-color: #2e7bb5;
+        box-shadow: 0 0 0 3px rgba(46, 123, 181, 0.12);
+    }
 }
 
 .vp-card-checkbox-real {
@@ -324,11 +340,18 @@
     pointer-events: none;
 }
 
-.vp-card.ja-vinculada .vp-card-checkbox-visual,
 .vp-card:has(.vp-card-checkbox-real:checked) .vp-card-checkbox-visual {
     background-color: #2e7bb5;
     border-color: #2e7bb5;
     color: #ffffff;
+}
+
+@supports not selector(:has(a)) {
+    .vp-card.ja-vinculada .vp-card-checkbox-visual {
+        background-color: #2e7bb5;
+        border-color: #2e7bb5;
+        color: #ffffff;
+    }
 }
 
 .vp-card-ja-vinculada {
@@ -344,6 +367,14 @@
     text-transform: uppercase;
     padding: 2px 7px;
     border-radius: 10px;
+}
+
+/* O selo "Já vinculada" some assim que a peça é desmarcada — só em
+   navegador com :has() (sem isso, some junto com o resto do realce ao
+   vivo, ver nota no topo do arquivo). Sem :has(), o selo fica sempre
+   visível pra peça que começou vinculada, igual antes. */
+.vp-card:not(:has(.vp-card-checkbox-real:checked)) .vp-card-ja-vinculada {
+    display: none;
 }
 
 .vp-card-foto {
@@ -408,7 +439,7 @@
     background-color: #f7fbff;
 }
 
-.vp-card:not(.ja-vinculada):not(:has(.vp-card-checkbox-real:checked)) .vp-card-qtd-wrap {
+.vp-card:not(:has(.vp-card-checkbox-real:checked)) .vp-card-qtd-wrap {
     display: none;
 }
 
