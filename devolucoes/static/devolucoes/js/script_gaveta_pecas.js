@@ -86,7 +86,7 @@
 
     // ---------- seletor de marca do Modal de Peça (widget compartilhado) ----------
 
-    inicializarSeletorMarca({
+    var seletorMarcaModalPeca = inicializarSeletorMarca({
         wrap: 'modal_peca_marca_seletor_wrap',
         caixa: 'modal_peca_marca_caixa',
         caixaTexto: 'modal_peca_marca_caixa_texto',
@@ -175,6 +175,7 @@
         if (fotoTexto) fotoTexto.hidden = false;
         if (fotoTextoTitulo) fotoTextoTitulo.textContent = 'Escolher foto *';
         campoImagem.required = true;
+        if (seletorMarcaModalPeca) seletorMarcaModalPeca.resetar();
     }
 
     function abrirModalPecaCadastro() {

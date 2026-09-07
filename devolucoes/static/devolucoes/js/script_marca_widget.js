@@ -118,6 +118,20 @@ function inicializarSeletorMarca(ids) {
     function fecharPainel() {
         painel.hidden = true;
         caixa.classList.remove('aberto');
+
+        // "Cadastrar marca nova"/"novo grupo" são caixas *dentro* do painel,
+        // não do formulário inteiro — fechar o painel (clique fora, Esc,
+        // clicar de novo na caixa, ou escolher uma marca da lista) é o
+        // único momento comum a toda forma de sair dele, então é aqui que
+        // elas voltam ao estado inicial (fechadas). Sem isso, quem abria
+        // "Cadastrar marca nova", fechava o painel sem cadastrar nada e
+        // reabria via a própria caixa de marca (sem nunca fechar o modal
+        // inteiro) continuava vendo a caixa aberta.
+        if (caixaNovaMarca) caixaNovaMarca.hidden = true;
+        if (caixaNovoGrupo) caixaNovoGrupo.hidden = true;
+        if (campoNovaMarcaNome) campoNovaMarcaNome.value = '';
+        if (campoNovoGrupoNome) campoNovoGrupoNome.value = '';
+        if (marcaFeedback) marcaFeedback.textContent = '';
     }
 
     caixa.addEventListener('click', function () {
@@ -258,4 +272,21 @@ function inicializarSeletorMarca(ids) {
             caixa.focus();
         });
     }
+
+    // form.reset() (chamado por quem reaproveita este seletor dentro de
+    // um modal que reabre várias vezes, como o Modal de Peça) só limpa
+    // valor de campo — não mexe no "hidden" de "Nova marca"/"novo grupo",
+    // já que isso não é estado de formulário nativo. Sem isso, quem abriu
+    // "Cadastrar marca nova" uma vez continuava vendo ela aberta pra
+    // sempre, mesmo trocando de peça ou reabrindo o modal do zero.
+    return {
+        resetar: function () {
+            fecharPainel();
+            if (caixaNovaMarca) caixaNovaMarca.hidden = true;
+            if (caixaNovoGrupo) caixaNovoGrupo.hidden = true;
+            if (campoNovaMarcaNome) campoNovaMarcaNome.value = '';
+            if (campoNovoGrupoNome) campoNovoGrupoNome.value = '';
+            if (marcaFeedback) marcaFeedback.textContent = '';
+        },
+    };
 }

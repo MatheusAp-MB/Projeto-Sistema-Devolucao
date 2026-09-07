@@ -447,7 +447,6 @@
 
 .gaveta-modal-cartao {
     width: min(95vw, 820px);
-    min-height: 70vh;
     max-height: 98vh;
     background-color: #ffffff;
     border-radius: 8px;
@@ -503,7 +502,7 @@
    min-height pro corpo, ele já nasce com espaço de sobra pra esse
    estado mais alto, sem precisar rolar na maioria das telas. */
 #modal_peca .gaveta-modal-corpo {
-    min-height: 450px;
+    min-height: 520px;
 }
 
 .gaveta-modal-rodape {
