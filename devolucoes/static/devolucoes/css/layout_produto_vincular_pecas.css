@@ -1,0 +1,538 @@
+/* devolucoes/static/devolucoes/css/layout_produto_vincular_pecas.css */
+
+/* Função Objetivo: aparência da tela "Vincular peças" — reaproveita a
+   mesma visão agrupada por Grupo Fornecedor/Marca da Gaveta de Peças
+   (carrossel horizontal por marca), só que aqui cada card é selecionável
+   (checkbox real + campo de quantidade) em vez de ter ações de
+   editar/excluir/vincular. Classes próprias (vp-*), sem reaproveitar as
+   classes gaveta-* diretamente — mesmo padrão já usado entre
+   layout_produtos.css e layout_gaveta_pecas.css (telas parecidas, cada
+   uma com seu próprio prefixo).
+
+   * [ATENÇÃO] → o realce de seleção (borda azul, quadradinho preenchido,
+   campo de quantidade aparecendo) depende de :has() — suportado por todo
+   navegador moderno (Chrome/Edge/Firefox/Safari, desde 2023), mas
+   degrada com segurança num navegador muito antigo: a peça continua
+   marcável/desmarcável normalmente (checkbox nativo dentro do <label> do
+   card, sem JS nenhum envolvido nisso) e o campo de quantidade fica
+   sempre visível por padrão (só é esse "sempre visível" que muda; nunca
+   vira "sempre escondido"). O estado inicial (peça já vinculada antes de
+   abrir a tela) sempre pinta certo em qualquer navegador, via a classe
+   .ja-vinculada vinda do servidor — só a repintura ao vivo depois de um
+   clique é que depende de :has(). */
+
+.vp-pagina {
+    display: block;
+}
+
+/* ===== Cabeçalho fixo — sempre visível, contexto de qual produto está
+   recebendo os vínculos, pra nunca confundir com "editar produto" ===== */
+
+.vp-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    margin: -24px -24px 20px;
+    background-color: #1a3a5c;
+    color: #ffffff;
+    padding: 14px 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.vp-header-cancelar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #cfe0ef;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 600;
+    background: none;
+    border: none;
+    padding: 6px 4px;
+}
+
+.vp-header-cancelar:hover {
+    color: #ffffff;
+}
+
+.vp-header-divisor {
+    width: 1px;
+    height: 22px;
+    background-color: rgba(255, 255, 255, 0.25);
+    flex-shrink: 0;
+}
+
+.vp-header-produto {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.vp-header-foto {
+    width: 34px;
+    height: 34px;
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.vp-header-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.vp-header-foto i {
+    font-size: 14px;
+}
+
+.vp-header-textos {
+    line-height: 1.3;
+    min-width: 0;
+}
+
+.vp-header-rotulo {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #a8c4dd;
+}
+
+.vp-header-nome {
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.vp-corpo {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 0 110px;
+}
+
+/* ===== Busca e filtros — mesmo padrão visual de .gaveta-busca/.gaveta-filtro,
+   só enfeite client-side: sem JS a tela mostra tudo, sem filtro nenhum ===== */
+
+.vp-filtros {
+    display: grid;
+    grid-template-columns: 1fr 200px 220px;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.vp-busca,
+.vp-filtro {
+    height: 38px;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 0 12px;
+    font-size: 13.5px;
+    font-family: inherit;
+    box-sizing: border-box;
+    color: #333;
+    background-color: #ffffff;
+}
+
+.vp-busca:focus,
+.vp-filtro:focus {
+    outline: none;
+    border-color: #2e7bb5;
+    box-shadow: 0 0 0 3px rgba(46, 123, 181, 0.12);
+}
+
+.vp-toggle-selecionadas {
+    height: 38px;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    background-color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    color: #555;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.vp-toggle-selecionadas.ativo {
+    background-color: #e7f0fa;
+    border-color: #2e7bb5;
+    color: #2e7bb5;
+}
+
+.vp-dica {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #6c757d;
+    margin: 4px 0 22px;
+}
+
+@media (max-width: 700px) {
+    .vp-filtros {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ===== Agrupamento por Grupo Fornecedor/Marca — mesma lógica visual de
+   layout_gaveta_pecas.css ===== */
+
+.vp-secao {
+    margin-bottom: 26px;
+}
+
+.vp-secao:last-child {
+    margin-bottom: 0;
+}
+
+.vp-secao-cabecalho {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 10px;
+}
+
+.vp-secao-cabecalho i {
+    color: #adb5bd;
+    font-size: 11px;
+}
+
+.vp-secao-cabecalho--grupo {
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a3a5c;
+    background-color: #eef4fa;
+    padding: 8px 12px;
+    border-radius: 6px;
+}
+
+.vp-secao-cabecalho--grupo i {
+    color: #2e7bb5;
+    font-size: 13px;
+}
+
+.vp-subsecao {
+    margin-bottom: 20px;
+    padding-left: 18px;
+    border-left: 2px solid #eef1f4;
+}
+
+.vp-subsecao:last-child {
+    margin-bottom: 0;
+}
+
+.vp-carrossel {
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    scrollbar-width: thin;
+}
+
+.vp-carrossel::-webkit-scrollbar {
+    height: 6px;
+}
+
+.vp-carrossel::-webkit-scrollbar-thumb {
+    background: #dee2e6;
+    border-radius: 3px;
+}
+
+@media (max-width: 480px) {
+    .vp-subsecao {
+        padding-left: 10px;
+    }
+}
+
+/* ===== Card selecionável — o card inteiro é um <label> ligado ao
+   checkbox real, então clicar em qualquer lugar dele marca/desmarca a
+   peça, sem precisar de JS nenhum pra isso. O campo de quantidade tem seu
+   próprio input dentro do mesmo <label>: clicar nele foca o campo em vez
+   de alternar o checkbox (comportamento padrão do HTML quando o clique
+   cai num outro controle de formulário dentro do label). ===== */
+
+.vp-card {
+    flex: 0 0 190px;
+    width: 190px;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    background-color: #ffffff;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    cursor: pointer;
+    position: relative;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vp-card:hover {
+    border-color: #b7d3e8;
+}
+
+.vp-card.ja-vinculada,
+.vp-card:has(.vp-card-checkbox-real:checked) {
+    border-color: #2e7bb5;
+    box-shadow: 0 0 0 3px rgba(46, 123, 181, 0.12);
+}
+
+.vp-card-checkbox-real {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 3;
+    width: 22px;
+    height: 22px;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.vp-card-checkbox-visual {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    border: 2px solid #fff;
+    background-color: rgba(255, 255, 255, 0.85);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: transparent;
+    font-size: 11px;
+    pointer-events: none;
+}
+
+.vp-card.ja-vinculada .vp-card-checkbox-visual,
+.vp-card:has(.vp-card-checkbox-real:checked) .vp-card-checkbox-visual {
+    background-color: #2e7bb5;
+    border-color: #2e7bb5;
+    color: #ffffff;
+}
+
+.vp-card-ja-vinculada {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    background-color: #2e9e5b;
+    color: #ffffff;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 10px;
+}
+
+.vp-card-foto {
+    width: 100%;
+    aspect-ratio: 1;
+    background-color: #f1f3f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.vp-card-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.vp-card-foto i {
+    font-size: 24px;
+    color: #adb5bd;
+}
+
+.vp-card-info {
+    padding: 10px 12px 0;
+    flex: 1;
+}
+
+.vp-card-nome {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #1a3a5c;
+    margin: 0 0 6px;
+    line-height: 1.3em;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 2.6em;
+}
+
+.vp-card-legendas p {
+    font-size: 10.5px;
+    color: #6c757d;
+    margin: 2px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Campo de quantidade — some quando a peça não está selecionada, mas só
+   nos navegadores que suportam :has() (ver nota no topo do arquivo); o
+   padrão sem essa regra é sempre visível, nunca escondido. */
+.vp-card-qtd-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-top: 1px solid #eef1f4;
+    margin-top: 8px;
+    background-color: #f7fbff;
+}
+
+.vp-card:not(.ja-vinculada):not(:has(.vp-card-checkbox-real:checked)) .vp-card-qtd-wrap {
+    display: none;
+}
+
+.vp-card-qtd-wrap label {
+    font-size: 10.5px;
+    color: #1a3a5c;
+    font-weight: 600;
+}
+
+.vp-card-qtd-input {
+    width: 52px;
+    height: 26px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    text-align: center;
+    font-size: 12.5px;
+    font-family: inherit;
+}
+
+.vp-sem-resultado,
+.vp-vazio-inicial {
+    text-align: center;
+    color: #6c757d;
+    font-size: 13px;
+    padding: 50px 0;
+}
+
+.vp-vazio-inicial i {
+    font-size: 34px;
+    color: #b9d6ec;
+    margin-bottom: 12px;
+    display: block;
+}
+
+.vp-vazio-inicial p {
+    margin: 0 0 16px;
+}
+
+.vp-vazio-inicial .vp-botao-salvar {
+    display: inline-block;
+    text-decoration: none;
+}
+
+/* ===== Rodapé fixo — contador + Cancelar/Salvar, sempre visível
+   independente do quanto a página rolou ===== */
+
+.vp-rodape {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background-color: #ffffff;
+    border-top: 1px solid #dee2e6;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+    padding: 14px 24px;
+    z-index: 30;
+}
+
+.vp-rodape-conteudo {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.vp-rodape-contador {
+    font-size: 13.5px;
+    color: #1a3a5c;
+    font-weight: 600;
+}
+
+.vp-rodape-contador strong {
+    color: #2e7bb5;
+    font-size: 16px;
+}
+
+.vp-rodape-botoes {
+    display: flex;
+    gap: 10px;
+}
+
+.vp-botao-cancelar {
+    padding: 11px 20px;
+    border-radius: 7px;
+    border: 1px solid #dee2e6;
+    background-color: #ffffff;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #555;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+.vp-botao-cancelar:hover {
+    background-color: #f7f9fb;
+}
+
+.vp-botao-salvar {
+    padding: 11px 24px;
+    border-radius: 7px;
+    border: none;
+    background-color: #2e7bb5;
+    color: #ffffff;
+    font-size: 13.5px;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.vp-botao-salvar:hover {
+    background-color: #256698;
+}
+
+@media (max-width: 480px) {
+    .vp-header {
+        margin: -24px -24px 16px;
+        padding: 12px 16px;
+    }
+
+    .vp-rodape-conteudo {
+        justify-content: center;
+        text-align: center;
+    }
+}

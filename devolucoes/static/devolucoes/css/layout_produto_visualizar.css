@@ -1,0 +1,289 @@
+/* devolucoes/static/devolucoes/css/layout_produto_visualizar.css */
+
+/* Função Objetivo: aparência da tela "Visualizar produto" — o hub só-leitura
+   do produto (Objetivo 0 da vinculação Produto→Peça). Mostra os dados do
+   produto como um cabeçalho de contexto, as 3 ações irmãs (Editar produto /
+   Vincular peças / Excluir produto — nenhuma delas subordinada às outras) e
+   a lista de peças vinculadas, também só-leitura: vincular/desvincular
+   peça não acontece mais aqui, virou responsabilidade exclusiva da tela
+   "Vincular peças" (layout_produto_vincular_pecas.css). Paleta e tipografia
+   reaproveitam os tokens já usados em layout_produto_form.css/
+   layout_gaveta_pecas.css — sem inventar uma identidade visual nova pra
+   uma tela do mesmo sistema. */
+
+.produto-view-pagina {
+    max-width: 780px;
+    margin: 0 auto;
+}
+
+.produto-view-cartao {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 24px;
+    display: flex;
+    gap: 20px;
+    margin-bottom: 18px;
+}
+
+.produto-view-foto {
+    width: 110px;
+    height: 110px;
+    flex-shrink: 0;
+    border-radius: 8px;
+    background-color: #f1f3f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.produto-view-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.produto-view-foto i {
+    font-size: 32px;
+    color: #adb5bd;
+}
+
+.produto-view-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.produto-view-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #6c757d;
+    background-color: #f1f3f6;
+    padding: 3px 9px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.produto-view-nome {
+    font-size: 18px;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin: 0 0 12px;
+}
+
+.produto-view-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 4px 20px;
+}
+
+.produto-view-campo-label {
+    font-size: 11px;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.produto-view-campo-valor {
+    font-size: 13px;
+    font-weight: 600;
+    color: #222;
+    margin-bottom: 8px;
+}
+
+/* ===== Ações irmãs — mesmo peso visual, nenhuma subordinada à outra;
+   "Vincular peças" ganha destaque (cor sólida) por ser o próximo passo
+   mais comum do fluxo, mas continua irmã de Editar/Excluir, não pai. ===== */
+
+.produto-view-acoes {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+}
+
+.produto-view-form-excluir {
+    margin: 0;
+    display: flex;
+}
+
+.produto-view-acao-irma {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 40px;
+    padding: 0 18px;
+    border-radius: 7px;
+    border: 1px solid #dee2e6;
+    background-color: #ffffff;
+    color: #444;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.produto-view-acao-irma:hover {
+    border-color: #2e7bb5;
+    color: #2e7bb5;
+    background-color: #f7fbff;
+}
+
+.produto-view-acao-irma--principal {
+    background-color: #2e7bb5;
+    border-color: #2e7bb5;
+    color: #ffffff;
+}
+
+.produto-view-acao-irma--principal:hover {
+    background-color: #256698;
+    border-color: #256698;
+    color: #ffffff;
+}
+
+.produto-view-acao-irma--perigo:hover {
+    border-color: #dc3545;
+    color: #dc3545;
+    background-color: #fdeeee;
+}
+
+.produto-view-contador-pill {
+    background-color: rgba(255, 255, 255, 0.25);
+    border-radius: 20px;
+    padding: 1px 8px;
+    font-size: 11.5px;
+}
+
+.produto-view-acao-irma--principal .produto-view-contador-pill {
+    background-color: rgba(255, 255, 255, 0.25);
+}
+
+.produto-view-contador-pill--neutro {
+    background-color: #f1f3f6;
+    color: #6c757d;
+}
+
+/* ===== Peças vinculadas — lista só-leitura ===== */
+
+.produto-view-secao-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #1a3a5c;
+    margin: 0 0 12px;
+}
+
+.produto-view-secao-titulo i {
+    color: #2e7bb5;
+    font-size: 12px;
+}
+
+.produto-view-pecas-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.produto-view-peca-linha {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 10px 14px;
+}
+
+.produto-view-peca-foto-mini {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    background-color: #f1f3f6;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.produto-view-peca-foto-mini img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.produto-view-peca-foto-mini i {
+    color: #adb5bd;
+    font-size: 14px;
+}
+
+.produto-view-peca-textos {
+    min-width: 0;
+    flex: 1;
+}
+
+.produto-view-peca-nome {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1a3a5c;
+    margin: 0 0 2px;
+}
+
+.produto-view-peca-legenda {
+    font-size: 11px;
+    color: #6c757d;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.produto-view-peca-qtd {
+    flex-shrink: 0;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #2e7bb5;
+    background-color: #e7f0fa;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.produto-view-pecas-vazio {
+    font-size: 13px;
+    color: #6c757d;
+    text-align: center;
+    padding: 24px 0;
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .produto-view-cartao {
+        flex-direction: column;
+    }
+
+    .produto-view-foto {
+        width: 100%;
+        height: 140px;
+    }
+
+    .produto-view-acoes {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .produto-view-peca-linha {
+        flex-wrap: wrap;
+    }
+}
