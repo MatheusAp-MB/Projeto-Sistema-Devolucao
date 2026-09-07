@@ -7,14 +7,17 @@ from . import views
 urlpatterns = [
     path('nova-devolucao/', views.nova_devolucao, name='nova_devolucao'),
     path('produtos/', views.produtos, name='produtos'),
+    path('produtos/<int:produto_id>/', views.visualizar_produto, name='visualizar_produto'),
     path('produtos/<int:produto_id>/excluir/', views.excluir_produto, name='excluir_produto'),
     path('catalogo/marca/cadastrar/', views.cadastrar_marca, name='cadastrar_marca'),
     path('catalogo/grupo-fornecedor/cadastrar/', views.cadastrar_grupo_fornecedor, name='cadastrar_grupo_fornecedor'),
     path('catalogo/produto/cadastrar/', views.cadastrar_produto, name='cadastrar_produto'),
     path('catalogo/produto/<int:produto_id>/editar/', views.editar_produto, name='editar_produto'),
+    path('catalogo/produto/<int:produto_id>/pecas/vincular/', views.vincular_pecas_produto, name='vincular_pecas_produto'),
+    # [ATENÇÃO] → buscar_pecas não é mais usada por nenhum fluxo do produto,
+    # mas _modal_vinculo.html (compartilhado, ainda ativo no lado da peça)
+    # referencia essa URL incondicionalmente — ver docstring da view.
     path('catalogo/produto/<int:produto_id>/peca/buscar/', views.buscar_pecas, name='buscar_pecas'),
-    path('catalogo/produto/<int:produto_id>/peca/vincular/', views.vincular_peca, name='vincular_peca'),
-    path('catalogo/produto/<int:produto_id>/peca/cadastrar/', views.cadastrar_peca, name='cadastrar_peca'),
     path('catalogo/peca/cadastrar/', views.cadastrar_peca_avulsa, name='cadastrar_peca_avulsa'),
     path('catalogo/peca/<int:peca_id>/editar/', views.editar_peca, name='editar_peca'),
     path('catalogo/compatibilidade/<int:compatibilidade_id>/desvincular/', views.desvincular_peca, name='desvincular_peca'),

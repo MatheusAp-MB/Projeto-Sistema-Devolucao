@@ -3,12 +3,14 @@
 # Função Objetivo: views da tela de nova devolução — busca produto/peças
 # reais do catálogo por código de barras e gera o PDF do relatório na
 # hora (sem salvar nada no banco) — views do catálogo de produtos e
-# peças — criar/consultar/editar/excluir produto (tela própria,
-# reaproveitada pros 2 casos), buscar/vincular/cadastrar/desvincular/
-# excluir peça — cadastro isolado de Marca/Grupo Fornecedor via AJAX
-# (chamado de dentro da tela de produto) — e a tela própria de gerenciar
-# Marcas e Grupos Fornecedores (criar/editar/excluir cada um, direto na
-# lista).
+# peças — criar/excluir produto e 3 telas próprias e separadas pra ele
+# (Visualizar, só leitura; Editar, só os dados do produto; Vincular
+# peças, tela dedicada que reaproveita a visão agrupada da Gaveta de
+# Peças pra selecionar em massa quais peças ficam vinculadas e com que
+# quantidade) — cadastrar/editar/excluir/desvincular peça — cadastro
+# isolado de Marca/Grupo Fornecedor via AJAX (chamado de dentro da tela
+# de produto) — e a tela própria de gerenciar Marcas e Grupos
+# Fornecedores (criar/editar/excluir cada um, direto na lista).
 #
 # * [ATENÇÃO] → nova_devolucao ainda usa produto.pecas.all(), que não
 #               existe mais depois dessa mudança (peça deixou de
@@ -196,7 +198,10 @@ def _contexto_form_produto(produto=None, valores=None):
     """Monta o contexto da tela de cadastro/edição de produto — usada
     tanto pra 'Novo produto' (GET simples) quanto pra 'Editar produto'
     (GET com produto já preenchido), e também pra re-exibir o formulário
-    com o que a pessoa digitou quando a validação falha."""
+    com o que a pessoa digitou quando a validação falha. Só os campos do
+    produto em si — peça vinculada não aparece mais aqui, isso ficou pra
+    visualizar_produto (visualização) e vincular_pecas_produto (a tela
+    dedicada de vincular/desvincular)."""
     if valores is None:
         if produto:
             valores = {
@@ -216,10 +221,6 @@ def _contexto_form_produto(produto=None, valores=None):
     return {
         'produto': produto,
         'valores': valores,
-        'compatibilidades': (
-            produto.compatibilidades.select_related('peca__marca').order_by('peca__nome_generico')
-            if produto else []
-        ),
         'marcas_json': _marcas_json(),
         'grupos': GrupoFornecedor.objects.all(),
         'pagina_ativa': 'produtos',
@@ -264,6 +265,44 @@ def _marcas_json():
         }
         for marca in marcas
     ])
+
+
+def _agrupar_pecas_por_marca_grupo(pecas):
+    """Agrupa uma lista/queryset de Peca por Grupo Fornecedor/Marca — marca
+    sem grupo vira uma seção própria; marca com grupo fica dentro da seção
+    do grupo dela. Extraído de dentro de gaveta_pecas() pra também ser
+    reaproveitado por vincular_pecas_produto() — as 2 telas mostram a
+    mesma visão agrupada do catálogo de peças (a 2ª com um subconjunto
+    marcado como já vinculado ao produto em questão). Retorna
+    (grupos, marcas_sem_grupo, tem_pecas)."""
+    grupos_por_id = {}
+    marcas_sem_grupo_por_id = {}
+
+    for peca in pecas:
+        marca = peca.marca
+        grupo = marca.grupo_fornecedor
+
+        if grupo:
+            grupo_entry = grupos_por_id.setdefault(grupo.id, {'grupo': grupo, 'marcas_por_id': {}})
+            marca_entry = grupo_entry['marcas_por_id'].setdefault(marca.id, {'marca': marca, 'pecas': []})
+        else:
+            marca_entry = marcas_sem_grupo_por_id.setdefault(marca.id, {'marca': marca, 'pecas': []})
+
+        marca_entry['pecas'].append(peca)
+
+    grupos = sorted(
+        (
+            {
+                'grupo': g['grupo'],
+                'marcas': sorted(g['marcas_por_id'].values(), key=lambda m: m['marca'].nome.lower()),
+            }
+            for g in grupos_por_id.values()
+        ),
+        key=lambda g: g['grupo'].nome.lower(),
+    )
+    marcas_sem_grupo = sorted(marcas_sem_grupo_por_id.values(), key=lambda m: m['marca'].nome.lower())
+
+    return grupos, marcas_sem_grupo, bool(grupos_por_id or marcas_sem_grupo_por_id)
 
 
 def cadastrar_grupo_fornecedor(request):
@@ -337,9 +376,26 @@ def cadastrar_produto(request):
             sku=sku or None, codigo_fabricante=codigo_fabricante or None, foto=foto,
         )
         messages.success(request, f'Produto "{nome}" cadastrado.')
-        return redirect('editar_produto', produto_id=produto.id)
+        return redirect('visualizar_produto', produto_id=produto.id)
 
     return render(request, 'devolucoes/produto_form.html', _contexto_form_produto())
+
+
+def visualizar_produto(request, produto_id):
+    """Tela de visualização do produto — só leitura. É o "hub" do fluxo:
+    mostra os dados do produto e a lista de peças vinculadas, e de lá
+    partem as 3 ações irmãs (Editar produto / Vincular peças / Excluir
+    produto). Vincular e desvincular peça não acontece mais aqui —
+    virou responsabilidade exclusiva de vincular_pecas_produto."""
+    produto = get_object_or_404(Produto, pk=produto_id)
+    compatibilidades = produto.compatibilidades.select_related('peca__marca').order_by('peca__nome_generico')
+
+    contexto = {
+        'produto': produto,
+        'compatibilidades': compatibilidades,
+        'pagina_ativa': 'produtos',
+    }
+    return render(request, 'devolucoes/produto_visualizar.html', contexto)
 
 
 def editar_produto(request, produto_id):
@@ -391,7 +447,7 @@ def editar_produto(request, produto_id):
             produto.foto = foto
         produto.save()
         messages.success(request, 'Dados do produto atualizados.')
-        return redirect('editar_produto', produto_id=produto.id)
+        return redirect('visualizar_produto', produto_id=produto.id)
 
     return render(request, 'devolucoes/produto_form.html', _contexto_form_produto(produto))
 
@@ -408,6 +464,13 @@ def excluir_produto(request, produto_id):
 
 
 def buscar_pecas(request, produto_id):
+    """[ATENÇÃO] → Não é mais chamada por nenhum fluxo da tela de produto
+    (o antigo Modal de Vínculo do lado do produto saiu de cena no
+    Objetivo 0). Mantida só porque _modal_vinculo.html — componente
+    compartilhado, ainda ativo no lado da peça (Gaveta de Peças,
+    abrirComPeca) — referencia essa URL incondicionalmente; removê-la
+    quebraria o render da Gaveta. Decisão de manter, não de limpar,
+    nesta rodada."""
     termo = request.GET.get('q', '').strip()
 
     resultados = []
@@ -429,81 +492,84 @@ def buscar_pecas(request, produto_id):
     return JsonResponse({'resultados': resultados})
 
 
-def vincular_peca(request, produto_id):
+def _ler_quantidade_do_post(request, peca_id):
+    """Lê o campo quantidade_<id> do POST de vincular_pecas_produto — cada
+    peça da grade tem o seu próprio campo de quantidade, então não dá pra
+    usar request.POST.get('quantidade_esperada') fixo como nas telas de
+    peça única. Cai pra 1 se vier vazio/inválido (input number no HTML já
+    evita isso na prática, isso aqui é só a rede de segurança do
+    servidor)."""
+    try:
+        valor = int(request.POST.get(f'quantidade_{peca_id}', '1'))
+    except (TypeError, ValueError):
+        valor = 1
+    return max(1, valor)
+
+
+def vincular_pecas_produto(request, produto_id):
+    """Tela dedicada de vincular/desvincular peças de um produto —
+    substitui o antigo Modal de Vínculo do lado do produto (Objetivo 0).
+    Reaproveita a mesma visão agrupada por Grupo Fornecedor/Marca da
+    Gaveta de Peças (_agrupar_pecas_por_marca_grupo), mas aqui cada peça
+    vem marcada com ja_vinculada/quantidade_vinculada — o card já nasce
+    marcado (checkbox) se a peça já é compatível com este produto.
+
+    É um formulário clássico só, sem AJAX: marcar uma peça nova = vincular,
+    desmarcar uma já vinculada = desvincular, mudar o número da quantidade
+    = atualiza. Um "Salvar vínculos" só aplica a diferença toda de uma vez,
+    dentro de uma transação — funciona inteiro mesmo com JS desligado (a
+    busca/filtro da tela é que são só enfeite client-side)."""
     produto = get_object_or_404(Produto, pk=produto_id)
 
     if request.method == 'POST':
-        peca_id = request.POST.get('peca_id')
-        quantidade_esperada = int(request.POST.get('quantidade_esperada') or '1')
-        peca = get_object_or_404(Peca, pk=peca_id)
+        ids_selecionados = {
+            int(valor) for valor in request.POST.getlist('peca_id') if valor.isdigit()
+        }
+        vinculos_atuais = {c.peca_id: c for c in produto.compatibilidades.all()}
+        ids_atuais = set(vinculos_atuais.keys())
 
-        if quantidade_esperada < 1:
-            messages.error(request, 'Quantidade esperada precisa ser 1 ou mais.')
-            return redirect('gaveta_pecas')
-
-        _, criada = Compatibilidade.objects.get_or_create(
-            peca=peca, produto=produto,
-            defaults={'quantidade_esperada': quantidade_esperada},
-        )
-        if criada:
-            messages.success(request, f'"{peca.nome_generico}" vinculada a este produto.')
-        else:
-            messages.warning(request, f'"{peca.nome_generico}" já estava vinculada a este produto.')
-
-    return redirect('gaveta_pecas')
-
-
-def cadastrar_peca(request, produto_id):
-    produto = get_object_or_404(Produto, pk=produto_id)
-
-    if request.method == 'POST':
-        nome_generico = request.POST.get('nome', '').strip()
-        nome_tecnico = request.POST.get('nome_tecnico', '').strip()
-        codigo_fabricante = request.POST.get('codigo_fabricante', '').strip()
-        marca_id = request.POST.get('marca_id', '').strip()
-        quantidade_esperada = int(request.POST.get('quantidade_esperada') or '1')
-        imagem = request.FILES.get('imagem')
-
-        if not nome_generico:
-            messages.error(request, 'Nome da peça é obrigatório.')
-            return redirect('gaveta_pecas')
-
-        if not imagem:
-            messages.error(request, 'Foto da peça é obrigatória.')
-            return redirect('gaveta_pecas')
-
-        if not marca_id:
-            messages.error(request, 'Marca é obrigatória — selecione uma marca da lista.')
-            return redirect('gaveta_pecas')
-
-        marca = Marca.objects.filter(pk=marca_id).first()
-        if not marca:
-            messages.error(request, 'Marca inválida — selecione uma marca da lista.')
-            return redirect('gaveta_pecas')
-
-        if quantidade_esperada < 1:
-            messages.error(request, 'Quantidade esperada precisa ser 1 ou mais.')
-            return redirect('gaveta_pecas')
-
-        if codigo_fabricante and Peca.objects.filter(codigo_fabricante=codigo_fabricante).exists():
-            messages.error(request, f'Já existe uma peça cadastrada com o código do fabricante {codigo_fabricante}.')
-            return redirect('gaveta_pecas')
+        ids_para_desvincular = ids_atuais - ids_selecionados
+        ids_para_vincular = ids_selecionados - ids_atuais
+        ids_para_atualizar = ids_selecionados & ids_atuais
 
         with transaction.atomic():
-            peca = Peca.objects.create(
-                nome_generico=nome_generico,
-                nome_tecnico=nome_tecnico or '',
-                codigo_fabricante=codigo_fabricante or None,
-                marca=marca,
-                imagem=imagem,
-            )
-            Compatibilidade.objects.create(
-                peca=peca, produto=produto,
-                quantidade_esperada=quantidade_esperada,
-            )
-        messages.success(request, f'Peça "{nome_generico}" cadastrada e vinculada.')
+            if ids_para_desvincular:
+                Compatibilidade.objects.filter(produto=produto, peca_id__in=ids_para_desvincular).delete()
 
-    return redirect('gaveta_pecas')
+            for peca_id in ids_para_vincular:
+                Compatibilidade.objects.create(
+                    produto=produto, peca_id=peca_id,
+                    quantidade_esperada=_ler_quantidade_do_post(request, peca_id),
+                )
+
+            for peca_id in ids_para_atualizar:
+                nova_quantidade = _ler_quantidade_do_post(request, peca_id)
+                compatibilidade = vinculos_atuais[peca_id]
+                if compatibilidade.quantidade_esperada != nova_quantidade:
+                    compatibilidade.quantidade_esperada = nova_quantidade
+                    compatibilidade.save(update_fields=['quantidade_esperada'])
+
+        messages.success(request, 'Vínculos de peças atualizados.')
+        return redirect('visualizar_produto', produto_id=produto.id)
+
+    vinculos = {c.peca_id: c.quantidade_esperada for c in produto.compatibilidades.all()}
+    pecas = Peca.objects.select_related('marca__grupo_fornecedor').order_by('nome_generico')
+    for peca in pecas:
+        peca.ja_vinculada = peca.id in vinculos
+        peca.quantidade_vinculada = vinculos.get(peca.id, 1)
+
+    pecas_grupos, pecas_marcas_sem_grupo, tem_pecas = _agrupar_pecas_por_marca_grupo(pecas)
+
+    contexto = {
+        'produto': produto,
+        'pecas_grupos': pecas_grupos,
+        'pecas_marcas_sem_grupo': pecas_marcas_sem_grupo,
+        'tem_pecas': tem_pecas,
+        'qtd_vinculada_inicial': len(vinculos),
+        'marcas': Marca.objects.all(),
+        'pagina_ativa': 'produtos',
+    }
+    return render(request, 'devolucoes/produto_vincular_pecas.html', contexto)
 
 
 def cadastrar_peca_avulsa(request):
@@ -548,11 +614,12 @@ def cadastrar_peca_avulsa(request):
 
 
 def desvincular_peca(request, compatibilidade_id):
-    """Desfaz o vínculo peça-produto — reaproveitado tanto pela página
-    do produto (POST clássico, com redirect pra lá) quanto pela Gaveta
-    de Peças, no card expandido (POST via AJAX, com resposta em JSON).
-    O destino do redirect clássico mudou de catalogo pra editar_produto
-    — a página do produto agora é quem mostra as peças vinculadas."""
+    """Desfaz o vínculo peça-produto — usado pelo card expandido da Gaveta
+    de Peças (POST via AJAX, com resposta em JSON, pra atualizar o card na
+    hora). Do lado do produto, desvincular virou responsabilidade
+    exclusiva de vincular_pecas_produto (desmarcar o checkbox da peça) —
+    esta view não é mais chamada de lá, então o fallback sem JS volta pra
+    Gaveta de Peças, de onde o form realmente vem."""
     compatibilidade = get_object_or_404(Compatibilidade, pk=compatibilidade_id)
     produto_id = compatibilidade.produto_id
 
@@ -571,7 +638,7 @@ def desvincular_peca(request, compatibilidade_id):
 
         messages.success(request, f'"{nome_peca}" desvinculada deste produto.')
 
-    return redirect('editar_produto', produto_id=produto_id)
+    return redirect('gaveta_pecas')
 
 
 def excluir_peca(request, peca_id):
@@ -684,37 +751,12 @@ def gaveta_pecas(request):
         .order_by('nome_generico')
     )
 
-    grupos_por_id = {}
-    marcas_sem_grupo_por_id = {}
-
-    for peca in pecas:
-        marca = peca.marca
-        grupo = marca.grupo_fornecedor
-
-        if grupo:
-            grupo_entry = grupos_por_id.setdefault(grupo.id, {'grupo': grupo, 'marcas_por_id': {}})
-            marca_entry = grupo_entry['marcas_por_id'].setdefault(marca.id, {'marca': marca, 'pecas': []})
-        else:
-            marca_entry = marcas_sem_grupo_por_id.setdefault(marca.id, {'marca': marca, 'pecas': []})
-
-        marca_entry['pecas'].append(peca)
-
-    pecas_grupos = sorted(
-        (
-            {
-                'grupo': g['grupo'],
-                'marcas': sorted(g['marcas_por_id'].values(), key=lambda m: m['marca'].nome.lower()),
-            }
-            for g in grupos_por_id.values()
-        ),
-        key=lambda g: g['grupo'].nome.lower(),
-    )
-    pecas_marcas_sem_grupo = sorted(marcas_sem_grupo_por_id.values(), key=lambda m: m['marca'].nome.lower())
+    pecas_grupos, pecas_marcas_sem_grupo, tem_pecas = _agrupar_pecas_por_marca_grupo(pecas)
 
     contexto = {
         'pecas_grupos': pecas_grupos,
         'pecas_marcas_sem_grupo': pecas_marcas_sem_grupo,
-        'tem_pecas': bool(grupos_por_id or marcas_sem_grupo_por_id),
+        'tem_pecas': tem_pecas,
         'marcas': Marca.objects.all(),
         'marcas_json': _marcas_json(),
         'grupos': GrupoFornecedor.objects.all(),
