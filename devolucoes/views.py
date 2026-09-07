@@ -419,7 +419,7 @@ def buscar_pecas(request, produto_id):
     resultados = []
     if len(termo) >= 2:
         pecas = (
-            Peca.objects.filter(nome__icontains=termo)
+            Peca.objects.filter(nome_generico__icontains=termo)
             .exclude(compatibilidades__produto_id=produto_id)
             .prefetch_related('compatibilidades__produto')[:8]
         )
@@ -427,7 +427,7 @@ def buscar_pecas(request, produto_id):
         for peca in pecas:
             resultados.append({
                 'id': peca.id,
-                'nome': peca.nome,
+                'nome': peca.nome_generico,
                 'foto_url': peca.imagem.url if peca.imagem else None,
                 'usada_em': [c.produto.nome for c in peca.compatibilidades.all()],
             })
@@ -440,17 +440,21 @@ def vincular_peca(request, produto_id):
 
     if request.method == 'POST':
         peca_id = request.POST.get('peca_id')
-        quantidade_esperada = request.POST.get('quantidade_esperada') or '1'
+        quantidade_esperada = int(request.POST.get('quantidade_esperada') or '1')
         peca = get_object_or_404(Peca, pk=peca_id)
+
+        if quantidade_esperada < 1:
+            messages.error(request, 'Quantidade esperada precisa ser 1 ou mais.')
+            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
 
         _, criada = Compatibilidade.objects.get_or_create(
             peca=peca, produto=produto,
-            defaults={'quantidade_esperada': int(quantidade_esperada)},
+            defaults={'quantidade_esperada': quantidade_esperada},
         )
         if criada:
-            messages.success(request, f'"{peca.nome}" vinculada a este produto.')
+            messages.success(request, f'"{peca.nome_generico}" vinculada a este produto.')
         else:
-            messages.warning(request, f'"{peca.nome}" já estava vinculada a este produto.')
+            messages.warning(request, f'"{peca.nome_generico}" já estava vinculada a este produto.')
 
     return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
 
@@ -459,18 +463,36 @@ def cadastrar_peca(request, produto_id):
     produto = get_object_or_404(Produto, pk=produto_id)
 
     if request.method == 'POST':
-        nome = request.POST.get('nome', '').strip()
-        quantidade_esperada = request.POST.get('quantidade_esperada') or '1'
+        nome_generico = request.POST.get('nome', '').strip()
+        nome_tecnico = request.POST.get('nome_tecnico', '').strip()
+        codigo_fabricante = request.POST.get('codigo_fabricante', '').strip()
+        quantidade_esperada = int(request.POST.get('quantidade_esperada') or '1')
         imagem = request.FILES.get('imagem')
 
-        if nome:
-            with transaction.atomic():
-                peca = Peca.objects.create(nome=nome, imagem=imagem)
-                Compatibilidade.objects.create(
-                    peca=peca, produto=produto,
-                    quantidade_esperada=int(quantidade_esperada),
-                )
-            messages.success(request, f'Peça "{nome}" cadastrada e vinculada.')
+        if not nome_generico:
+            messages.error(request, 'Nome da peça é obrigatório.')
+            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+
+        if quantidade_esperada < 1:
+            messages.error(request, 'Quantidade esperada precisa ser 1 ou mais.')
+            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+
+        if codigo_fabricante and Peca.objects.filter(codigo_fabricante=codigo_fabricante).exists():
+            messages.error(request, f'Já existe uma peça cadastrada com o código do fabricante {codigo_fabricante}.')
+            return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
+
+        with transaction.atomic():
+            peca = Peca.objects.create(
+                nome_generico=nome_generico,
+                nome_tecnico=nome_tecnico or '',
+                codigo_fabricante=codigo_fabricante or None,
+                imagem=imagem,
+            )
+            Compatibilidade.objects.create(
+                peca=peca, produto=produto,
+                quantidade_esperada=quantidade_esperada,
+            )
+        messages.success(request, f'Peça "{nome_generico}" cadastrada e vinculada.')
 
     return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
 
@@ -480,7 +502,7 @@ def desvincular_peca(request, compatibilidade_id):
     codigo_barras = compatibilidade.produto.codigo_barras
 
     if request.method == 'POST':
-        nome_peca = compatibilidade.peca.nome
+        nome_peca = compatibilidade.peca.nome_generico
         compatibilidade.delete()
         messages.success(request, f'"{nome_peca}" desvinculada deste produto.')
 
@@ -492,7 +514,7 @@ def excluir_peca(request, peca_id):
 
     if request.method == 'POST':
         codigo_barras = request.POST.get('codigo_barras_origem', '')
-        nome = peca.nome
+        nome = peca.nome_generico
         peca.delete()
         messages.success(request, f'Peça "{nome}" excluída do sistema.')
 

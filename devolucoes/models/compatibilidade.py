@@ -1,3 +1,4 @@
+from django.core.validators import MinValueValidator
 from django.db import models
 
 from .peca import Peca
@@ -12,11 +13,11 @@ class Compatibilidade(models.Model):
     #                  diferentes.
     peca = models.ForeignKey(Peca, on_delete=models.CASCADE, related_name='compatibilidades')
     produto = models.ForeignKey(Produto, on_delete=models.CASCADE, related_name='compatibilidades')
-    quantidade_esperada = models.PositiveIntegerField(default=1)
+    quantidade_esperada = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
 
     class Meta:
         unique_together = [('peca', 'produto')]
-        ordering = ['produto__nome', 'peca__nome']
+        ordering = ['produto__nome', 'peca__nome_generico']
 
     def __str__(self):
-        return f'{self.peca.nome} em {self.produto.nome}'
+        return f'{self.peca.nome_generico} em {self.produto.nome}'

@@ -115,7 +115,11 @@
         if (form.classList.contains('catalogo-form-excluir-peca')) {
             var botao = form.querySelector('.catalogo-botao-excluir-peca');
             var nome = botao ? botao.getAttribute('data-peca-nome') : 'esta peça';
-            if (!window.confirm('Excluir "' + nome + '" de vez? Ela vai sumir de TODOS os produtos compatíveis, não só deste.')) {
+            var qtdProdutos = botao ? parseInt(botao.getAttribute('data-qtd-produtos'), 10) || 1 : 1;
+            var aviso = qtdProdutos > 1
+                ? 'Excluir "' + nome + '" de vez? Ela está vinculada a ' + qtdProdutos + ' produtos — todos eles vão perder essa peça, não só este.'
+                : 'Excluir "' + nome + '" de vez?';
+            if (!window.confirm(aviso)) {
                 evento.preventDefault();
             }
         }

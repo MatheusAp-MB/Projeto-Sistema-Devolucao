@@ -34,11 +34,11 @@
                 <div class="catalogo-pecas-grade">
                     {% for comp in compatibilidades %}
                         <div class="catalogo-peca">
-                            <p class="catalogo-peca-nome">{{ comp.peca.nome }}</p>
+                            <p class="catalogo-peca-nome">{{ comp.peca.nome_generico }}</p>
                             <div class="catalogo-peca-foto{% if comp.peca.imagem %} catalogo-peca-foto--clicavel{% endif %}"
-                                 {% if comp.peca.imagem %}data-imagem-url="{{ comp.peca.imagem.url }}" data-imagem-titulo="{{ comp.peca.nome }}"{% endif %}>
+                                 {% if comp.peca.imagem %}data-imagem-url="{{ comp.peca.imagem.url }}" data-imagem-titulo="{{ comp.peca.nome_generico }}"{% endif %}>
                                 {% if comp.peca.imagem %}
-                                    <img src="{{ comp.peca.imagem.url }}" alt="{{ comp.peca.nome }}">
+                                    <img src="{{ comp.peca.imagem.url }}" alt="{{ comp.peca.nome_generico }}">
                                 {% else %}
                                     <span class="catalogo-peca-foto-vazia">sem foto</span>
                                 {% endif %}
@@ -56,7 +56,7 @@
                             <form method="post" action="{% url 'excluir_peca' comp.peca.id %}" class="catalogo-form-excluir-peca">
                                 {% csrf_token %}
                                 <input type="hidden" name="codigo_barras_origem" value="{{ produto.codigo_barras }}">
-                                <button type="submit" class="catalogo-botao-excluir-peca" data-peca-nome="{{ comp.peca.nome }}">Excluir peça de vez</button>
+                                <button type="submit" class="catalogo-botao-excluir-peca" data-peca-nome="{{ comp.peca.nome_generico }}" data-qtd-produtos="{{ comp.peca.outras_compatibilidades|length|add:1 }}">Excluir peça de vez</button>
                             </form>
                         </div>
                     {% endfor %}
@@ -88,7 +88,9 @@
                         <p class="catalogo-painel-titulo">Cadastrar peça nova</p>
                         <form method="post" action="{% url 'cadastrar_peca' produto.id %}" enctype="multipart/form-data" class="catalogo-form-peca">
                             {% csrf_token %}
-                            <input type="text" name="nome" id="catalogo-nova-peca-nome" placeholder="Nome da peça" required>
+                            <input type="text" name="nome" id="catalogo-nova-peca-nome" placeholder="Nome da peça (genérico)" required>
+                            <input type="text" name="nome_tecnico" placeholder="Nome técnico (opcional)">
+                            <input type="text" name="codigo_fabricante" placeholder="Código do fabricante (opcional)">
                             <input type="number" name="quantidade_esperada" placeholder="Qtd esperada" min="1" value="1" required>
                             <div class="catalogo-campo-imagem">
                                 <input type="file" name="imagem" accept="image/*" id="id_imagem_nova_peca" class="catalogo-input-imagem-oculto">
