@@ -18,4 +18,12 @@ urlpatterns = [
     path('catalogo/produto/<int:produto_id>/peca/cadastrar/', views.cadastrar_peca, name='cadastrar_peca'),
     path('catalogo/compatibilidade/<int:compatibilidade_id>/desvincular/', views.desvincular_peca, name='desvincular_peca'),
     path('catalogo/peca/<int:peca_id>/excluir/', views.excluir_peca, name='excluir_peca'),
+
+    path('marcas-grupos/', views.marcas_grupos, name='marcas_grupos'),
+    path('marcas-grupos/marca/cadastrar/', views.cadastrar_marca_avulsa, name='cadastrar_marca_avulsa'),
+    path('marcas-grupos/marca/<int:marca_id>/editar/', views.editar_marca, name='editar_marca'),
+    path('marcas-grupos/marca/<int:marca_id>/excluir/', views.excluir_marca, name='excluir_marca'),
+    path('marcas-grupos/grupo/cadastrar/', views.cadastrar_grupo_fornecedor_avulso, name='cadastrar_grupo_fornecedor_avulso'),
+    path('marcas-grupos/grupo/<int:grupo_id>/editar/', views.editar_grupo_fornecedor, name='editar_grupo_fornecedor'),
+    path('marcas-grupos/grupo/<int:grupo_id>/excluir/', views.excluir_grupo_fornecedor, name='excluir_grupo_fornecedor'),
 ]

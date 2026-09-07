@@ -1,0 +1,109 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Marcas e Grupos Fornecedores{% endblock %}
+{% block toolbar_titulo %}Marcas e Grupos Fornecedores{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_marcas_grupos.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+    <div class="marcas-pagina">
+
+        <div class="marcas-cartao">
+            <div class="marcas-cabecalho">
+                <div class="marcas-cabecalho-titulo">
+                    <i class="fas fa-industry"></i>
+                    <p class="marcas-titulo">Grupos Fornecedores</p>
+                    <span class="marcas-contagem">{{ grupos|length }}</span>
+                </div>
+                <button type="button" id="botao-nova-linha-grupo" class="marcas-botao-novo">+ Novo grupo</button>
+            </div>
+
+            <form method="post" action="{% url 'cadastrar_grupo_fornecedor_avulso' %}" id="form-novo-grupo" class="marcas-form-novo" hidden>
+                {% csrf_token %}
+                <input type="text" name="nome" placeholder="Nome do grupo" required>
+                <button type="submit">Salvar</button>
+            </form>
+
+            {% if grupos %}
+                <div class="marcas-lista">
+                    {% for grupo in grupos %}
+                        <div class="marcas-linha">
+                            <div class="marcas-linha-icone com-grupo"><i class="fas fa-industry"></i></div>
+                            <form method="post" action="{% url 'editar_grupo_fornecedor' grupo.id %}" class="marcas-form-linha">
+                                {% csrf_token %}
+                                <input type="text" name="nome" value="{{ grupo.nome }}" required>
+                                <span class="marcas-linha-info">{{ grupo.marcas.count }} marca{{ grupo.marcas.count|pluralize }}</span>
+                                <button type="submit" class="marcas-botao-salvar">Salvar</button>
+                            </form>
+                            <form method="post" action="{% url 'excluir_grupo_fornecedor' grupo.id %}" class="marcas-form-excluir-grupo">
+                                {% csrf_token %}
+                                <button type="submit" class="marcas-botao-excluir" data-nome="{{ grupo.nome }}">Excluir</button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="marcas-vazio">Nenhum grupo cadastrado ainda.</p>
+            {% endif %}
+        </div>
+
+        <div class="marcas-cartao">
+            <div class="marcas-cabecalho">
+                <div class="marcas-cabecalho-titulo">
+                    <i class="fas fa-tag"></i>
+                    <p class="marcas-titulo">Marcas</p>
+                    <span class="marcas-contagem">{{ marcas|length }}</span>
+                </div>
+                <button type="button" id="botao-nova-linha-marca" class="marcas-botao-novo">+ Nova marca</button>
+            </div>
+
+            <form method="post" action="{% url 'cadastrar_marca_avulsa' %}" id="form-nova-marca" class="marcas-form-novo" hidden>
+                {% csrf_token %}
+                <input type="text" name="nome" placeholder="Nome da marca" required>
+                <select name="grupo_fornecedor_id">
+                    <option value="">— nenhum grupo —</option>
+                    {% for grupo in grupos %}
+                        <option value="{{ grupo.id }}">{{ grupo.nome }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit">Salvar</button>
+            </form>
+
+            {% if marcas %}
+                <div class="marcas-lista">
+                    {% for marca in marcas %}
+                        <div class="marcas-linha">
+                            <div class="marcas-linha-icone{% if marca.grupo_fornecedor %} com-grupo{% endif %}"><i class="fas fa-tag"></i></div>
+                            <form method="post" action="{% url 'editar_marca' marca.id %}" class="marcas-form-linha">
+                                {% csrf_token %}
+                                <input type="text" name="nome" value="{{ marca.nome }}" required>
+                                <select name="grupo_fornecedor_id">
+                                    <option value="">— nenhum grupo —</option>
+                                    {% for grupo in grupos %}
+                                        <option value="{{ grupo.id }}" {% if marca.grupo_fornecedor_id == grupo.id %}selected{% endif %}>{{ grupo.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                                <span class="marcas-linha-info">{{ marca.produtos.count }} produto{{ marca.produtos.count|pluralize }}</span>
+                                <button type="submit" class="marcas-botao-salvar">Salvar</button>
+                            </form>
+                            <form method="post" action="{% url 'excluir_marca' marca.id %}" class="marcas-form-excluir-marca">
+                                {% csrf_token %}
+                                <button type="submit" class="marcas-botao-excluir" data-nome="{{ marca.nome }}">Excluir</button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="marcas-vazio">Nenhuma marca cadastrada ainda.</p>
+            {% endif %}
+        </div>
+
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'devolucoes/js/script_marcas_grupos.js' %}"></script>
+{% endblock %}

@@ -66,6 +66,7 @@ function obterCsrfToken() {
                 campoBusca.value = marca.nome;
                 campoMarcaId.value = marca.id;
                 resultadosMarca.hidden = true;
+                if (marcaErro) marcaErro.hidden = true;
                 atualizarChipGrupo();
             });
 
@@ -74,6 +75,8 @@ function obterCsrfToken() {
 
         resultadosMarca.hidden = lista.length === 0;
     }
+
+    var marcaErro = document.getElementById('marca_erro');
 
     if (campoBusca && campoMarcaId) {
         campoBusca.addEventListener('input', function () {
@@ -89,6 +92,7 @@ function obterCsrfToken() {
             });
             if (correspondenciaExata) campoMarcaId.value = correspondenciaExata.id;
 
+            if (marcaErro) marcaErro.hidden = true;
             atualizarChipGrupo();
             renderizarResultadosMarca(termo);
         });
@@ -112,6 +116,24 @@ function obterCsrfToken() {
     if (botaoNovaMarca && caixaNovaMarca) {
         botaoNovaMarca.addEventListener('click', function () {
             caixaNovaMarca.hidden = !caixaNovaMarca.hidden;
+        });
+    }
+
+    var formProduto = document.getElementById('form-dados-produto');
+    if (formProduto && campoBusca && campoMarcaId) {
+        formProduto.addEventListener('submit', function (evento) {
+            var textoDigitado = campoBusca.value.trim();
+
+            // Campo de marca vazio de propósito passa liso (marca é
+            // opcional). O problema é só texto digitado que não virou
+            // nenhum marca_id — aí bloqueia, senão o produto salva sem
+            // marca e o texto some em silêncio.
+            if (!textoDigitado || campoMarcaId.value) return;
+
+            evento.preventDefault();
+            if (marcaErro) marcaErro.hidden = false;
+            renderizarResultadosMarca(textoDigitado.toLowerCase());
+            campoBusca.focus();
         });
     }
 
@@ -196,6 +218,7 @@ function obterCsrfToken() {
 
                     campoBusca.value = dados.nome;
                     campoMarcaId.value = dados.id;
+                    if (marcaErro) marcaErro.hidden = true;
                     atualizarChipGrupo();
 
                     caixaNovaMarca.hidden = true;

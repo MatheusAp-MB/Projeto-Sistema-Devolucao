@@ -120,6 +120,12 @@
     margin-top: 4px;
 }
 
+.produto-form-erro-marca {
+    font-size: 11px;
+    color: #dc3545;
+    margin-top: 4px;
+}
+
 .produto-form-linha-marca-grupo {
     display: grid;
     grid-template-columns: 1fr auto;
@@ -127,11 +133,50 @@
     align-items: center;
 }
 
-.produto-form-marca-busca-wrap {
+.produto-form-marca-seletor-wrap {
     position: relative;
 }
 
-.produto-form-resultados-marca {
+.produto-form-marca-caixa {
+    width: 100%;
+    height: 36px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 0 12px;
+    font-size: 13.5px;
+    color: #333;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    user-select: none;
+}
+
+.produto-form-marca-caixa.vazio {
+    color: #8a94a3;
+}
+
+.produto-form-marca-caixa:hover,
+.produto-form-marca-caixa.aberto {
+    border-color: #2e7bb5;
+}
+
+.produto-form-marca-caixa.aberto {
+    box-shadow: 0 0 0 3px rgba(46, 123, 181, 0.12);
+}
+
+.produto-form-marca-caixa i {
+    color: #8a94a3;
+    font-size: 11px;
+    transition: transform 0.15s ease;
+}
+
+.produto-form-marca-caixa.aberto i {
+    transform: rotate(180deg);
+}
+
+.produto-form-marca-painel {
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
@@ -141,38 +186,81 @@
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(26, 58, 92, 0.12);
     z-index: 20;
-    max-height: 220px;
+    padding: 8px;
+}
+
+.produto-form-marca-painel-busca {
+    width: 100%;
+    height: 32px;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    padding: 0 10px;
+    font-size: 12.5px;
+    font-family: inherit;
+    margin-bottom: 6px;
+}
+
+.produto-form-marca-painel-busca:focus {
+    outline: none;
+    border-color: #2e7bb5;
+}
+
+.produto-form-marca-painel-lista {
+    max-height: 200px;
     overflow-y: auto;
 }
 
-.produto-form-resultado-marca {
+.produto-form-marca-opcao {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
     width: 100%;
     text-align: left;
-    padding: 8px 12px;
+    padding: 8px 10px;
     border: none;
-    border-bottom: 1px solid #f1f3f6;
     background: #ffffff;
     font-size: 13px;
     color: #1a3a5c;
     cursor: pointer;
+    border-radius: 5px;
 }
 
-.produto-form-resultado-marca:last-child {
-    border-bottom: none;
-}
-
-.produto-form-resultado-marca:hover {
+.produto-form-marca-opcao:hover {
     background: #f7fbfe;
 }
 
-.produto-form-resultado-marca-grupo {
+.produto-form-marca-opcao.selecionada {
+    background: #e7f0fa;
+}
+
+.produto-form-marca-opcao-grupo {
     font-size: 10.5px;
     color: #6c757d;
     white-space: nowrap;
+}
+
+.produto-form-marca-painel-vazio {
+    padding: 10px;
+    font-size: 12px;
+    color: #8a94a3;
+    text-align: center;
+}
+
+.produto-form-marca-painel-divisor {
+    border-top: 1px solid #eef1f4;
+    margin: 6px 2px;
+}
+
+.produto-form-marca-opcao-nova {
+    color: #2e7bb5;
+    font-weight: 600;
+}
+
+.produto-form-erro-marca {
+    font-size: 11px;
+    color: #dc3545;
+    margin-top: 4px;
 }
 
 .produto-form-chip-grupo {
@@ -197,14 +285,6 @@
     background: #f1f3f6;
     color: #6c757d;
     border: 1px solid #dee2e6;
-}
-
-.produto-form-link-nova-marca {
-    display: inline-block;
-    font-size: 12px;
-    color: #2e7bb5;
-    cursor: pointer;
-    margin-top: 6px;
 }
 
 .produto-form-caixa-nova-marca {

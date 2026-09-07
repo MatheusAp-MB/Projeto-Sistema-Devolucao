@@ -5,8 +5,10 @@
 # hora (sem salvar nada no banco) — views do catálogo de produtos e
 # peças — criar/consultar/editar/excluir produto (tela própria,
 # reaproveitada pros 2 casos), buscar/vincular/cadastrar/desvincular/
-# excluir peça — e cadastro de Marca/Grupo Fornecedor, cada um isolado
-# e salvo na hora (via AJAX), nunca dependente de o Produto ser salvo.
+# excluir peça — cadastro isolado de Marca/Grupo Fornecedor via AJAX
+# (chamado de dentro da tela de produto) — e a tela própria de gerenciar
+# Marcas e Grupos Fornecedores (criar/editar/excluir cada um, direto na
+# lista).
 #
 # * [ATENÇÃO] → nova_devolucao ainda usa produto.pecas.all(), que não
 #               existe mais depois dessa mudança (peça deixou de
@@ -205,45 +207,55 @@ def _contexto_form_produto(produto=None, valores=None):
     }
 
 
+def _criar_marca(nome, grupo_id):
+    """Cria (ou reaproveita, se já existir) uma Marca. Usada tanto pelo
+    endpoint AJAX da tela de produto quanto pelo formulário comum da
+    tela de Marcas e Grupos Fornecedores."""
+    nome = nome.strip()
+    if not nome:
+        return None, 'Nome da marca é obrigatório.'
+
+    grupo = GrupoFornecedor.objects.filter(pk=grupo_id).first() if grupo_id else None
+    marca, _ = Marca.objects.get_or_create(nome=nome, defaults={'grupo_fornecedor': grupo})
+    return marca, None
+
+
+def _criar_grupo_fornecedor(nome):
+    """Cria (ou reaproveita) um Grupo Fornecedor — mesma ideia de
+    _criar_marca, usada nos 2 lugares que cadastram grupo."""
+    nome = nome.strip()
+    if not nome:
+        return None, 'Nome do grupo é obrigatório.'
+
+    grupo, _ = GrupoFornecedor.objects.get_or_create(nome=nome)
+    return grupo, None
+
+
 def cadastrar_grupo_fornecedor(request):
-    """Cadastro isolado de Grupo Fornecedor — salvo no banco na hora,
-    chamado via AJAX pela tela de produto (mas não depende dela: é um
-    cadastro que existe por si só, reutilizável por qualquer marca)."""
+    """Endpoint AJAX (JSON) — chamado de dentro da tela de produto."""
     if request.method != 'POST':
         return JsonResponse({'erro': 'Método não permitido.'}, status=405)
 
-    nome = request.POST.get('nome', '').strip()
-    if not nome:
-        return JsonResponse({'erro': 'Nome do grupo é obrigatório.'}, status=400)
+    grupo, erro = _criar_grupo_fornecedor(request.POST.get('nome', ''))
+    if erro:
+        return JsonResponse({'erro': erro}, status=400)
 
-    grupo, _ = GrupoFornecedor.objects.get_or_create(nome=nome)
     return JsonResponse({'id': grupo.id, 'nome': grupo.nome})
 
 
 def cadastrar_marca(request):
-    """Cadastro isolado de Marca — salvo no banco na hora, chamado via
-    AJAX. Só associa um Grupo Fornecedor que já existe (referenciado por
-    id) — não cria grupo nenhum aqui, isso é papel só de
-    cadastrar_grupo_fornecedor."""
+    """Endpoint AJAX (JSON) — chamado de dentro da tela de produto."""
     if request.method != 'POST':
         return JsonResponse({'erro': 'Método não permitido.'}, status=405)
 
-    nome = request.POST.get('nome', '').strip()
-    if not nome:
-        return JsonResponse({'erro': 'Nome da marca é obrigatório.'}, status=400)
-
-    grupo = None
-    grupo_id = request.POST.get('grupo_fornecedor_id', '').strip()
-    if grupo_id:
-        grupo = GrupoFornecedor.objects.filter(pk=grupo_id).first()
-
-    marca, criada = Marca.objects.get_or_create(nome=nome, defaults={'grupo_fornecedor': grupo})
+    marca, erro = _criar_marca(request.POST.get('nome', ''), request.POST.get('grupo_fornecedor_id', '').strip())
+    if erro:
+        return JsonResponse({'erro': erro}, status=400)
 
     return JsonResponse({
         'id': marca.id,
         'nome': marca.nome,
         'grupo': {'id': marca.grupo_fornecedor.id, 'nome': marca.grupo_fornecedor.nome} if marca.grupo_fornecedor else None,
-        'criada': criada,
     })
 
 
@@ -262,19 +274,32 @@ def cadastrar_produto(request):
             'marca_id': marca_id,
             'marca_nome': Marca.objects.filter(pk=marca_id).values_list('nome', flat=True).first() or '' if marca_id else '',
         }
+        rerenderizar = lambda: render(request, 'devolucoes/produto_form.html', _contexto_form_produto(valores=valores_digitados))
 
-        if not (nome and codigo_barras):
-            messages.error(request, 'Nome e EAN são obrigatórios.')
-            return render(request, 'devolucoes/produto_form.html', _contexto_form_produto(valores=valores_digitados))
+        if not (nome and codigo_barras and marca_id):
+            messages.error(request, 'Nome, Marca e EAN são obrigatórios.')
+            return rerenderizar()
+
+        marca = Marca.objects.filter(pk=marca_id).first()
+        if not marca:
+            messages.error(request, 'Marca inválida — selecione uma marca da lista.')
+            return rerenderizar()
 
         if Produto.objects.filter(codigo_barras=codigo_barras).exists():
             messages.error(request, f'Já existe um produto cadastrado com o código de barras {codigo_barras}.')
-            return render(request, 'devolucoes/produto_form.html', _contexto_form_produto(valores=valores_digitados))
+            return rerenderizar()
 
-        marca = Marca.objects.filter(pk=marca_id).first() if marca_id else None
+        if sku and Produto.objects.filter(sku=sku).exists():
+            messages.error(request, f'Já existe um produto cadastrado com o SKU {sku}.')
+            return rerenderizar()
+
+        if codigo_fabricante and Produto.objects.filter(codigo_fabricante=codigo_fabricante).exists():
+            messages.error(request, f'Já existe um produto cadastrado com o código do fabricante {codigo_fabricante}.')
+            return rerenderizar()
+
         produto = Produto.objects.create(
             codigo_barras=codigo_barras, nome=nome, marca=marca,
-            sku=sku, codigo_fabricante=codigo_fabricante, foto=foto,
+            sku=sku or None, codigo_fabricante=codigo_fabricante or None, foto=foto,
         )
         messages.success(request, f'Produto "{nome}" cadastrado.')
         return redirect(f"{reverse('catalogo')}?codigo_barras={produto.codigo_barras}")
@@ -299,20 +324,34 @@ def editar_produto(request, produto_id):
             'marca_id': marca_id,
             'marca_nome': Marca.objects.filter(pk=marca_id).values_list('nome', flat=True).first() or '' if marca_id else '',
         }
+        rerenderizar = lambda: render(request, 'devolucoes/produto_form.html', _contexto_form_produto(produto, valores_digitados))
 
-        if not (nome and codigo_barras):
-            messages.error(request, 'Nome e EAN são obrigatórios.')
-            return render(request, 'devolucoes/produto_form.html', _contexto_form_produto(produto, valores_digitados))
+        if not (nome and codigo_barras and marca_id):
+            messages.error(request, 'Nome, Marca e EAN são obrigatórios.')
+            return rerenderizar()
+
+        marca = Marca.objects.filter(pk=marca_id).first()
+        if not marca:
+            messages.error(request, 'Marca inválida — selecione uma marca da lista.')
+            return rerenderizar()
 
         if Produto.objects.exclude(pk=produto.pk).filter(codigo_barras=codigo_barras).exists():
             messages.error(request, f'Já existe outro produto com o código de barras {codigo_barras}.')
-            return render(request, 'devolucoes/produto_form.html', _contexto_form_produto(produto, valores_digitados))
+            return rerenderizar()
 
-        produto.marca = Marca.objects.filter(pk=marca_id).first() if marca_id else None
+        if sku and Produto.objects.exclude(pk=produto.pk).filter(sku=sku).exists():
+            messages.error(request, f'Já existe outro produto com o SKU {sku}.')
+            return rerenderizar()
+
+        if codigo_fabricante and Produto.objects.exclude(pk=produto.pk).filter(codigo_fabricante=codigo_fabricante).exists():
+            messages.error(request, f'Já existe outro produto com o código do fabricante {codigo_fabricante}.')
+            return rerenderizar()
+
+        produto.marca = marca
         produto.nome = nome
         produto.codigo_barras = codigo_barras
-        produto.sku = sku
-        produto.codigo_fabricante = codigo_fabricante
+        produto.sku = sku or None
+        produto.codigo_fabricante = codigo_fabricante or None
         if foto:
             produto.foto = foto
         produto.save()
@@ -420,3 +459,97 @@ def excluir_peca(request, peca_id):
             return redirect(f"{reverse('catalogo')}?codigo_barras={codigo_barras}")
 
     return redirect('produtos')
+
+
+def marcas_grupos(request):
+    contexto = {
+        'marcas': Marca.objects.select_related('grupo_fornecedor'),
+        'grupos': GrupoFornecedor.objects.all(),
+        'pagina_ativa': 'marcas_grupos',
+    }
+    return render(request, 'devolucoes/marcas_grupos.html', contexto)
+
+
+def cadastrar_marca_avulsa(request):
+    if request.method == 'POST':
+        marca, erro = _criar_marca(request.POST.get('nome', ''), request.POST.get('grupo_fornecedor_id', '').strip())
+        if erro:
+            messages.error(request, erro)
+        else:
+            messages.success(request, f'Marca "{marca.nome}" cadastrada.')
+
+    return redirect('marcas_grupos')
+
+
+def editar_marca(request, marca_id):
+    marca = get_object_or_404(Marca, pk=marca_id)
+
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+        grupo_id = request.POST.get('grupo_fornecedor_id', '').strip()
+
+        if nome:
+            if Marca.objects.exclude(pk=marca.pk).filter(nome=nome).exists():
+                messages.error(request, f'Já existe outra marca chamada "{nome}".')
+                return redirect('marcas_grupos')
+
+            marca.nome = nome
+            marca.grupo_fornecedor = GrupoFornecedor.objects.filter(pk=grupo_id).first() if grupo_id else None
+            marca.save()
+            messages.success(request, f'Marca "{nome}" atualizada.')
+
+    return redirect('marcas_grupos')
+
+
+def excluir_marca(request, marca_id):
+    marca = get_object_or_404(Marca, pk=marca_id)
+
+    if request.method == 'POST':
+        if marca.produtos.exists():
+            messages.error(request, f'A marca "{marca.nome}" tem produtos vinculados e não pode ser excluída.')
+            return redirect('marcas_grupos')
+
+        marca.delete()
+        messages.success(request, f'Marca "{marca.nome}" excluída.')
+
+    return redirect('marcas_grupos')
+
+
+def cadastrar_grupo_fornecedor_avulso(request):
+    if request.method == 'POST':
+        grupo, erro = _criar_grupo_fornecedor(request.POST.get('nome', ''))
+        if erro:
+            messages.error(request, erro)
+        else:
+            messages.success(request, f'Grupo "{grupo.nome}" cadastrado.')
+
+    return redirect('marcas_grupos')
+
+
+def editar_grupo_fornecedor(request, grupo_id):
+    grupo = get_object_or_404(GrupoFornecedor, pk=grupo_id)
+
+    if request.method == 'POST':
+        nome = request.POST.get('nome', '').strip()
+
+        if nome:
+            if GrupoFornecedor.objects.exclude(pk=grupo.pk).filter(nome=nome).exists():
+                messages.error(request, f'Já existe outro grupo chamado "{nome}".')
+                return redirect('marcas_grupos')
+
+            grupo.nome = nome
+            grupo.save()
+            messages.success(request, f'Grupo "{nome}" atualizado.')
+
+    return redirect('marcas_grupos')
+
+
+def excluir_grupo_fornecedor(request, grupo_id):
+    grupo = get_object_or_404(GrupoFornecedor, pk=grupo_id)
+
+    if request.method == 'POST':
+        nome = grupo.nome
+        grupo.delete()
+        messages.success(request, f'Grupo "{nome}" excluído.')
+
+    return redirect('marcas_grupos')
