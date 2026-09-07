@@ -25,7 +25,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.staticfiles import finders
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Count, Prefetch
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -619,14 +619,22 @@ def desvincular_peca(request, compatibilidade_id):
 
 
 def excluir_peca(request, peca_id):
+    """Exclui a peça — reaproveitado tanto pelo card na tela de produto
+    (POST clássico, com redirect) quanto pelo card na Gaveta de Peças
+    (POST via AJAX, com resposta em JSON, pra sumir da grade sem
+    recarregar a página)."""
     peca = get_object_or_404(Peca, pk=peca_id)
 
     if request.method == 'POST':
+        eh_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         codigo_barras = request.POST.get('codigo_barras_origem', '')
         nome = peca.nome_generico
         peca.delete()
-        messages.success(request, f'Peça "{nome}" excluída do sistema.')
 
+        if eh_ajax:
+            return JsonResponse({'id': peca_id, 'nome': nome})
+
+        messages.success(request, f'Peça "{nome}" excluída do sistema.')
         if codigo_barras:
             return redirect(f"{reverse('catalogo')}?codigo_barras={codigo_barras}")
 
@@ -700,6 +708,130 @@ def editar_peca(request, peca_id):
         return redirect('catalogo')
 
     return render(request, 'devolucoes/peca_form.html', _contexto_form_peca(peca))
+
+
+def gaveta_pecas(request):
+    """Tela própria de Peça — objeto autossuficiente, com CRUD completo
+    independente de vínculo. A busca/filtro (nome, marca, status) é
+    client-side, feita por script_gaveta_pecas.js — mesmo padrão já
+    usado em produtos() e marcas_grupos()."""
+    pecas = (
+        Peca.objects.select_related('marca')
+        .prefetch_related('compatibilidades__produto')
+        .annotate(qtd_produtos_vinculados=Count('compatibilidades', distinct=True))
+        .order_by('nome_generico')
+    )
+
+    contexto = {
+        'pecas': pecas,
+        'marcas_json': _marcas_json(),
+        'grupos': GrupoFornecedor.objects.all(),
+        'pagina_ativa': 'gaveta_pecas',
+    }
+    return render(request, 'devolucoes/gaveta_pecas.html', contexto)
+
+
+def cadastrar_peca_gaveta(request):
+    """Endpoint AJAX (JSON) — cadastro de peça pelo Modal de Peça na
+    Gaveta. Toda peça nasce avulsa aqui; vincular a um produto é uma
+    ação separada e posterior (Objetivo 2)."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    nome_generico = request.POST.get('nome', '').strip()
+    nome_tecnico = request.POST.get('nome_tecnico', '').strip()
+    codigo_fabricante = request.POST.get('codigo_fabricante', '').strip()
+    marca_id = request.POST.get('marca_id', '').strip()
+    imagem = request.FILES.get('imagem')
+
+    if not nome_generico:
+        return JsonResponse({'erro': 'Nome da peça é obrigatório.', 'campo': 'nome'}, status=400)
+
+    if not imagem:
+        return JsonResponse({'erro': 'Foto da peça é obrigatória.', 'campo': 'imagem'}, status=400)
+
+    if not marca_id:
+        return JsonResponse({'erro': 'Marca é obrigatória — selecione uma marca da lista.', 'campo': 'marca'}, status=400)
+
+    marca = Marca.objects.filter(pk=marca_id).first()
+    if not marca:
+        return JsonResponse({'erro': 'Marca inválida — selecione uma marca da lista.', 'campo': 'marca'}, status=400)
+
+    if codigo_fabricante and Peca.objects.filter(codigo_fabricante=codigo_fabricante).exists():
+        return JsonResponse({
+            'erro': f'Já existe uma peça cadastrada com o código do fabricante {codigo_fabricante}.',
+            'campo': 'codigo_fabricante',
+        }, status=400)
+
+    peca = Peca.objects.create(
+        nome_generico=nome_generico,
+        nome_tecnico=nome_tecnico or '',
+        codigo_fabricante=codigo_fabricante or None,
+        marca=marca,
+        imagem=imagem,
+    )
+
+    return JsonResponse({
+        'id': peca.id,
+        'nome': peca.nome_generico,
+        'nome_tecnico': peca.nome_tecnico,
+        'codigo_fabricante': peca.codigo_fabricante or '',
+        'marca_id': peca.marca_id,
+        'marca_nome': peca.marca.nome,
+        'imagem_url': peca.imagem.url if peca.imagem else None,
+        'qtd_produtos_vinculados': 0,
+    })
+
+
+def editar_peca_gaveta(request, peca_id):
+    """Endpoint AJAX (JSON) — edição de peça pelo Modal de Peça na
+    Gaveta. Mesma validação de editar_peca (tela própria antiga), só
+    que devolve JSON em vez de re-renderizar a página inteira."""
+    peca = get_object_or_404(Peca, pk=peca_id)
+
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    nome_generico = request.POST.get('nome', '').strip()
+    nome_tecnico = request.POST.get('nome_tecnico', '').strip()
+    codigo_fabricante = request.POST.get('codigo_fabricante', '').strip()
+    marca_id = request.POST.get('marca_id', '').strip()
+    imagem = request.FILES.get('imagem')
+
+    if not nome_generico:
+        return JsonResponse({'erro': 'Nome da peça é obrigatório.', 'campo': 'nome'}, status=400)
+
+    if not marca_id:
+        return JsonResponse({'erro': 'Marca é obrigatória — selecione uma marca da lista.', 'campo': 'marca'}, status=400)
+
+    marca = Marca.objects.filter(pk=marca_id).first()
+    if not marca:
+        return JsonResponse({'erro': 'Marca inválida — selecione uma marca da lista.', 'campo': 'marca'}, status=400)
+
+    if codigo_fabricante and Peca.objects.exclude(pk=peca.pk).filter(codigo_fabricante=codigo_fabricante).exists():
+        return JsonResponse({
+            'erro': f'Já existe outra peça com o código do fabricante {codigo_fabricante}.',
+            'campo': 'codigo_fabricante',
+        }, status=400)
+
+    peca.marca = marca
+    peca.nome_generico = nome_generico
+    peca.nome_tecnico = nome_tecnico
+    peca.codigo_fabricante = codigo_fabricante or None
+    if imagem:
+        peca.imagem = imagem
+    peca.save()
+
+    return JsonResponse({
+        'id': peca.id,
+        'nome': peca.nome_generico,
+        'nome_tecnico': peca.nome_tecnico,
+        'codigo_fabricante': peca.codigo_fabricante or '',
+        'marca_id': peca.marca_id,
+        'marca_nome': peca.marca.nome,
+        'imagem_url': peca.imagem.url if peca.imagem else None,
+        'qtd_produtos_vinculados': peca.compatibilidades.count(),
+    })
 
 
 def marcas_grupos(request):

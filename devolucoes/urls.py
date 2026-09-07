@@ -21,6 +21,10 @@ urlpatterns = [
     path('catalogo/compatibilidade/<int:compatibilidade_id>/desvincular/', views.desvincular_peca, name='desvincular_peca'),
     path('catalogo/peca/<int:peca_id>/excluir/', views.excluir_peca, name='excluir_peca'),
 
+    path('pecas/', views.gaveta_pecas, name='gaveta_pecas'),
+    path('pecas/cadastrar/', views.cadastrar_peca_gaveta, name='cadastrar_peca_gaveta'),
+    path('pecas/<int:peca_id>/editar/', views.editar_peca_gaveta, name='editar_peca_gaveta'),
+
     path('marcas-grupos/', views.marcas_grupos, name='marcas_grupos'),
     path('marcas-grupos/marca/cadastrar/', views.cadastrar_marca_avulsa, name='cadastrar_marca_avulsa'),
     path('marcas-grupos/marca/<int:marca_id>/editar/', views.editar_marca, name='editar_marca'),
