@@ -46,29 +46,28 @@ def link_callback(uri, rel):
 
 def gerar_relatorio_devolucao(request, devolucao_id):
     """Gera o relatório em PDF de 1 devolução (Objetivo 5/Finalizar) —
-    busca tudo direto do banco (produto, peças conferidas com fotos de
-    evidência, fotos de reclamação do cliente); diferente do fluxo antigo
-    (gerar_pdf_devolucao, removida aqui), que montava tudo na hora via
-    querystring, de antes da devolução ser persistida. Pode ser gerado a
-    qualquer momento, mas só faz sentido de verdade depois de conferida —
-    por isso o botão que chama essa view (devolucoes_pendentes.html) só
-    aparece quando destino_produto já está preenchido."""
+    busca tudo direto do banco (produto, peças conferidas); diferente do
+    fluxo antigo (gerar_pdf_devolucao, removida aqui), que montava tudo
+    na hora via querystring, de antes da devolução ser persistida. Pode
+    ser gerado a qualquer momento, mas só faz sentido de verdade depois
+    de conferida — por isso o botão que chama essa view
+    (devolucoes_pendentes.html) só aparece quando destino_produto já
+    está preenchido. request=request no render_to_string é de propósito
+    — sem isso o context processor de empresa_ativa_nome (usado no
+    cabeçalho do relatório) não roda."""
     devolucao = get_object_or_404(
         Devolucao.objects.select_related('produto__marca'), pk=devolucao_id,
     )
     pecas_conferidas = (
         devolucao.pecas_conferidas
         .select_related('peca__marca')
-        .prefetch_related('fotos')
         .order_by('peca__nome_generico')
     )
-    fotos_reclamacao = devolucao.fotos_reclamacao_cliente.all()
 
     html = render_to_string('devolucoes/relatorio_devolucao_pdf.html', {
         'devolucao': devolucao,
         'pecas_conferidas': pecas_conferidas,
-        'fotos_reclamacao': fotos_reclamacao,
-    })
+    }, request=request)
 
     resposta = HttpResponse(content_type='application/pdf')
     resposta['Content-Disposition'] = f'inline; filename="relatorio_devolucao_{devolucao.numero_pedido}.pdf"'
