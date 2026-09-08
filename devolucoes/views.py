@@ -219,11 +219,8 @@ def nova_devolucao(request):
             messages.error(request, 'Tipo de venda inválido.')
             return rerenderizar()
 
-        if Devolucao.objects.filter(numero_pedido=valores['numero_pedido'], produto=produto).exists():
-            messages.error(
-                request,
-                f'Já existe uma devolução registrada pra "{produto.nome}" neste pedido ({valores["numero_pedido"]}).',
-            )
+        if Devolucao.objects.filter(numero_pedido=valores['numero_pedido']).exists():
+            messages.error(request, f'Já existe uma devolução registrada pro pedido {valores["numero_pedido"]}.')
             return rerenderizar()
 
         devolucao = Devolucao.objects.create(

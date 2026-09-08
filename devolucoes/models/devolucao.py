@@ -101,12 +101,6 @@ class Devolucao(models.Model):
 
     class Meta:
         ordering = ['-criado_em']
-        # * [EXPLICAÇÃO] → o único não é só numero_pedido — um mesmo pedido
-        #   pode ter mais de 1 produto diferente devolvido (cada um vira sua
-        #   própria Devolucao, já que hoje é 1 devolução = 1 produto). O que
-        #   não pode duplicar é o MESMO produto sendo registrado 2x pro
-        #   MESMO pedido.
-        unique_together = [('numero_pedido', 'produto')]
 
     def __str__(self):
         return f'Devolução de {self.produto.nome} — pedido {self.numero_pedido}'
