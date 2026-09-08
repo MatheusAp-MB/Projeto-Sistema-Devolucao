@@ -28,6 +28,7 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
         --muted: #545f6b;
         --borda: #d7dce1;
         --fundo-tint: #f4f7fa;
+        --amber: #9a5b0c;
     }
     * { box-sizing: border-box; }
     body {
@@ -65,7 +66,7 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
     .faixa-bloco:last-child { border-right: none; }
     .faixa-bloco.produto { flex: 1.3; display: flex; gap: 10px; align-items: center; }
     .faixa-bloco.pedido { flex: 1.1; }
-    .faixa-bloco.plataforma { flex: 0.9; }
+    .faixa-bloco.plataforma { flex: 0.9; display: flex; flex-direction: column; justify-content: center; }
     .faixa-bloco.datas { flex: 1.3; }
 
     .bloco-rotulo { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin: 0 0 6px 0; }
@@ -90,8 +91,15 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
     .data-rotulo { color: var(--muted); }
     .data-valor { font-weight: 700; }
 
-    .observacao { display: flex; gap: 12px; border: 1px solid var(--borda); border-left: 4px solid var(--navy); border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
+    .observacao { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--borda); border-left: 4px solid var(--navy); border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
+    .observacao.interna { border-left-color: var(--amber); }
     .observacao p { margin: 0; font-size: 12px; }
+    .observacao-cabecalho { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+    .tag-fonte {
+        font-size: 8.5px; font-weight: 700; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 999px;
+        color: #fff; background: var(--navy);
+    }
+    .tag-fonte.interna { background: var(--amber); }
 
     .secao-titulo { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--navy); border-bottom: 2px solid var(--borda); padding-bottom: 6px; margin: 0 0 10px 0; }
 
@@ -103,6 +111,12 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
     table.pecas td.nota { color: var(--muted); font-style: italic; }
     .peca-foto, .peca-foto-vazia { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; }
     .peca-foto-vazia { background: #e3e8ec; border: 1px solid var(--borda); }
+
+    /* Evita cortar uma linha ao meio numa quebra de página, e repete o
+       cabeçalho da tabela em cada página impressa (relatório com muitas
+       peças acaba precisando de mais de 1 folha). */
+    table.pecas tr { page-break-inside: avoid; break-inside: avoid; }
+    table.pecas thead { display: table-header-group; }
 
     .status { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 1px solid; }
     .status.ok { background: #e6f3ea; color: #1f7a44; border-color: #bfe3cb; }
@@ -178,15 +192,18 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
             </div>
             <div class="faixa-bloco datas">
                 <p class="bloco-rotulo">Datas</p>
-                <p class="data-linha"><span class="data-rotulo">Venda</span><span class="data-valor mono">{{ devolucao.data_venda|date:"d/m/y" }}</span></p>
-                <p class="data-linha"><span class="data-rotulo">Recebido (cliente)</span><span class="data-valor mono">{{ devolucao.data_recebimento_cliente|date:"d/m/y" }}</span></p>
-                <p class="data-linha"><span class="data-rotulo">Reclamação aberta</span><span class="data-valor mono">{{ devolucao.data_reclamacao_cliente|date:"d/m/y" }}</span></p>
-                <p class="data-linha"><span class="data-rotulo">Recebido (nós)</span><span class="data-valor mono">{{ devolucao.data_recebimento_por_nos|date:"d/m/y" }}</span></p>
+                <p class="data-linha"><span class="data-rotulo">Venda</span><span class="data-valor mono">{{ devolucao.data_venda|date:"d/m/Y" }}</span></p>
+                <p class="data-linha"><span class="data-rotulo">Recebido (cliente)</span><span class="data-valor mono">{{ devolucao.data_recebimento_cliente|date:"d/m/Y" }}</span></p>
+                <p class="data-linha"><span class="data-rotulo">Reclamação aberta</span><span class="data-valor mono">{{ devolucao.data_reclamacao_cliente|date:"d/m/Y" }}</span></p>
+                <p class="data-linha"><span class="data-rotulo">Recebido (nós)</span><span class="data-valor mono">{{ devolucao.data_recebimento_por_nos|date:"d/m/Y" }}</span></p>
             </div>
         </div>
 
         <div class="observacao">
-            <p class="bloco-rotulo" style="white-space:nowrap;">Motivo da reclamação</p>
+            <div class="observacao-cabecalho">
+                <p class="bloco-rotulo" style="white-space:nowrap; margin:0;">Motivo da reclamação</p>
+                <span class="tag-fonte">CLIENTE</span>
+            </div>
             <p>{{ devolucao.motivo_reclamacao }}</p>
         </div>
 
@@ -198,10 +215,10 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
                         <p class="campo-linha"><span class="campo-nome">Reembolsado</span><span class="campo-valor">{% if devolucao.reembolsado %}Sim{% else %}Não{% endif %}</span></p>
                     {% endif %}
                     {% if devolucao.data_abertura_mediacao %}
-                        <p class="campo-linha"><span class="campo-nome">Aberta em</span><span class="campo-valor mono">{{ devolucao.data_abertura_mediacao|date:"d/m/y" }}</span></p>
+                        <p class="campo-linha"><span class="campo-nome">Aberta em</span><span class="campo-valor mono">{{ devolucao.data_abertura_mediacao|date:"d/m/Y" }}</span></p>
                     {% endif %}
                     {% if devolucao.data_finalizacao_mediacao %}
-                        <p class="campo-linha"><span class="campo-nome">Finalizada em</span><span class="campo-valor mono">{{ devolucao.data_finalizacao_mediacao|date:"d/m/y" }}</span></p>
+                        <p class="campo-linha"><span class="campo-nome">Finalizada em</span><span class="campo-valor mono">{{ devolucao.data_finalizacao_mediacao|date:"d/m/Y" }}</span></p>
                     {% endif %}
                 </div>
                 {% if devolucao.anotacao_mediacao %}
@@ -211,8 +228,11 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
         {% endif %}
 
         {% if devolucao.observacao_geral %}
-            <div class="observacao">
-                <p class="bloco-rotulo" style="white-space:nowrap;">Obs. geral</p>
+            <div class="observacao interna">
+                <div class="observacao-cabecalho">
+                    <p class="bloco-rotulo" style="white-space:nowrap; margin:0;">Obs. geral</p>
+                    <span class="tag-fonte interna">INTERNO</span>
+                </div>
                 <p>{{ devolucao.observacao_geral }}</p>
             </div>
         {% endif %}
