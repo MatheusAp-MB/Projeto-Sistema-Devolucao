@@ -1,0 +1,164 @@
+<!--
+[RESUMO] → Tela de impressão do relatório de devolução (Objetivo 5).
+Layout desenhado por Matheus (mockup) — reaproveitado quase sem
+tradução aqui, porque quem renderiza essa página é o navegador de
+verdade (Ctrl+P / botão Imprimir), não uma biblioteca de PDF em Python.
+Por isso dá pra usar flexbox, border-radius e <span> com fundo colorido
+direto, sem as gambiarras de tabela que precisamos fazer na tentativa
+anterior com xhtml2pdf.
+
+[ATENÇÃO] → por padrão o Chrome/Edge REMOVE cor de fundo ao imprimir
+(pra economizar tinta) — por isso o `-webkit-print-color-adjust: exact`
++ `print-color-adjust: exact` dentro do @media print, senão os selos
+coloridos "somem" na hora de imprimir/salvar como PDF.
+
+Página standalone (não estende a base do app) — é uma tela focada só
+nesse relatório, pensada pra abrir numa aba nova a partir do botão
+"Imprimir relatório" em devolucoes_pendentes.html.
+-->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Relatório de Devolução — Pedido {{ devolucao.numero_pedido }}</title>
+<style>
+    :root {
+        --navy: #1a3a5c;
+        --texto: #1c2733;
+        --muted: #545f6b;
+        --borda: #d7dce1;
+        --fundo-tint: #f4f7fa;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+        color: var(--texto);
+        margin: 0;
+        padding: 24px;
+        background: #eef1f4;
+    }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
+
+    .barra-acoes { max-width: 850px; margin: 0 auto 12px auto; display: flex; justify-content: flex-end; }
+    .btn-imprimir {
+        background: var(--navy); color: #fff; border: none;
+        padding: 10px 18px; border-radius: 6px;
+        font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .btn-imprimir:hover { background: #12293f; }
+
+    .folha { max-width: 850px; margin: 0 auto; background: #fff; padding: 16mm; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); }
+
+    .cabecalho { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid var(--navy); padding-bottom: 10px; margin-bottom: 14px; }
+    .cabecalho-empresa { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: var(--navy); margin: 0 0 4px 0; }
+    .cabecalho-titulo { font-size: 24px; font-weight: 700; margin: 0; }
+    .destino-bloco { text-align: right; }
+    .destino-rotulo { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--muted); margin: 0 0 6px 0; }
+
+    .selo { display: inline-block; font-size: 15px; font-weight: 700; padding: 6px 16px; border-radius: 999px; border: 2px solid; }
+    .selo.troca { color: #9a5b0c; background: #fbf0df; border-color: #9a5b0c; }
+    .selo.usado { color: var(--navy); background: #eaf1f8; border-color: var(--navy); }
+    .selo.pendente { color: var(--muted); background: #eef1f4; border-color: var(--borda); }
+
+    .faixa { display: flex; background: var(--fundo-tint); border: 1px solid var(--borda); border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+    .faixa-bloco { padding: 14px 16px; border-right: 1px solid var(--borda); }
+    .faixa-bloco:last-child { border-right: none; }
+    .faixa-bloco.produto { flex: 1.3; display: flex; gap: 10px; align-items: center; }
+    .faixa-bloco.pedido { flex: 1.1; }
+    .faixa-bloco.plataforma { flex: 0.9; }
+    .faixa-bloco.datas { flex: 1.3; }
+
+    .bloco-rotulo { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin: 0 0 6px 0; }
+
+    .produto-foto, .produto-foto-vazia { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+    .produto-foto-vazia { background: #e3e8ec; border: 1px solid var(--borda); }
+    .produto-nome { font-size: 13px; font-weight: 700; margin: 0 0 2px 0; }
+    .produto-marca { font-size: 11px; color: var(--muted); margin: 0; }
+
+    .campo-linha { display: flex; gap: 6px; font-size: 11px; margin: 3px 0; }
+    .campo-nome { color: var(--muted); white-space: nowrap; }
+    .campo-valor { font-weight: 700; }
+
+    .plataforma-nome { font-size: 12px; font-weight: 700; margin: 0 0 4px 0; }
+    .plataforma-venda { font-size: 11px; color: var(--muted); margin: 0; display: flex; align-items: center; gap: 6px; }
+    .selo-full { display: inline-block; font-size: 9px; font-weight: 700; color: var(--navy); border: 1px solid var(--navy); border-radius: 999px; padding: 2px 8px; }
+    .reembolso-linha { font-size: 10px; color: var(--muted); margin: 8px 0 0 0; }
+    .reembolso-linha strong { color: var(--texto); }
+
+    .data-linha { display: flex; justify-content: space-between; gap: 10px; font-size: 10.5px; margin: 3px 0; }
+    .data-rotulo { color: var(--muted); }
+    .data-valor { font-weight: 700; }
+
+    .observacao { display: flex; gap: 12px; border: 1px solid var(--borda); border-left: 4px solid var(--navy); border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
+    .observacao p { margin: 0; font-size: 12px; }
+
+    .secao-titulo { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--navy); border-bottom: 2px solid var(--borda); padding-bottom: 6px; margin: 0 0 10px 0; }
+
+    table.pecas { width: 100%; border-collapse: collapse; }
+    table.pecas th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); padding: 0 12px 8px 0; border-bottom: 2px solid var(--navy); }
+    table.pecas td { font-size: 12px; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--borda); vertical-align: middle; }
+    table.pecas td.nome { font-weight: 700; }
+    .nome-linha { display: flex; align-items: center; gap: 8px; }
+    table.pecas td.nota { color: var(--muted); font-style: italic; }
+    .peca-foto, .peca-foto-vazia { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; }
+    .peca-foto-vazia { background: #e3e8ec; border: 1px solid var(--borda); }
+
+    .status { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 1px solid; }
+    .status.ok { background: #e6f3ea; color: #1f7a44; border-color: #bfe3cb; }
+    .status.warn { background: #fbf0df; color: #9a5b0c; border-color: #f0d9b5; }
+    .status.bad { background: #fbe9e9; color: #a52f2f; border-color: #f0c2c2; }
+
+    .vazio { font-size: 12px; color: var(--muted); }
+    .rodape { margin-top: 20px; font-size: 10px; color: #a9b3bc; text-align: right; }
+
+    @media print {
+        body { background: #fff; padding: 0; }
+        .folha { box-shadow: none; max-width: none; padding: 12mm; }
+        .barra-acoes { display: none; }
+        * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @page { size: A4; margin: 12mm; }
+    }
+</style>
+</head>
+<body>
+
+    <div class="barra-acoes">
+        <button class="btn-imprimir" onclick="window.print()">Imprimir / Salvar como PDF</button>
+    </div>
+
+    <div class="folha">
+
+        <div class="cabecalho">
+            <div>
+                <p class="cabecalho-empresa">{{ empresa_ativa_nome }}</p>
+                <p class="cabecalho-titulo">Relatório de Devolução</p>
+            </div>
+            <div class="destino-bloco">
+                <p class="destino-rotulo">DESTINO DO PRODUTO</p>
+                {% if devolucao.destino_produto == 'troca' %}
+                    <span class="selo troca">{{ devolucao.get_destino_produto_display|upper }}</span>
+                {% elif devolucao.destino_produto == 'usado' %}
+                    <span class="selo usado">{{ devolucao.get_destino_produto_display|upper }}</span>
+                {% else %}
+                    <span class="selo pendente">AINDA NÃO CONFERIDO</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="faixa">
+            <div class="faixa-bloco produto">
+                {% if devolucao.produto.foto %}
+                    <img src="{{ devolucao.produto.foto.url }}" class="produto-foto">
+                {% else %}
+                    <div class="produto-foto-vazia"></div>
+                {% endif %}
+                <div>
+                    <p class="bloco-rotulo">Produto</p>
+                    <p class="produto-nome">{{ devolucao.produto.nome }}</p>
+                    <p class="produto-marca">Marca: {{ devolucao.produto.marca.nome }}</p>
+                </div>
+            </div>
+            <div class="faixa-bloco pedido">
+                <p class="bloco-rotulo">Pedido &amp; Cliente</p>
+                <p class="campo-linha"><span class="campo-nome">Pedido</span><span class="campo-valor mono">{{ devolucao.numero_pedido }}</span></p>
+                <p class="campo-linha"><span

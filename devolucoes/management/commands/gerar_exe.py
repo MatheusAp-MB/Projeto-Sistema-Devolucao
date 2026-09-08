@@ -42,20 +42,25 @@ class Command(BaseCommand):
 
             # Imports dinâmicos que o PyInstaller não detecta analisando o
             # código (por isso precisam ser forçados manualmente): ícone de
-            # bandeja (pystray); subpacote de código de barras que o
-            # xhtml2pdf carrega por baixo dos panos (bug de 03/09/2026);
-            # management commands do Django, necessários desde que o
-            # launcher passou a chamar `migrate` sozinho; e os 2 módulos
-            # próprios do projeto (`core.middleware`, `core.database_router`)
-            # que só são referenciados como string em `MIDDLEWARE`/
-            # `DATABASE_ROUTERS` do settings.py, nunca com um `import` direto
-            # em nenhum arquivo. Trocado de `--collect-submodules=core`
-            # (log não mostrou nenhuma tentativa de análise de `core`,
-            # 04/09/2026) pra `--hidden-import` explícito nos 2 módulos —
-            # é o que a própria documentação do PyInstaller recomenda pra
-            # este exato cenário (módulo só referenciado por string)
+            # bandeja (pystray); management commands do Django, necessários
+            # desde que o launcher passou a chamar `migrate` sozinho; e os 2
+            # módulos próprios do projeto (`core.middleware`,
+            # `core.database_router`) que só são referenciados como string
+            # em `MIDDLEWARE`/`DATABASE_ROUTERS` do settings.py, nunca com um
+            # `import` direto em nenhum arquivo. Trocado de
+            # `--collect-submodules=core` (log não mostrou nenhuma tentativa
+            # de análise de `core`, 04/09/2026) pra `--hidden-import`
+            # explícito nos 2 módulos — é o que a própria documentação do
+            # PyInstaller recomenda pra este exato cenário (módulo só
+            # referenciado por string).
+            # [ATENÇÃO] → o --collect-submodules=reportlab.graphics.barcode
+            # que existia aqui (pro xhtml2pdf) foi removido: o relatório de
+            # devolução (Objetivo 5) deixou de gerar PDF via xhtml2pdf/
+            # reportlab e virou uma tela HTML de impressão (Ctrl+P do
+            # navegador) — se nenhum outro fluxo do sistema usar xhtml2pdf/
+            # reportlab, dá pra tirar a dependência do pyproject.toml também
+            # (`poetry remove xhtml2pdf`).
             "--hidden-import=pystray._win32",
-            "--collect-submodules=reportlab.graphics.barcode",
             "--collect-submodules=django.core.management.commands",
             "--hidden-import=core.middleware",
             "--hidden-import=core.database_router",

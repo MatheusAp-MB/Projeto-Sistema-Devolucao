@@ -53,8 +53,8 @@
                                 <a href="{% url 'conferir_devolucao' devolucao.id %}" class="dp-btn dp-btn--principal">
                                     <i class="fas fa-pen-to-square"></i> Editar conferência
                                 </a>
-                                <a href="{% url 'gerar_relatorio_devolucao' devolucao.id %}" target="_blank" class="dp-btn">
-                                    <i class="fas fa-file-pdf"></i> Gerar relatório
+                                <a href="{% url 'imprimir_relatorio_devolucao' devolucao.id %}" target="_blank" class="dp-btn">
+                                    <i class="fas fa-print"></i> Imprimir relatório
                                 </a>
                             {% else %}
                                 <a href="{% url 'conferir_devolucao' devolucao.id %}" class="dp-btn dp-btn--principal">
