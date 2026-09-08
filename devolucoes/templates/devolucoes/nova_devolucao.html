@@ -12,6 +12,20 @@
     <form method="post" class="nd-pagina" id="form_nova_devolucao">
         {% csrf_token %}
 
+        <div class="nd-secao nd-colar-erp">
+            <button type="button" id="nd_colar_toggle" class="nd-colar-toggle">
+                <i class="fas fa-paste"></i> Colar linha do ERP
+                <span class="nd-colar-dica-inline">(preenche pedido, NF, cliente e plataforma sozinho)</span>
+            </button>
+            <div id="nd_colar_bloco" hidden>
+                <p class="nd-colar-dica">
+                    Selecione a linha do cabeçalho junto com a linha de dados na grade do ERP, copie (Ctrl+C) e cole aqui (Ctrl+V).
+                </p>
+                <textarea id="nd_colar_textarea" class="nd-colar-textarea" rows="2" placeholder="Cole aqui..."></textarea>
+                <p id="nd_colar_status" class="nd-colar-status" hidden></p>
+            </div>
+        </div>
+
         <div class="nd-secao">
             <p class="nd-secao-titulo"><i class="fas fa-store"></i> Plataforma e pedido</p>
             <div class="nd-grid-2">
@@ -117,6 +131,7 @@
             <div id="nd_produto_busca_bloco" {% if produto_selecionado %}hidden{% endif %}>
                 <div class="nd-produto-busca-wrap">
                     <input type="text" id="nd_produto_busca" class="nd-produto-busca" autocomplete="off"
+                           data-url-busca="{% url 'buscar_produtos_devolucao' %}"
                            placeholder="Buscar por nome, SKU, cód. fabricante ou marca — ou bipar o código de barras">
                     <div id="nd_produto_resultados" class="nd-produto-resultados" hidden></div>
                 </div>
