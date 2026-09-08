@@ -466,7 +466,7 @@ def _pecas_para_conferencia(devolucao):
             'quantidade_esperada': compat.quantidade_esperada,
             'quantidade_recebida': 0,
             'anotacao': '',
-            'ja_registrada': false,
+            'ja_registrada': False,
         }
     for peca_id, conferencia in conferencias_existentes.items():
         pecas_por_id[peca_id] = {
@@ -474,8 +474,8 @@ def _pecas_para_conferencia(devolucao):
             'quantidade_esperada': conferencia.quantidade_esperada,
             'quantidade_recebida': conferencia.quantidade_recebida,
             'anotacao': conferencia.anotacao,
-            'ja_registrada': true,
-        }
+            'ja_registrada': True,
+    }
 
     return sorted(pecas_por_id.values(), key=lambda p: p['peca'].nome_generico)
 
