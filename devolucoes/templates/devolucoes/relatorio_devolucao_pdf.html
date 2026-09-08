@@ -1,3 +1,20 @@
+<!--
+* [RESUMO] → Relatório A4 de 1 devolução, gerado em PDF (xhtml2pdf).
+* Layout desenhado por Matheus (mockup) — compacto, pensado pra caber
+* numa folha só: faixa de dados no topo, tabela de peças ocupando o
+* resto da página.
+*
+* * [ATENÇÃO] → xhtml2pdf (baseado em reportlab) NÃO suporta: CSS
+* variables (var(--x)) — por isso as cores aqui estão todas em hex
+* direto; display:flex/grid — por isso todo layout lado-a-lado usa
+* <table>, mesma técnica já usada em table.produto/table.dados antes
+* da reforma; ::after/::before — por isso o "risco" ao lado do título
+* de seção virou um border-bottom simples; e SVG inline — por isso os
+* ícones do mockup (troca, check, etc.) viraram só cor + texto (mesmo
+* padrão que .tag já usava aqui antes). Fonte é Helvetica/Courier — as
+* únicas que o gerador de PDF sabe desenhar sem precisar de um arquivo
+* de fonte embutido (Matheus pediu pra não inventar nada novo aqui).
+-->
 <!DOCTYPE html>
 <html>
 <head>
@@ -5,238 +22,296 @@
 <style>
     @page {
         size: A4;
-        margin: 2cm;
+        margin: 12mm;
     }
     body {
         font-family: Helvetica, Arial, sans-serif;
-        font-size: 13px;
-        color: #343a40;
-    }
-    h1 {
-        font-size: 22px;
-        color: #1a3a5c;
-        margin: 0 0 4px 0;
-    }
-    .subtitulo {
         font-size: 11px;
-        color: #6c757d;
-        margin: 0 0 6px 0;
+        color: #1c2733;
     }
-    .linha-cabecalho {
-        border-bottom: 2px solid #1a3a5c;
-        padding-bottom: 10px;
-        margin-bottom: 18px;
+    p { margin: 0; }
+    .mono {
+        font-family: Courier, monospace;
     }
-    .secao-titulo {
-        font-size: 12px;
-        text-transform: uppercase;
-        color: #2e7bb5;
-        border-bottom: 1px solid #dee2e6;
-        padding-bottom: 5px;
-        margin: 20px 0 10px 0;
-    }
-    .rotulo-bloco {
-        font-size: 12px;
-        font-weight: bold;
-        color: #6c757d;
-        margin: 12px 0 4px 0;
-    }
-    .texto-livre {
-        font-size: 13px;
-        margin: 0;
-    }
-    table.dados {
+
+    /* ===== Cabeçalho ===== */
+    table.cabecalho {
         width: 100%;
+        border-bottom: 2.5px solid #1a3a5c;
+        padding-bottom: 7px;
+        margin-bottom: 10px;
     }
-    table.dados td {
-        padding: 5px 0;
-        font-size: 13px;
+    table.cabecalho td {
+        border: none;
+        padding: 0;
+        vertical-align: bottom;
+    }
+    .cabecalho-empresa {
+        font-size: 10px;
+        font-weight: bold;
+        letter-spacing: 1px;
+        color: #1a3a5c;
+    }
+    .cabecalho-titulo {
+        font-size: 18px;
+        font-weight: bold;
+        color: #1c2733;
+        margin-top: 2px;
+    }
+    .destino-rotulo {
+        font-size: 8.5px;
+        font-weight: bold;
+        letter-spacing: 1px;
+        color: #545f6b;
+        text-align: right;
+        margin-bottom: 4px;
+    }
+    .destino-selo {
+        font-size: 14px;
+        font-weight: bold;
+        padding: 4px 12px;
+        border-radius: 4px;
+        border-width: 2px;
+        border-style: solid;
+    }
+    .destino-selo.troca { color: #9a5b0c; background-color: #fbf0df; border-color: #9a5b0c; }
+    .destino-selo.usado { color: #1a3a5c; background-color: #eaf1f8; border-color: #1a3a5c; }
+    .destino-selo.pendente { color: #545f6b; background-color: #eef1f4; border-color: #d7dce1; }
+
+    /* ===== Faixa de dados ===== */
+    table.faixa {
+        width: 100%;
+        background-color: #f4f7fa;
+        border: 1px solid #d7dce1;
+        border-radius: 6px;
+        margin-bottom: 8px;
+    }
+    table.faixa td {
+        padding: 9px 12px;
+        border-right: 1px solid #d7dce1;
         vertical-align: top;
     }
-    table.dados td.rotulo {
-        color: #6c757d;
-        width: 35%;
+    table.faixa td.ultimo { border-right: none; }
+
+    .bloco-rotulo {
+        font-size: 8px;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: #545f6b;
+        margin-bottom: 5px;
     }
-    table.produto td.foto {
-        width: 86px;
+
+    table.produto-linha td { border: none; padding: 0; vertical-align: middle; }
+    .produto-foto { width: 38px; height: 38px; border-radius: 4px; }
+    .produto-nome { font-size: 11.5px; font-weight: bold; color: #1c2733; margin-bottom: 2px; }
+    .produto-marca { font-size: 9.5px; color: #545f6b; }
+
+    table.campo-grade td { border: none; padding: 1px 0; font-size: 10px; }
+    .campo-nome { color: #545f6b; padding-right: 6px !important; white-space: nowrap; }
+    .campo-valor { color: #1c2733; font-weight: bold; }
+
+    .plataforma-nome { font-size: 11px; font-weight: bold; color: #1c2733; margin-bottom: 3px; }
+    .plataforma-venda { font-size: 10px; color: #545f6b; }
+    .selo-full {
+        font-size: 8.5px;
+        font-weight: bold;
+        color: #1a3a5c;
+        border: 1px solid #1a3a5c;
+        border-radius: 3px;
+        padding: 1px 5px;
     }
-    table.produto img {
-        width: 70px;
-        height: 70px;
+    .reembolso-linha { font-size: 9px; color: #545f6b; margin-top: 5px; }
+    .reembolso-linha strong { color: #1c2733; }
+
+    table.datas-lista { width: 100%; }
+    table.datas-lista td { border: none; padding: 2px 0; font-size: 9.5px; }
+    .data-rotulo { color: #545f6b; }
+    .data-valor { color: #1c2733; font-weight: bold; text-align: right; }
+
+    /* ===== Observação geral ===== */
+    table.observacao-geral {
+        width: 100%;
+        border: 1px solid #d7dce1;
+        border-left: 3px solid #1a3a5c;
+        border-radius: 4px;
+        margin-bottom: 12px;
     }
-    .fotos-linha {
-        margin-top: 8px;
+    table.observacao-geral td { border: none; padding: 7px 11px; vertical-align: top; }
+    table.observacao-geral td.rotulo { white-space: nowrap; padding-right: 8px; }
+    table.observacao-geral p { font-size: 11px; color: #1c2733; }
+
+    /* ===== Peças ===== */
+    .secao-titulo {
+        font-size: 11.5px;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        color: #1a3a5c;
+        border-bottom: 1px solid #d7dce1;
+        padding-bottom: 5px;
+        margin-bottom: 9px;
     }
-    .foto-evidencia {
-        width: 90px;
-        height: 90px;
-        margin-right: 6px;
-    }
-    .foto-evidencia-pequena {
-        width: 36px;
-        height: 36px;
-        margin-right: 3px;
-    }
+
     table.pecas {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 8px;
     }
     table.pecas th {
         text-align: left;
-        font-size: 11px;
+        font-size: 9px;
+        font-weight: bold;
+        letter-spacing: 0.5px;
         text-transform: uppercase;
-        color: #6c757d;
-        border-bottom: 1px solid #dee2e6;
-        padding: 8px;
+        color: #545f6b;
+        padding: 0 10px 7px 0;
+        border-bottom: 1.5px solid #1a3a5c;
     }
     table.pecas td {
-        padding: 10px 8px;
-        border-bottom: 1px solid #f1f3f6;
-        font-size: 12px;
+        font-size: 11px;
+        padding: 9px 10px 9px 0;
+        border-bottom: 1px solid #d7dce1;
         vertical-align: middle;
     }
-    table.pecas img {
-        width: 48px;
-        height: 48px;
-    }
-    .tag {
-        padding: 4px 10px;
-        border-radius: 6px;
-        font-size: 11px;
+    table.pecas td.nome { font-weight: bold; color: #1c2733; }
+    table.pecas td.nota { color: #545f6b; font-style: italic; }
+    .peca-foto { width: 30px; height: 30px; border-radius: 4px; margin-right: 8px; }
+
+    .status {
+        font-size: 9.5px;
         font-weight: bold;
-        color: #ffffff;
+        padding: 3px 8px;
+        border-radius: 3px;
     }
-    .tag-ok { background-color: #1e7e34; }
-    .tag-parcial { background-color: #b38600; }
-    .tag-falta { background-color: #b02a37; }
-    .vazio {
-        font-size: 12px;
-        color: #6c757d;
-    }
+    .status.ok { background-color: #e6f3ea; color: #1f7a44; }
+    .status.warn { background-color: #fbf0df; color: #9a5b0c; }
+    .status.bad { background-color: #fbe9e9; color: #a52f2f; }
+
+    .vazio { font-size: 11px; color: #545f6b; }
+
     .rodape {
-        margin-top: 28px;
-        font-size: 9px;
-        color: #adb5bd;
+        margin-top: 16px;
+        font-size: 8px;
+        color: #a9b3bc;
         text-align: right;
     }
 </style>
 </head>
 <body>
 
-    <div class="linha-cabecalho">
-        <h1>Relatório de Devolução</h1>
-        <p class="subtitulo">Pedido {{ devolucao.numero_pedido }} — devolução registrada em {{ devolucao.criado_em|date:"d/m/Y H:i" }}</p>
-    </div>
-
-    <p class="secao-titulo">Dados da devolução</p>
-    <table class="dados">
-        <tr><td class="rotulo">Plataforma</td><td>{{ devolucao.nome_plataforma }}</td></tr>
-        <tr><td class="rotulo">Tipo de venda</td><td>{{ devolucao.get_tipo_venda_display }}</td></tr>
-        <tr><td class="rotulo">Nota fiscal</td><td>{{ devolucao.numero_nota_fiscal }}</td></tr>
-        <tr><td class="rotulo">Cliente</td><td>{{ devolucao.nome_cliente }}</td></tr>
-        <tr><td class="rotulo">Data da venda</td><td>{{ devolucao.data_venda|date:"d/m/Y" }}</td></tr>
-        <tr><td class="rotulo">Recebido pelo cliente em</td><td>{{ devolucao.data_recebimento_cliente|date:"d/m/Y" }}</td></tr>
-        <tr><td class="rotulo">Reclamação aberta em</td><td>{{ devolucao.data_reclamacao_cliente|date:"d/m/Y" }}</td></tr>
-        <tr><td class="rotulo">Recebido por nós em</td><td>{{ devolucao.data_recebimento_por_nos|date:"d/m/Y" }}</td></tr>
+    <table class="cabecalho">
+        <tr>
+            <td style="text-align:left;">
+                <p class="cabecalho-empresa">{{ empresa_ativa_nome }}</p>
+                <p class="cabecalho-titulo">Relatório de Devolução</p>
+            </td>
+            <td style="text-align:right;">
+                <p class="destino-rotulo">DESTINO DO PRODUTO</p>
+                {% if devolucao.destino_produto == 'troca' %}
+                    <span class="destino-selo troca">{{ devolucao.get_destino_produto_display|upper }}</span>
+                {% elif devolucao.destino_produto == 'usado' %}
+                    <span class="destino-selo usado">{{ devolucao.get_destino_produto_display|upper }}</span>
+                {% else %}
+                    <span class="destino-selo pendente">AINDA NÃO CONFERIDO</span>
+                {% endif %}
+            </td>
+        </tr>
     </table>
 
-    <p class="secao-titulo">Motivo da reclamação do cliente</p>
-    <p class="texto-livre">{{ devolucao.motivo_reclamacao|linebreaksbr }}</p>
-    {% if fotos_reclamacao %}
-        <div class="fotos-linha">
-            {% for foto in fotos_reclamacao %}
-                <img src="{{ foto.imagem.url }}" class="foto-evidencia">
-            {% endfor %}
-        </div>
-    {% endif %}
-
-    {% if devolucao.data_abertura_mediacao %}
-        <p class="secao-titulo">Mediação</p>
-        <table class="dados">
-            <tr><td class="rotulo">Aberta em</td><td>{{ devolucao.data_abertura_mediacao|date:"d/m/Y" }}</td></tr>
-            <tr><td class="rotulo">Finalizada em</td><td>{{ devolucao.data_finalizacao_mediacao|date:"d/m/Y"|default:"Ainda em aberto" }}</td></tr>
-            <tr>
-                <td class="rotulo">Reembolsado pela plataforma?</td>
-                <td>{% if devolucao.reembolsado %}Sim{% elif devolucao.reembolsado == False %}Não{% else %}—{% endif %}</td>
-            </tr>
-        </table>
-        {% if devolucao.anotacao_mediacao %}
-            <p class="rotulo-bloco">Anotações sobre a mediação</p>
-            <p class="texto-livre">{{ devolucao.anotacao_mediacao|linebreaksbr }}</p>
-        {% endif %}
-    {% endif %}
-
-    <p class="secao-titulo">Produto</p>
-    <table class="produto">
+    <table class="faixa">
         <tr>
-            {% if devolucao.produto.foto %}
-                <td class="foto"><img src="{{ devolucao.produto.foto.url }}"></td>
-            {% endif %}
-            <td>
-                <table class="dados">
-                    <tr><td class="rotulo">Nome</td><td>{{ devolucao.produto.nome }}</td></tr>
-                    <tr><td class="rotulo">Marca</td><td>{{ devolucao.produto.marca.nome|default:"—" }}</td></tr>
-                    <tr><td class="rotulo">EAN</td><td>{{ devolucao.produto.codigo_barras }}</td></tr>
-                    {% if devolucao.produto.sku %}
-                        <tr><td class="rotulo">SKU</td><td>{{ devolucao.produto.sku }}</td></tr>
+            <td style="width:27%;">
+                <p class="bloco-rotulo">Produto</p>
+                <table class="produto-linha">
+                    <tr>
+                        {% if devolucao.produto.foto %}
+                            <td style="width:44px;"><img src="{{ devolucao.produto.foto.url }}" class="produto-foto"></td>
+                        {% endif %}
+                        <td>
+                            <p class="produto-nome">{{ devolucao.produto.nome }}</p>
+                            <p class="produto-marca">Marca: {{ devolucao.produto.marca.nome }}</p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+            <td style="width:25%;">
+                <p class="bloco-rotulo">Pedido &amp; Cliente</p>
+                <table class="campo-grade">
+                    <tr><td class="campo-nome">Pedido</td><td class="campo-valor mono">{{ devolucao.numero_pedido }}</td></tr>
+                    <tr><td class="campo-nome">NF</td><td class="campo-valor mono">{{ devolucao.numero_nota_fiscal }}</td></tr>
+                    <tr><td class="campo-nome">Cliente</td><td class="campo-valor">{{ devolucao.nome_cliente }}</td></tr>
+                </table>
+            </td>
+            <td style="width:17%;">
+                <p class="bloco-rotulo">Plataforma</p>
+                <p class="plataforma-nome">{{ devolucao.nome_plataforma }}</p>
+                <p class="plataforma-venda">
+                    {% if devolucao.tipo_venda == 'full' %}
+                        Venda <span class="selo-full">FULL</span>
+                    {% else %}
+                        {{ devolucao.get_tipo_venda_display }}
                     {% endif %}
+                </p>
+                {% if devolucao.reembolsado is not None %}
+                    <p class="reembolso-linha">Reembolsado: <strong>{% if devolucao.reembolsado %}Sim{% else %}Não{% endif %}</strong></p>
+                {% endif %}
+            </td>
+            <td class="ultimo" style="width:31%;">
+                <p class="bloco-rotulo">Datas</p>
+                <table class="datas-lista">
+                    <tr><td class="data-rotulo">Recebido (cliente)</td><td class="data-valor mono">{{ devolucao.data_recebimento_cliente|date:"d/m/y" }}</td></tr>
+                    <tr><td class="data-rotulo">Reclamação aberta</td><td class="data-valor mono">{{ devolucao.data_reclamacao_cliente|date:"d/m/y" }}</td></tr>
+                    <tr><td class="data-rotulo">Recebido (nós)</td><td class="data-valor mono">{{ devolucao.data_recebimento_por_nos|date:"d/m/y" }}</td></tr>
                 </table>
             </td>
         </tr>
     </table>
 
-    <p class="secao-titulo">Peças conferidas</p>
+    {% if devolucao.observacao_geral %}
+        <table class="observacao-geral">
+            <tr>
+                <td class="rotulo"><p class="bloco-rotulo">Obs. geral</p></td>
+                <td><p>{{ devolucao.observacao_geral }}</p></td>
+            </tr>
+        </table>
+    {% endif %}
+
+    <p class="secao-titulo">Estado das peças</p>
+
     {% if pecas_conferidas %}
         <table class="pecas">
             <thead>
                 <tr>
-                    <th>Foto</th>
-                    <th>Peça</th>
-                    <th>Recebido</th>
-                    <th>Situação</th>
+                    <th style="width:44%;">Peça</th>
+                    <th style="width:22%;">Situação</th>
                     <th>Anotação</th>
-                    <th>Fotos</th>
                 </tr>
             </thead>
             <tbody>
                 {% for item in pecas_conferidas %}
                     <tr>
-                        <td>{% if item.peca.imagem %}<img src="{{ item.peca.imagem.url }}">{% endif %}</td>
-                        <td>{{ item.peca.nome_generico }}</td>
-                        <td>{{ item.quantidade_recebida }} de {{ item.quantidade_esperada }}</td>
+                        <td class="nome">
+                            {% if item.peca.imagem %}<img src="{{ item.peca.imagem.url }}" class="peca-foto">{% endif %}
+                            {{ item.peca.nome_generico }}
+                        </td>
                         <td>
-                            {% if item.situacao == 'completa' %}
-                                <span class="tag tag-ok">Completa</span>
+                            {% if item.situacao == 'nao_recebida' %}
+                                <span class="status bad">NÃO VEIO</span>
                             {% elif item.situacao == 'incompleta' %}
-                                <span class="tag tag-parcial">Incompleta — faltam {{ item.deficit }}</span>
+                                <span class="status warn">FALTAM {{ item.deficit }}</span>
+                            {% elif item.anotacao %}
+                                <span class="status warn">COM DEFEITO</span>
                             {% else %}
-                                <span class="tag tag-falta">Não recebida</span>
+                                <span class="status ok">OK</span>
                             {% endif %}
                         </td>
-                        <td>{{ item.anotacao|default:"—" }}</td>
-                        <td>
-                            {% for foto in item.fotos.all %}
-                                <img src="{{ foto.imagem.url }}" class="foto-evidencia-pequena">
-                            {% empty %}
-                                —
-                            {% endfor %}
-                        </td>
+                        <td class="nota">{{ item.anotacao|default:"—" }}</td>
                     </tr>
                 {% endfor %}
             </tbody>
         </table>
     {% else %}
         <p class="vazio">Nenhuma peça conferida ainda.</p>
-    {% endif %}
-
-    <p class="secao-titulo">Resultado</p>
-    <table class="dados">
-        <tr><td class="rotulo">Destino do produto</td><td>{{ devolucao.get_destino_produto_display|default:"Ainda não conferido" }}</td></tr>
-    </table>
-    {% if devolucao.observacao_geral %}
-        <p class="rotulo-bloco">Observação geral do produto</p>
-        <p class="texto-livre">{{ devolucao.observacao_geral|linebreaksbr }}</p>
     {% endif %}
 
     <p class="rodape">Relatório gerado em {% now "d/m/Y H:i" %} — Sistema de Relatório de Devoluções</p>
