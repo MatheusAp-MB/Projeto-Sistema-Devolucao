@@ -13,18 +13,8 @@
 # de produto) — e a tela própria de gerenciar Marcas e Grupos
 # Fornecedores (criar/editar/excluir cada um, direto na lista).
 
-# * [ATENÇÃO] → gerar_pdf_devolucao/formatar_data_br/link_callback (logo
-#               abaixo) ficaram sem nenhum chamador depois da reforma de
-#               nova_devolucao — são do fluxo antigo (sem persistência,
-#               gerava o PDF na hora por GET, direto do código de
-#               barras). Mantidos aqui de propósito: serão reaproveitados
-#               e reformados quando a geração de relatório de verdade
-#               entrar no checklist da Nova Devolução.
-
 import json
 import os
-
-from datetime import datetime
 
 from django.conf import settings
 from django.contrib import messages
@@ -42,18 +32,6 @@ from .models import (
 )
 
 
-def formatar_data_br(valor_iso):
-    """Converte uma data no formato do input HTML (aaaa-mm-dd) pro
-    formato usado no relatório (dd/mm/aaaa). Se vier vazia ou num
-    formato inesperado, devolve o valor original sem quebrar o PDF."""
-    if not valor_iso:
-        return ''
-    try:
-        return datetime.strptime(valor_iso, '%Y-%m-%d').strftime('%d/%m/%Y')
-    except ValueError:
-        return valor_iso
-
-
 def link_callback(uri, rel):
     """Traduz uma URL de /media/ ou /static/ pro caminho real no disco —
     o xhtml2pdf não tem servidor rodando, então não consegue buscar essas
@@ -66,49 +44,34 @@ def link_callback(uri, rel):
     return uri
 
 
-def gerar_pdf_devolucao(request, dados, produto, pecas):
-    pecas_conferidas = []
-
-    for peca in pecas:
-        if peca.quantidade_esperada == 1:
-            recebido = 1 if request.GET.get(f'peca_recebido_{peca.id}') else 0
-        else:
-            try:
-                recebido = int(request.GET.get(f'peca_recebido_{peca.id}', '0'))
-            except ValueError:
-                recebido = 0
-            recebido = max(0, min(recebido, peca.quantidade_esperada))
-
-        anotacao = request.GET.get(f'peca_anotacao_{peca.id}', '').strip()
-
-        if recebido == 0:
-            situacao = 'Não recebida'
-        elif recebido < peca.quantidade_esperada:
-            situacao = f'Parcial — faltam {peca.quantidade_esperada - recebido}'
-        elif anotacao:
-            situacao = 'Completa (ver anotação)'
-        else:
-            situacao = 'Completa'
-
-        pecas_conferidas.append({
-            'peca': peca,
-            'recebido': recebido,
-            'situacao': situacao,
-            'anotacao': anotacao,
-        })
-
-    dados_pdf = dict(dados)
-    dados_pdf['data_recebimento'] = formatar_data_br(dados['data_recebimento'])
-    dados_pdf['data_chamado_ml'] = formatar_data_br(dados['data_chamado_ml'])
+def gerar_relatorio_devolucao(request, devolucao_id):
+    """Gera o relatório em PDF de 1 devolução (Objetivo 5/Finalizar) —
+    busca tudo direto do banco (produto, peças conferidas com fotos de
+    evidência, fotos de reclamação do cliente); diferente do fluxo antigo
+    (gerar_pdf_devolucao, removida aqui), que montava tudo na hora via
+    querystring, de antes da devolução ser persistida. Pode ser gerado a
+    qualquer momento, mas só faz sentido de verdade depois de conferida —
+    por isso o botão que chama essa view (devolucoes_pendentes.html) só
+    aparece quando destino_produto já está preenchido."""
+    devolucao = get_object_or_404(
+        Devolucao.objects.select_related('produto__marca'), pk=devolucao_id,
+    )
+    pecas_conferidas = (
+        devolucao.pecas_conferidas
+        .select_related('peca__marca')
+        .prefetch_related('fotos')
+        .order_by('peca__nome_generico')
+    )
+    fotos_reclamacao = devolucao.fotos_reclamacao_cliente.all()
 
     html = render_to_string('devolucoes/relatorio_devolucao_pdf.html', {
-        'dados': dados_pdf,
-        'produto': produto,
+        'devolucao': devolucao,
         'pecas_conferidas': pecas_conferidas,
+        'fotos_reclamacao': fotos_reclamacao,
     })
 
     resposta = HttpResponse(content_type='application/pdf')
-    resposta['Content-Disposition'] = 'inline; filename="relatorio_devolucao.pdf"'
+    resposta['Content-Disposition'] = f'inline; filename="relatorio_devolucao_{devolucao.numero_pedido}.pdf"'
 
     pisa_status = pisa.CreatePDF(html, dest=resposta, link_callback=link_callback)
     if pisa_status.err:

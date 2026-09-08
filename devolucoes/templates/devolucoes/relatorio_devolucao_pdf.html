@@ -35,6 +35,16 @@
         padding-bottom: 5px;
         margin: 20px 0 10px 0;
     }
+    .rotulo-bloco {
+        font-size: 12px;
+        font-weight: bold;
+        color: #6c757d;
+        margin: 12px 0 4px 0;
+    }
+    .texto-livre {
+        font-size: 13px;
+        margin: 0;
+    }
     table.dados {
         width: 100%;
     }
@@ -53,6 +63,19 @@
     table.produto img {
         width: 70px;
         height: 70px;
+    }
+    .fotos-linha {
+        margin-top: 8px;
+    }
+    .foto-evidencia {
+        width: 90px;
+        height: 90px;
+        margin-right: 6px;
+    }
+    .foto-evidencia-pequena {
+        width: 36px;
+        height: 36px;
+        margin-right: 3px;
     }
     table.pecas {
         width: 100%;
@@ -87,6 +110,10 @@
     .tag-ok { background-color: #1e7e34; }
     .tag-parcial { background-color: #b38600; }
     .tag-falta { background-color: #b02a37; }
+    .vazio {
+        font-size: 12px;
+        color: #6c757d;
+    }
     .rodape {
         margin-top: 28px;
         font-size: 9px;
@@ -99,67 +126,120 @@
 
     <div class="linha-cabecalho">
         <h1>Relatório de Devolução</h1>
-        <p class="subtitulo">Sistema de Relatório de Devoluções — documento gerado na hora, não fica salvo</p>
+        <p class="subtitulo">Pedido {{ devolucao.numero_pedido }} — devolução registrada em {{ devolucao.criado_em|date:"d/m/Y H:i" }}</p>
     </div>
 
     <p class="secao-titulo">Dados da devolução</p>
     <table class="dados">
-        <tr><td class="rotulo">NF</td><td>{{ dados.nf }}</td></tr>
-        <tr><td class="rotulo">Pedido</td><td>{{ dados.pedido }}</td></tr>
-        <tr><td class="rotulo">Cliente</td><td>{{ dados.cliente|default:"—" }}</td></tr>
-        <tr><td class="rotulo">Data de recebimento</td><td>{{ dados.data_recebimento }}</td></tr>
-        <tr><td class="rotulo">Abertura chamado ML</td><td>{{ dados.data_chamado_ml|default:"—" }}</td></tr>
+        <tr><td class="rotulo">Plataforma</td><td>{{ devolucao.nome_plataforma }}</td></tr>
+        <tr><td class="rotulo">Tipo de venda</td><td>{{ devolucao.get_tipo_venda_display }}</td></tr>
+        <tr><td class="rotulo">Nota fiscal</td><td>{{ devolucao.numero_nota_fiscal }}</td></tr>
+        <tr><td class="rotulo">Cliente</td><td>{{ devolucao.nome_cliente }}</td></tr>
+        <tr><td class="rotulo">Data da venda</td><td>{{ devolucao.data_venda|date:"d/m/Y" }}</td></tr>
+        <tr><td class="rotulo">Recebido pelo cliente em</td><td>{{ devolucao.data_recebimento_cliente|date:"d/m/Y" }}</td></tr>
+        <tr><td class="rotulo">Reclamação aberta em</td><td>{{ devolucao.data_reclamacao_cliente|date:"d/m/Y" }}</td></tr>
+        <tr><td class="rotulo">Recebido por nós em</td><td>{{ devolucao.data_recebimento_por_nos|date:"d/m/Y" }}</td></tr>
     </table>
+
+    <p class="secao-titulo">Motivo da reclamação do cliente</p>
+    <p class="texto-livre">{{ devolucao.motivo_reclamacao|linebreaksbr }}</p>
+    {% if fotos_reclamacao %}
+        <div class="fotos-linha">
+            {% for foto in fotos_reclamacao %}
+                <img src="{{ foto.imagem.url }}" class="foto-evidencia">
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {% if devolucao.data_abertura_mediacao %}
+        <p class="secao-titulo">Mediação</p>
+        <table class="dados">
+            <tr><td class="rotulo">Aberta em</td><td>{{ devolucao.data_abertura_mediacao|date:"d/m/Y" }}</td></tr>
+            <tr><td class="rotulo">Finalizada em</td><td>{{ devolucao.data_finalizacao_mediacao|date:"d/m/Y"|default:"Ainda em aberto" }}</td></tr>
+            <tr>
+                <td class="rotulo">Reembolsado pela plataforma?</td>
+                <td>{% if devolucao.reembolsado %}Sim{% elif devolucao.reembolsado == False %}Não{% else %}—{% endif %}</td>
+            </tr>
+        </table>
+        {% if devolucao.anotacao_mediacao %}
+            <p class="rotulo-bloco">Anotações sobre a mediação</p>
+            <p class="texto-livre">{{ devolucao.anotacao_mediacao|linebreaksbr }}</p>
+        {% endif %}
+    {% endif %}
 
     <p class="secao-titulo">Produto</p>
     <table class="produto">
         <tr>
-            {% if produto.foto %}
-                <td class="foto"><img src="{{ produto.foto.url }}"></td>
+            {% if devolucao.produto.foto %}
+                <td class="foto"><img src="{{ devolucao.produto.foto.url }}"></td>
             {% endif %}
             <td>
                 <table class="dados">
-                    <tr><td class="rotulo">Nome</td><td>{{ produto.nome }}</td></tr>
-                    <tr><td class="rotulo">Marca</td><td>{{ produto.marca|default:"—" }}</td></tr>
-                    <tr><td class="rotulo">EAN</td><td>{{ produto.codigo_barras }}</td></tr>
+                    <tr><td class="rotulo">Nome</td><td>{{ devolucao.produto.nome }}</td></tr>
+                    <tr><td class="rotulo">Marca</td><td>{{ devolucao.produto.marca.nome|default:"—" }}</td></tr>
+                    <tr><td class="rotulo">EAN</td><td>{{ devolucao.produto.codigo_barras }}</td></tr>
+                    {% if devolucao.produto.sku %}
+                        <tr><td class="rotulo">SKU</td><td>{{ devolucao.produto.sku }}</td></tr>
+                    {% endif %}
                 </table>
             </td>
         </tr>
     </table>
 
     <p class="secao-titulo">Peças conferidas</p>
-    <table class="pecas">
-        <thead>
-            <tr>
-                <th>Foto</th>
-                <th>Peça</th>
-                <th>Recebido</th>
-                <th>Situação</th>
-                <th>Anotação</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in pecas_conferidas %}
+    {% if pecas_conferidas %}
+        <table class="pecas">
+            <thead>
                 <tr>
-                    <td>{% if item.peca.imagem %}<img src="{{ item.peca.imagem.url }}">{% endif %}</td>
-                    <td>{{ item.peca.nome }}</td>
-                    <td>{{ item.recebido }} de {{ item.peca.quantidade_esperada }}</td>
-                    <td>
-                        {% if item.recebido == 0 %}
-                            <span class="tag tag-falta">{{ item.situacao }}</span>
-                        {% elif item.recebido < item.peca.quantidade_esperada %}
-                            <span class="tag tag-parcial">{{ item.situacao }}</span>
-                        {% else %}
-                            <span class="tag tag-ok">{{ item.situacao }}</span>
-                        {% endif %}
-                    </td>
-                    <td>{{ item.anotacao|default:"—" }}</td>
+                    <th>Foto</th>
+                    <th>Peça</th>
+                    <th>Recebido</th>
+                    <th>Situação</th>
+                    <th>Anotação</th>
+                    <th>Fotos</th>
                 </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+                {% for item in pecas_conferidas %}
+                    <tr>
+                        <td>{% if item.peca.imagem %}<img src="{{ item.peca.imagem.url }}">{% endif %}</td>
+                        <td>{{ item.peca.nome_generico }}</td>
+                        <td>{{ item.quantidade_recebida }} de {{ item.quantidade_esperada }}</td>
+                        <td>
+                            {% if item.situacao == 'completa' %}
+                                <span class="tag tag-ok">Completa</span>
+                            {% elif item.situacao == 'incompleta' %}
+                                <span class="tag tag-parcial">Incompleta — faltam {{ item.deficit }}</span>
+                            {% else %}
+                                <span class="tag tag-falta">Não recebida</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ item.anotacao|default:"—" }}</td>
+                        <td>
+                            {% for foto in item.fotos.all %}
+                                <img src="{{ foto.imagem.url }}" class="foto-evidencia-pequena">
+                            {% empty %}
+                                —
+                            {% endfor %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="vazio">Nenhuma peça conferida ainda.</p>
+    {% endif %}
 
-    <p class="rodape">Documento de uso único — não é reaberto nem reimpresso a partir de um histórico salvo.</p>
+    <p class="secao-titulo">Resultado</p>
+    <table class="dados">
+        <tr><td class="rotulo">Destino do produto</td><td>{{ devolucao.get_destino_produto_display|default:"Ainda não conferido" }}</td></tr>
+    </table>
+    {% if devolucao.observacao_geral %}
+        <p class="rotulo-bloco">Observação geral do produto</p>
+        <p class="texto-livre">{{ devolucao.observacao_geral|linebreaksbr }}</p>
+    {% endif %}
+
+    <p class="rodape">Relatório gerado em {% now "d/m/Y H:i" %} — Sistema de Relatório de Devoluções</p>
 
 </body>
 </html>
