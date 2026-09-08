@@ -54,6 +54,7 @@
     padding: 12px 14px;
     border: 1px solid var(--cor-borda);
     border-radius: 8px;
+    flex-wrap: wrap;
 }
 
 .dp-item-foto {
@@ -86,6 +87,30 @@
     font-size: 15px;
     font-weight: 600;
     color: #333;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.dp-badge {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+
+.dp-badge--pendente {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.dp-badge--conferida {
+    background: #e6f4ea;
+    color: var(--cor-positivo);
 }
 
 .dp-item-linha {
@@ -111,8 +136,71 @@
     text-align: center;
 }
 
+/* ===== ações por devolução ===== */
+
+.dp-item-acoes {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.dp-form-excluir {
+    display: contents;
+}
+
+.dp-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border: 1px solid var(--cor-borda);
+    background-color: #fff;
+    color: #444;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.dp-btn:hover {
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria-clara);
+    text-decoration: none;
+}
+
+.dp-btn--principal {
+    background-color: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+}
+
+.dp-btn--principal:hover {
+    background-color: var(--cor-primaria-clara);
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-texto-claro);
+}
+
+.dp-btn--perigo:hover {
+    border-color: var(--cor-negativo);
+    color: var(--cor-negativo);
+    background-color: #fde8e8;
+}
+
 @media (max-width: 720px) {
     .dp-item {
         flex-wrap: wrap;
+    }
+
+    .dp-item-acoes {
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .dp-item-acoes .dp-btn,
+    .dp-item-acoes .dp-form-excluir .dp-btn {
+        flex: 1;
+        justify-content: center;
     }
 }

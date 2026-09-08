@@ -1,8 +1,8 @@
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
 
-{% block titulo %}Devoluções pendentes{% endblock %}
-{% block toolbar_titulo %}Devoluções pendentes{% endblock %}
+{% block titulo %}Devoluções{% endblock %}
+{% block toolbar_titulo %}Devoluções{% endblock %}
 
 {% block toolbar_acoes %}
 <a href="{% url 'nova_devolucao' %}" class="dp-botao-nova"><i class="fas fa-plus"></i> Nova devolução</a>
@@ -14,9 +14,9 @@
 
 {% block conteudo %}
     <div class="dp-cartao">
-        <p class="dp-titulo">Aguardando conferência de peças</p>
+        <p class="dp-titulo">Devoluções</p>
         <p class="dp-subtitulo">
-            Base da devolução já salva no PC — falta abrir pelo celular e conferir as peças recebidas.
+            Pendentes aguardam a conferência de peças pelo celular. Já conferidas continuam aqui pra editar a conferência (em caso de erro) ou editar/excluir a devolução.
         </p>
 
         {% if devolucoes %}
@@ -31,7 +31,14 @@
                             {% endif %}
                         </div>
                         <div class="dp-item-textos">
-                            <p class="dp-item-produto">{{ devolucao.produto.nome }}</p>
+                            <p class="dp-item-produto">
+                                {{ devolucao.produto.nome }}
+                                {% if devolucao.destino_produto %}
+                                    <span class="dp-badge dp-badge--conferida">Conferida — {{ devolucao.get_destino_produto_display }}</span>
+                                {% else %}
+                                    <span class="dp-badge dp-badge--pendente">Pendente</span>
+                                {% endif %}
+                            </p>
                             <p class="dp-item-linha">
                                 <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }}</span>
                                 <span><i class="fas fa-receipt"></i> Pedido {{ devolucao.numero_pedido }}</span>
@@ -41,11 +48,33 @@
                                 <span><i class="fas fa-clock"></i> criada em {{ devolucao.criado_em|date:"d/m/Y H:i" }}</span>
                             </p>
                         </div>
+                        <div class="dp-item-acoes">
+                            {% if devolucao.destino_produto %}
+                                <a href="{% url 'conferir_devolucao' devolucao.id %}" class="dp-btn dp-btn--principal">
+                                    <i class="fas fa-pen-to-square"></i> Editar conferência
+                                </a>
+                            {% else %}
+                                <a href="{% url 'conferir_devolucao' devolucao.id %}" class="dp-btn dp-btn--principal">
+                                    <i class="fas fa-clipboard-check"></i> Continuar conferência
+                                </a>
+                            {% endif %}
+                            <a href="{% url 'editar_devolucao' devolucao.id %}" class="dp-btn"><i class="fas fa-pen"></i> Editar</a>
+                            <form method="post" action="{% url 'excluir_devolucao' devolucao.id %}" class="dp-form-excluir">
+                                {% csrf_token %}
+                                <button type="submit" class="dp-btn dp-btn--perigo" data-nome="{{ devolucao.numero_pedido }}">
+                                    <i class="fas fa-trash"></i> Excluir
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 {% endfor %}
             </div>
         {% else %}
-            <p class="dp-vazio">Nenhuma devolução pendente de conferência no momento.</p>
+            <p class="dp-vazio">Nenhuma devolução registrada no momento.</p>
         {% endif %}
     </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'devolucoes/js/script_devolucoes_pendentes.js' %}"></script>
 {% endblock %}

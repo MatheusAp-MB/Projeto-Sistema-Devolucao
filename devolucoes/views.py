@@ -36,7 +36,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
 
-from .models import Compatibilidade, Devolucao, GrupoFornecedor, Marca, Peca, Produto
+from .models import Compatibilidade, ConferenciaPeca, Devolucao, GrupoFornecedor, Marca, Peca, Produto
 
 
 def formatar_data_br(valor_iso):
@@ -134,11 +134,14 @@ def _parse_reembolsado(valor):
     return None
 
 
-def _contexto_nova_devolucao(valores=None, produto_selecionado=None):
+def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=None):
     """Monta o contexto da tela de Nova Devolução (Fase 0 + busca/
     seleção de produto) — usada tanto pro GET simples quanto pra
     re-exibir o formulário com o que a pessoa digitou quando a
-    validação falha."""
+    validação falha. 'devolucao' só vem preenchido quando é
+    editar_devolucao reaproveitando este mesmo template — é o que o
+    template usa pra virar "Editar devolução" (título, texto do botão)
+    em vez de "Nova devolução"."""
     if valores is None:
         valores = {
             'nome_plataforma': '', 'tipo_venda': '',
@@ -153,9 +156,32 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None):
     return {
         'valores': valores,
         'produto_selecionado': produto_selecionado,
+        'devolucao': devolucao,
         'plataforma_choices': Devolucao.PLATAFORMA_CHOICES,
         'tipo_venda_choices': Devolucao.TIPO_VENDA_CHOICES,
         'pagina_ativa': 'nova_devolucao',
+    }
+
+
+def _valores_da_devolucao(devolucao):
+    """Serializa uma Devolucao já salva pro dict 'valores' que o
+    template de Nova Devolução espera — usado só por editar_devolucao
+    (GET), pra pré-preencher o formulário com o que já está salvo."""
+    return {
+        'nome_plataforma': devolucao.nome_plataforma,
+        'tipo_venda': devolucao.tipo_venda,
+        'numero_pedido': devolucao.numero_pedido,
+        'numero_nota_fiscal': devolucao.numero_nota_fiscal,
+        'nome_cliente': devolucao.nome_cliente,
+        'data_venda': devolucao.data_venda.isoformat(),
+        'data_recebimento_cliente': devolucao.data_recebimento_cliente.isoformat(),
+        'data_reclamacao_cliente': devolucao.data_reclamacao_cliente.isoformat(),
+        'data_recebimento_por_nos': devolucao.data_recebimento_por_nos.isoformat(),
+        'data_abertura_mediacao': devolucao.data_abertura_mediacao.isoformat() if devolucao.data_abertura_mediacao else '',
+        'data_finalizacao_mediacao': devolucao.data_finalizacao_mediacao.isoformat() if devolucao.data_finalizacao_mediacao else '',
+        'reembolsado': 'sim' if devolucao.reembolsado is True else 'nao' if devolucao.reembolsado is False else '',
+        'anotacao_mediacao': devolucao.anotacao_mediacao,
+        'motivo_reclamacao': devolucao.motivo_reclamacao,
     }
 
 
@@ -249,6 +275,111 @@ def nova_devolucao(request):
     return render(request, 'devolucoes/nova_devolucao.html', _contexto_nova_devolucao())
 
 
+def editar_devolucao(request, devolucao_id):
+    """Edição dos dados da Fase 0 de uma devolução já salva (plataforma,
+    pedido, cliente, datas, mediação, reclamação do cliente, produto) —
+    reaproveita o mesmo template e a mesma validação de nova_devolucao,
+    só que atualiza a instância existente em vez de criar uma nova. Não
+    mexe na conferência de peças — isso é conferir_devolucao."""
+    devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+
+    if request.method == 'POST':
+        valores = {
+            'nome_plataforma': request.POST.get('nome_plataforma', '').strip(),
+            'tipo_venda': request.POST.get('tipo_venda', '').strip(),
+            'numero_pedido': request.POST.get('numero_pedido', '').strip(),
+            'numero_nota_fiscal': request.POST.get('numero_nota_fiscal', '').strip(),
+            'nome_cliente': request.POST.get('nome_cliente', '').strip(),
+            'data_venda': request.POST.get('data_venda', '').strip(),
+            'data_recebimento_cliente': request.POST.get('data_recebimento_cliente', '').strip(),
+            'data_reclamacao_cliente': request.POST.get('data_reclamacao_cliente', '').strip(),
+            'data_recebimento_por_nos': request.POST.get('data_recebimento_por_nos', '').strip(),
+            'data_abertura_mediacao': request.POST.get('data_abertura_mediacao', '').strip(),
+            'data_finalizacao_mediacao': request.POST.get('data_finalizacao_mediacao', '').strip(),
+            'reembolsado': request.POST.get('reembolsado', '').strip(),
+            'anotacao_mediacao': request.POST.get('anotacao_mediacao', '').strip(),
+            'motivo_reclamacao': request.POST.get('motivo_reclamacao', '').strip(),
+        }
+        produto_id = request.POST.get('produto_id', '').strip()
+        produto = Produto.objects.select_related('marca').filter(pk=produto_id).first() if produto_id else None
+
+        rerenderizar = lambda: render(
+            request, 'devolucoes/nova_devolucao.html',
+            _contexto_nova_devolucao(valores, produto, devolucao),
+        )
+
+        obrigatorios = [
+            ('nome_plataforma', 'Plataforma'), ('tipo_venda', 'Tipo de venda'),
+            ('numero_pedido', 'Número do pedido'), ('numero_nota_fiscal', 'Número da nota fiscal'),
+            ('nome_cliente', 'Nome do cliente'),
+            ('data_venda', 'Data da venda'),
+            ('data_recebimento_cliente', 'Data de recebimento pelo cliente'),
+            ('data_reclamacao_cliente', 'Data da reclamação'),
+            ('data_recebimento_por_nos', 'Data de recebimento por nós'),
+            ('motivo_reclamacao', 'Motivo da reclamação'),
+        ]
+        faltando = [rotulo for campo, rotulo in obrigatorios if not valores[campo]]
+        if faltando:
+            messages.error(request, f'Preencha: {", ".join(faltando)}.')
+            return rerenderizar()
+
+        if not produto:
+            messages.error(request, 'Selecione um produto pela busca antes de salvar.')
+            return rerenderizar()
+
+        if valores['nome_plataforma'] not in dict(Devolucao.PLATAFORMA_CHOICES):
+            messages.error(request, 'Plataforma inválida — selecione uma da lista.')
+            return rerenderizar()
+
+        if valores['tipo_venda'] not in dict(Devolucao.TIPO_VENDA_CHOICES):
+            messages.error(request, 'Tipo de venda inválido.')
+            return rerenderizar()
+
+        if Devolucao.objects.exclude(pk=devolucao.pk).filter(numero_pedido=valores['numero_pedido']).exists():
+            messages.error(request, f'Já existe uma devolução registrada pro pedido {valores["numero_pedido"]}.')
+            return rerenderizar()
+
+        devolucao.produto = produto
+        devolucao.nome_plataforma = valores['nome_plataforma']
+        devolucao.tipo_venda = valores['tipo_venda']
+        devolucao.numero_pedido = valores['numero_pedido']
+        devolucao.numero_nota_fiscal = valores['numero_nota_fiscal']
+        devolucao.nome_cliente = valores['nome_cliente']
+        devolucao.data_venda = valores['data_venda']
+        devolucao.data_recebimento_cliente = valores['data_recebimento_cliente']
+        devolucao.data_reclamacao_cliente = valores['data_reclamacao_cliente']
+        devolucao.data_recebimento_por_nos = valores['data_recebimento_por_nos']
+        devolucao.data_abertura_mediacao = _parse_data_opcional(valores['data_abertura_mediacao'])
+        devolucao.data_finalizacao_mediacao = _parse_data_opcional(valores['data_finalizacao_mediacao'])
+        devolucao.reembolsado = _parse_reembolsado(valores['reembolsado'])
+        devolucao.anotacao_mediacao = valores['anotacao_mediacao']
+        devolucao.motivo_reclamacao = valores['motivo_reclamacao']
+        devolucao.save()
+
+        messages.success(request, f'Devolução do pedido {devolucao.numero_pedido} atualizada.')
+        return redirect('devolucoes_pendentes')
+
+    valores = _valores_da_devolucao(devolucao)
+    return render(
+        request, 'devolucoes/nova_devolucao.html',
+        _contexto_nova_devolucao(valores, devolucao.produto, devolucao),
+    )
+
+
+def excluir_devolucao(request, devolucao_id):
+    """Exclui a devolução inteira (e em cascata: peças conferidas e fotos
+    dela, se já tiver alguma) — usada tanto pra corrigir um cadastro
+    feito por engano quanto por uma devolução de teste."""
+    devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+
+    if request.method == 'POST':
+        numero_pedido = devolucao.numero_pedido
+        devolucao.delete()
+        messages.success(request, f'Devolução do pedido {numero_pedido} excluída.')
+
+    return redirect('devolucoes_pendentes')
+
+
 def _produto_para_busca(produto):
     return {
         'id': produto.id,
@@ -292,16 +423,17 @@ def buscar_produtos_devolucao(request):
 
 
 def devolucoes_pendentes(request):
-    """Listagem básica das devoluções já com a base salva (Fase 0 +
-    produto) mas ainda sem a conferência de peças feita — é o ponto de
-    partida pra continuar pelo celular. destino_produto vazio é o sinal
-    de 'ainda não conferida' (ver comentário em Devolucao.destino_produto
-    no model — mesma filosofia de estado derivado usada em
-    ConferenciaPeca.situacao, sem duplicar num campo de status à
-    parte)."""
+    """Listagem de TODAS as devoluções — nome ficou de antes da
+    conferência existir, quando só listava as pendentes; hoje continua
+    trazendo as já conferidas também, com acesso a editar a conferência
+    (em caso de erro ao gravar) e a editar/excluir a devolução em si.
+    destino_produto vazio é o sinal de 'ainda não conferida' (ver
+    comentário em Devolucao.destino_produto no model — mesma filosofia
+    de estado derivado usada em ConferenciaPeca.situacao, sem duplicar
+    num campo de status à parte) — é o que o template usa pra decidir
+    entre mostrar 'Continuar conferência' ou 'Editar conferência'."""
     lista = (
-        Devolucao.objects.filter(destino_produto='')
-        .select_related('produto__marca')
+        Devolucao.objects.select_related('produto__marca')
         .order_by('-criado_em')
     )
     contexto = {
@@ -309,6 +441,123 @@ def devolucoes_pendentes(request):
         'pagina_ativa': 'devolucoes_pendentes',
     }
     return render(request, 'devolucoes/devolucoes_pendentes.html', contexto)
+
+
+def _pecas_para_conferencia(devolucao):
+    """Monta a lista de peças pra tela de conferência — parte das peças
+    ATUALMENTE compatíveis com o produto (Compatibilidade) e sobrepõe
+    com o que já foi conferido antes (ConferenciaPeca), se for edição de
+    uma conferência já existente. A união com o que já foi conferido é
+    de propósito: garante que, ao editar, uma peça que não é mais
+    compatível com o produto (cadastro mudou depois) mas já tinha sido
+    registrada nessa devolução continue aparecendo — sem sumir dado já
+    gravado. quantidade_esperada de uma peça já conferida vem congelada
+    dela mesma (ConferenciaPeca), não da Compatibilidade atual — mesma
+    ideia documentada no model."""
+    conferencias_existentes = {
+        c.peca_id: c for c in devolucao.pecas_conferidas.select_related('peca__marca').all()
+    }
+    compatibilidades = devolucao.produto.compatibilidades.select_related('peca__marca')
+
+    pecas_por_id = {}
+    for compat in compatibilidades:
+        pecas_por_id[compat.peca_id] = {
+            'peca': compat.peca,
+            'quantidade_esperada': compat.quantidade_esperada,
+            'quantidade_recebida': 0,
+            'anotacao': '',
+            'ja_registrada': false,
+        }
+    for peca_id, conferencia in conferencias_existentes.items():
+        pecas_por_id[peca_id] = {
+            'peca': conferencia.peca,
+            'quantidade_esperada': conferencia.quantidade_esperada,
+            'quantidade_recebida': conferencia.quantidade_recebida,
+            'anotacao': conferencia.anotacao,
+            'ja_registrada': true,
+        }
+
+    return sorted(pecas_por_id.values(), key=lambda p: p['peca'].nome_generico)
+
+
+def conferir_devolucao(request, devolucao_id):
+    """Tela de conferência de peças — preenchida no celular (Fase 3).
+    Reúne as peças a conferir (_pecas_para_conferencia) e deixa marcar
+    quantidade recebida + anotação por peça, além do destino final do
+    produto e uma observação geral. Serve tanto pra conferir pela 1ª vez
+    (destino_produto ainda vazio) quanto pra corrigir uma conferência já
+    feita — mesma tela, os dados vêm pré-preenchidos e salvar sobrescreve
+    o que já existia (ver 'ja_conferida' no contexto)."""
+    devolucao = get_object_or_404(Devolucao.objects.select_related('produto__marca'), pk=devolucao_id)
+    ja_conferida = devolucao.destino_produto != ''
+
+    if request.method == 'POST':
+        destino_produto = request.POST.get('destino_produto', '').strip()
+        observacao_geral = request.POST.get('observacao_geral', '').strip()
+
+        contexto_erro = lambda: render(request, 'devolucoes/conferir_devolucao.html', {
+            'devolucao': devolucao,
+            'ja_conferida': ja_conferida,
+            'pecas': _pecas_para_conferencia(devolucao),
+            'destino_choices': Devolucao.DESTINO_CHOICES,
+            'pagina_ativa': 'devolucoes_pendentes',
+        })
+
+        if destino_produto not in dict(Devolucao.DESTINO_CHOICES):
+            messages.error(request, 'Selecione o destino do produto.')
+            return contexto_erro()
+
+        compatibilidades = {c.peca_id: c.quantidade_esperada for c in devolucao.produto.compatibilidades.all()}
+        conferencias_existentes = {c.peca_id: c for c in devolucao.pecas_conferidas.all()}
+        # peça pode vir tanto de uma Compatibilidade atual quanto de uma
+        # ConferenciaPeca já existente (peça que não é mais compatível
+        # mas já tinha sido registrada antes) — mesma união feita em
+        # _pecas_para_conferencia.
+        ids_peca = set(compatibilidades.keys()) | set(conferencias_existentes.keys())
+
+        with transaction.atomic():
+            for peca_id in ids_peca:
+                conferencia_existente = conferencias_existentes.get(peca_id)
+                quantidade_esperada = (
+                    conferencia_existente.quantidade_esperada if conferencia_existente
+                    else compatibilidades[peca_id]
+                )
+
+                try:
+                    quantidade_recebida = int(request.POST.get(f'quantidade_recebida_{peca_id}', '0'))
+                except ValueError:
+                    quantidade_recebida = 0
+                quantidade_recebida = max(0, min(quantidade_recebida, quantidade_esperada))
+
+                anotacao = request.POST.get(f'anotacao_{peca_id}', '').strip()
+
+                if conferencia_existente:
+                    conferencia_existente.quantidade_recebida = quantidade_recebida
+                    conferencia_existente.anotacao = anotacao
+                    conferencia_existente.save(update_fields=['quantidade_recebida', 'anotacao'])
+                else:
+                    ConferenciaPeca.objects.create(
+                        devolucao=devolucao, peca_id=peca_id,
+                        quantidade_esperada=quantidade_esperada,
+                        quantidade_recebida=quantidade_recebida,
+                        anotacao=anotacao,
+                    )
+
+            devolucao.destino_produto = destino_produto
+            devolucao.observacao_geral = observacao_geral
+            devolucao.save(update_fields=['destino_produto', 'observacao_geral'])
+
+        messages.success(request, f'Conferência do pedido {devolucao.numero_pedido} salva.')
+        return redirect('devolucoes_pendentes')
+
+    contexto = {
+        'devolucao': devolucao,
+        'ja_conferida': ja_conferida,
+        'pecas': _pecas_para_conferencia(devolucao),
+        'destino_choices': Devolucao.DESTINO_CHOICES,
+        'pagina_ativa': 'devolucoes_pendentes',
+    }
+    return render(request, 'devolucoes/conferir_devolucao.html', contexto)
 
 
 def produtos(request):

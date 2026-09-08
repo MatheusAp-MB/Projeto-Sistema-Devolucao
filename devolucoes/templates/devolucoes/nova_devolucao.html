@@ -1,8 +1,8 @@
 {% extends 'base_compartilhada/estrutura_base_global.html' %}
 {% load static %}
 
-{% block titulo %}Nova devolução{% endblock %}
-{% block toolbar_titulo %}Nova Devolução{% endblock %}
+{% block titulo %}{% if devolucao %}Editar devolução{% else %}Nova devolução{% endif %}{% endblock %}
+{% block toolbar_titulo %}{% if devolucao %}Editar Devolução{% else %}Nova Devolução{% endif %}{% endblock %}
 
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'devolucoes/css/layout_nova_devolucao.css' %}">
@@ -154,7 +154,9 @@
         </div>
 
         <div class="nd-acoes">
-            <button type="submit" class="nd-botao-primario"><i class="fas fa-floppy-disk"></i> Salvar devolução</button>
+            <button type="submit" class="nd-botao-primario">
+                <i class="fas fa-floppy-disk"></i> {% if devolucao %}Salvar alterações{% else %}Salvar devolução{% endif %}
+            </button>
         </div>
     </form>
 {% endblock %}

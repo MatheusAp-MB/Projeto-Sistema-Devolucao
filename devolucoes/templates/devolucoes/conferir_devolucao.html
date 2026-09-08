@@ -1,0 +1,123 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}{% if ja_conferida %}Editar conferência{% else %}Conferência de peças{% endif %}{% endblock %}
+{% block toolbar_titulo %}{% if ja_conferida %}Editar Conferência{% else %}Conferência de Peças{% endif %}{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_conferir_devolucao.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+    <form method="post" class="cf-pagina" id="form_conferir_devolucao">
+        {% csrf_token %}
+
+        {% if ja_conferida %}
+            <div class="cf-banner-edicao">
+                <i class="fas fa-triangle-exclamation"></i>
+                <span>Esta devolução já foi conferida — salvar aqui sobrescreve os dados anteriores.</span>
+            </div>
+        {% endif %}
+
+        <div class="cf-recap">
+            <div class="cf-recap-foto">
+                {% if devolucao.produto.foto %}
+                    <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
+                {% else %}
+                    <i class="fas fa-box"></i>
+                {% endif %}
+            </div>
+            <div>
+                <p class="cf-recap-nome">{{ devolucao.produto.nome }}</p>
+                <p class="cf-recap-linha">
+                    <i class="fas fa-store"></i> {{ devolucao.nome_plataforma }}
+                    &nbsp;·&nbsp;
+                    <i class="fas fa-receipt"></i> Pedido {{ devolucao.numero_pedido }}
+                </p>
+            </div>
+        </div>
+
+        <p class="cf-secao-titulo">Peças recebidas</p>
+
+        {% if pecas %}
+            {% for item in pecas %}
+                <div class="cf-peca">
+                    <div class="cf-peca-topo">
+                        <div class="cf-peca-foto">
+                            {% if item.peca.imagem %}
+                                <img src="{{ item.peca.imagem.url }}" alt="{{ item.peca.nome_generico }}">
+                            {% else %}
+                                <i class="fas fa-puzzle-piece"></i>
+                            {% endif %}
+                        </div>
+                        <div class="cf-peca-info">
+                            <p class="cf-peca-nome">{{ item.peca.nome_generico }}</p>
+                            <p class="cf-peca-esperada">Esperado: {{ item.quantidade_esperada }}</p>
+                        </div>
+                    </div>
+
+                    {% if item.quantidade_esperada == 1 %}
+                        <div class="cf-toggle2">
+                            <label class="cf-toggle2-opcao cf-toggle2-opcao--ok{% if item.ja_registrada and item.quantidade_recebida > 0 %} cf-toggle2-opcao--selecionada{% endif %}">
+                                <input type="radio" name="quantidade_recebida_{{ item.peca.id }}" value="1"
+                                       {% if item.ja_registrada and item.quantidade_recebida > 0 %}checked{% endif %} required>
+                                <span><i class="fas fa-check"></i> Veio</span>
+                            </label>
+                            <label class="cf-toggle2-opcao cf-toggle2-opcao--nao{% if item.ja_registrada and item.quantidade_recebida == 0 %} cf-toggle2-opcao--selecionada{% endif %}">
+                                <input type="radio" name="quantidade_recebida_{{ item.peca.id }}" value="0"
+                                       {% if item.ja_registrada and item.quantidade_recebida == 0 %}checked{% endif %} required>
+                                <span><i class="fas fa-xmark"></i> Não veio</span>
+                            </label>
+                        </div>
+                    {% else %}
+                        <div class="cf-stepper" data-cf-stepper>
+                            <button type="button" class="cf-stepper-botao" data-cf-stepper-menos>−</button>
+                            <div class="cf-stepper-valor">
+                                <input type="number" name="quantidade_recebida_{{ item.peca.id }}"
+                                       value="{{ item.quantidade_recebida }}" min="0" max="{{ item.quantidade_esperada }}"
+                                       data-cf-stepper-input>
+                                <small>/ {{ item.quantidade_esperada }}</small>
+                            </div>
+                            <button type="button" class="cf-stepper-botao" data-cf-stepper-mais>+</button>
+                        </div>
+                    {% endif %}
+
+                    <details class="cf-anotacao" {% if item.anotacao %}open{% endif %}>
+                        <summary><i class="fas fa-plus"></i> Anotação</summary>
+                        <textarea name="anotacao_{{ item.peca.id }}" rows="2" placeholder="Ex: veio arranhada, veio a peça errada...">{{ item.anotacao }}</textarea>
+                    </details>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p class="cf-pecas-vazio">Nenhuma peça cadastrada pra este produto.</p>
+        {% endif %}
+
+        <div class="cf-secao-final">
+            <div class="cf-campo">
+                <label>Destino do produto *</label>
+                <div class="cf-radios">
+                    {% for valor, rotulo in destino_choices %}
+                        <label class="cf-radio-opcao{% if devolucao.destino_produto == valor %} cf-radio-opcao--selecionada{% endif %}">
+                            <input type="radio" name="destino_produto" value="{{ valor }}"
+                                   {% if devolucao.destino_produto == valor %}checked{% endif %} required>
+                            <span>{{ rotulo }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="cf-campo">
+                <label for="cf_observacao_geral">Observação geral do produto</label>
+                <textarea id="cf_observacao_geral" name="observacao_geral" rows="2"
+                          placeholder='Algo que não é sobre nenhuma peça específica — ex: "veio outro produto no lugar".'>{{ devolucao.observacao_geral }}</textarea>
+            </div>
+        </div>
+
+        <button type="submit" class="cf-salvar">
+            <i class="fas fa-floppy-disk"></i> {% if ja_conferida %}Salvar alterações{% else %}Salvar conferência{% endif %}
+        </button>
+    </form>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'devolucoes/js/script_conferir_devolucao.js' %}"></script>
+{% endblock %}
