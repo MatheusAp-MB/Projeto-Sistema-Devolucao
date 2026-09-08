@@ -56,6 +56,11 @@
                         <i class="fas fa-rotate-left"></i>
                         <span>Nova Devolução</span>
                     </a>
+                    <a href="{% url 'devolucoes_pendentes' %}"
+                       class="sidebar-item{% if pagina_ativa == 'devolucoes_pendentes' %} sidebar-item--ativo{% endif %}">
+                        <i class="fas fa-clipboard-list"></i>
+                        <span>Devoluções pendentes</span>
+                    </a>
                     <a href="{% url 'produtos' %}"
                        class="sidebar-item{% if pagina_ativa == 'produtos' %} sidebar-item--ativo{% endif %}">
                         <i class="fas fa-box"></i>

@@ -1,0 +1,118 @@
+/*
+* [RESUMO] → Layout da listagem de devoluções pendentes de conferência
+* (base já salva no PC, faltando a conferência de peças pelo celular).
+* Lista simples, pensada pra funcionar igual em PC e celular.
+*/
+
+.dp-cartao {
+    background-color: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 20px 24px;
+}
+
+.dp-titulo {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--cor-primaria);
+}
+
+.dp-subtitulo {
+    font-size: 13px;
+    color: var(--cor-texto-muted);
+    margin-top: 4px;
+    margin-bottom: 18px;
+}
+
+.dp-botao-nova {
+    background-color: var(--cor-primaria);
+    color: var(--cor-texto-claro) !important;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dp-botao-nova:hover {
+    background-color: var(--cor-primaria-clara);
+    text-decoration: none;
+}
+
+.dp-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.dp-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+}
+
+.dp-item-foto {
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+    background-color: var(--cor-fundo-pagina);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cor-texto-muted);
+    overflow: hidden;
+}
+
+.dp-item-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dp-item-textos {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.dp-item-produto {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+}
+
+.dp-item-linha {
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+    color: #515151;
+    flex-wrap: wrap;
+}
+
+.dp-item-linha--muted {
+    color: var(--cor-texto-muted);
+}
+
+.dp-item-linha i {
+    margin-right: 4px;
+}
+
+.dp-vazio {
+    font-size: 14px;
+    color: var(--cor-texto-muted);
+    padding: 24px 0;
+    text-align: center;
+}
+
+@media (max-width: 720px) {
+    .dp-item {
+        flex-wrap: wrap;
+    }
+}

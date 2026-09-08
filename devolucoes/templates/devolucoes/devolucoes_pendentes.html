@@ -1,0 +1,51 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Devoluções pendentes{% endblock %}
+{% block toolbar_titulo %}Devoluções pendentes{% endblock %}
+
+{% block toolbar_acoes %}
+<a href="{% url 'nova_devolucao' %}" class="dp-botao-nova"><i class="fas fa-plus"></i> Nova devolução</a>
+{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_devolucoes_pendentes.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+    <div class="dp-cartao">
+        <p class="dp-titulo">Aguardando conferência de peças</p>
+        <p class="dp-subtitulo">
+            Base da devolução já salva no PC — falta abrir pelo celular e conferir as peças recebidas.
+        </p>
+
+        {% if devolucoes %}
+            <div class="dp-lista">
+                {% for devolucao in devolucoes %}
+                    <div class="dp-item">
+                        <div class="dp-item-foto">
+                            {% if devolucao.produto.foto %}
+                                <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
+                            {% else %}
+                                <i class="fas fa-box"></i>
+                            {% endif %}
+                        </div>
+                        <div class="dp-item-textos">
+                            <p class="dp-item-produto">{{ devolucao.produto.nome }}</p>
+                            <p class="dp-item-linha">
+                                <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }}</span>
+                                <span><i class="fas fa-receipt"></i> Pedido {{ devolucao.numero_pedido }}</span>
+                            </p>
+                            <p class="dp-item-linha dp-item-linha--muted">
+                                <span><i class="fas fa-user"></i> {{ devolucao.nome_cliente }}</span>
+                                <span><i class="fas fa-clock"></i> criada em {{ devolucao.criado_em|date:"d/m/Y H:i" }}</span>
+                            </p>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="dp-vazio">Nenhuma devolução pendente de conferência no momento.</p>
+        {% endif %}
+    </div>
+{% endblock %}

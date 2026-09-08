@@ -1,285 +1,274 @@
-/* Mobile-first: regras base = celular. Media query no fim eleva pra desktop. */
+/*
+* [RESUMO] → Layout da tela de Nova Devolução (Fase 0 + busca/seleção de
+* produto). Pensada pro PC — quem preenche normalmente está com o ERP/
+* Mercado Livre abertos do lado — mas continua utilizável no celular,
+* só empilhando tudo em 1 coluna.
+*/
 
-.devolucao-cartao {
-    background-color: #ffffff;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-    padding: 16px;
-    max-width: 480px;
+.nd-pagina {
+    max-width: 900px;
     margin: 0 auto;
-}
-
-.devolucao-titulo {
-    font-size: 15px;
-    font-weight: 600;
-    color: #1a3a5c;
-    margin: 0 0 16px;
-}
-
-.devolucao-formulario {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
 }
 
-.devolucao-campo label {
-    display: block;
+.nd-secao {
+    background-color: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 18px 20px;
+}
+
+.nd-secao-titulo {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--cor-primaria);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+.nd-secao-opcional {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--cor-texto-muted);
+}
+
+.nd-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.nd-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.nd-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.nd-campo:last-child {
+    margin-bottom: 0;
+}
+
+.nd-campo label {
     font-size: 13px;
-    color: #6c757d;
-    margin-bottom: 4px;
+    font-weight: 600;
+    color: #3a3a3a;
 }
 
-.devolucao-campo input {
+.nd-campo input,
+.nd-campo select,
+.nd-campo textarea {
+    padding: 9px 12px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #333;
+}
+
+.nd-campo input:focus,
+.nd-campo select:focus,
+.nd-campo textarea:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
+}
+
+.nd-campo textarea {
+    resize: vertical;
+}
+
+/* ===== Busca de produto ===== */
+
+.nd-produto-busca-wrap {
+    position: relative;
+}
+
+.nd-produto-busca {
     width: 100%;
-    height: 40px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 0 10px;
-    box-sizing: border-box;
+    padding: 11px 14px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
     font-size: 14px;
 }
 
-.devolucao-grid-data {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 12px;
+.nd-produto-busca:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
 }
 
-.devolucao-linha-codigo-barras {
-    display: flex;
-    gap: 8px;
+.nd-produto-resultados {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    background-color: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+    max-height: 320px;
+    overflow-y: auto;
+    z-index: 20;
 }
 
-.devolucao-botao-icone {
-    flex-shrink: 0;
-    height: 40px;
-    padding: 0 14px;
-    border: none;
-    border-radius: 4px;
-    background-color: #1a3a5c;
-    color: #ffffff;
-    font-size: 13px;
-    cursor: pointer;
-}
-
-.devolucao-produto-info {
-    margin-top: 16px;
-    border: 1px solid #dee2e6;
-    border-left: 3px solid #2e7bb5;
-    border-radius: 0 6px 6px 0;
-    padding: 10px 12px;
+.nd-produto-resultado-item {
     display: flex;
     align-items: center;
     gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--cor-borda);
 }
 
-.devolucao-produto-foto {
-    width: 48px;
-    height: 48px;
+.nd-produto-resultado-item:last-child {
+    border-bottom: none;
+}
+
+.nd-produto-resultado-item:hover,
+.nd-produto-resultado-item--ativo {
+    background-color: var(--cor-fundo-pagina);
+}
+
+.nd-produto-resultado-foto {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
     object-fit: cover;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
     flex-shrink: 0;
+    background-color: var(--cor-fundo-pagina);
 }
 
-.devolucao-peca-nome-com-foto {
+.nd-produto-resultado-sem-foto {
+    width: 36px;
+    height: 36px;
+    border-radius: 6px;
+    background-color: var(--cor-fundo-pagina);
+    color: var(--cor-texto-muted);
     display: flex;
     align-items: center;
-    gap: 8px;
-}
-
-.devolucao-peca-foto-mini {
-    width: 32px;
-    height: 32px;
-    object-fit: cover;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
+    justify-content: center;
     flex-shrink: 0;
 }
 
-.devolucao-produto-nome {
+.nd-produto-resultado-nome {
     font-size: 14px;
     font-weight: 600;
-    color: #1a3a5c;
-    margin: 0;
+    color: #333;
 }
 
-.devolucao-produto-marca {
+.nd-produto-resultado-marca {
     font-size: 12px;
-    color: #6c757d;
-    margin: 2px 0 0;
+    color: var(--cor-texto-muted);
 }
 
-.devolucao-subtitulo {
-    font-size: 12px;
-    color: #6c757d;
-    margin: 16px 0 6px;
+.nd-produto-resultado-vazio {
+    padding: 14px;
+    font-size: 13px;
+    color: var(--cor-texto-muted);
+    text-align: center;
 }
 
-.devolucao-pecas-lista {
+/* ===== Produto selecionado ===== */
+
+.nd-produto-card {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    background-color: var(--cor-fundo-pagina);
 }
 
-.devolucao-peca {
-    border: 1px solid #dee2e6;
-    padding: 10px 12px;
+.nd-produto-card img,
+.nd-produto-sem-foto {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.nd-produto-sem-foto {
+    background-color: var(--cor-fundo-card);
+    color: var(--cor-texto-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+}
+
+.nd-produto-textos {
+    flex-grow: 1;
+}
+
+.nd-produto-nome {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+}
+
+.nd-produto-marca {
+    font-size: 13px;
+    color: var(--cor-texto-muted);
+}
+
+.nd-produto-trocar {
+    border: 1px solid var(--cor-borda);
+    background-color: var(--cor-fundo-card);
+    color: var(--cor-primaria);
+    padding: 7px 12px;
     border-radius: 6px;
     font-size: 13px;
-}
-
-.devolucao-peca-linha-topo {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.devolucao-peca-esperado {
-    font-weight: 400;
-    color: #adb5bd;
-    font-size: 12px;
-}
-
-.devolucao-peca-controle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: #495057;
-}
-
-.devolucao-peca-controle input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
     cursor: pointer;
+    flex-shrink: 0;
 }
 
-.devolucao-peca-controle input[type="number"] {
-    width: 52px;
-    height: 28px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    text-align: center;
-    font-size: 13px;
+.nd-produto-trocar:hover {
+    background-color: var(--cor-fundo-pagina);
 }
 
-.devolucao-peca-anotacao {
-    margin-top: 8px;
-    width: 100%;
-    height: 32px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    padding: 0 10px;
-    box-sizing: border-box;
-    font-size: 12px;
-}
+/* ===== Ações ===== */
 
-.devolucao-peca-anotacao:disabled {
-    background-color: #f8f9fa;
-    color: #ced4da;
-}
-
-.status-completa { background-color: #e6f4ea; color: #1e7e34; }
-.status-parcial { background-color: #fff3cd; color: #8a6100; }
-.status-atencao { background-color: #fff3cd; color: #8a6100; }
-.status-nao-recebida { background-color: #fdecea; color: #b02a37; }
-
-.devolucao-peca--ok {
-    border: 1px solid #dee2e6;
-    color: #1a3a5c;
-}
-
-.devolucao-peca--ok .devolucao-peca-status {
-    background-color: #2d7a4f;
-    color: #ffffff;
-}
-
-.devolucao-peca--problema {
-    border: 1px solid #dc3545;
-    color: #1a3a5c;
-}
-
-.devolucao-peca--problema .devolucao-peca-status {
-    background-color: #dc3545;
-    color: #ffffff;
-}
-
-.devolucao-peca--pendente {
-    border: 1px dashed #b9d6ec;
-    background-color: #f7fbfe;
-    color: #2e7bb5;
-}
-
-.devolucao-peca--pendente .devolucao-peca-status {
-    color: #2e7bb5;
-}
-
-.devolucao-peca-status {
-    font-size: 11px;
-    padding: 3px 8px;
-    border-radius: 4px;
-}
-
-.devolucao-acoes {
+.nd-acoes {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 20px;
+    justify-content: flex-end;
+    padding-bottom: 20px;
 }
 
-.devolucao-acoes button {
-    height: 44px;
-    border-radius: 4px;
-    font-size: 13px;
-    cursor: pointer;
-}
-
-.devolucao-botao-primario {
+.nd-botao-primario {
+    background-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
     border: none;
-    background-color: #1a3a5c;
-    color: #ffffff;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.devolucao-botao-secundario {
-    border: 1px solid #1a3a5c;
-    background-color: #ffffff;
-    color: #1a3a5c;
+.nd-botao-primario:hover {
+    background-color: var(--cor-primaria-clara);
 }
 
-.devolucao-acoes button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
+/* ===== Mobile ===== */
 
-.devolucao-aviso {
-    margin-top: 16px;
-    font-size: 13px;
-    color: #6c757d;
-    text-align: center;
-}
-
-.devolucao-aviso a {
-    color: #2e7bb5;
-}
-
-/* A partir daqui, telas maiores que celular */
-@media (min-width: 640px) {
-    .devolucao-cartao {
-        padding: 24px;
-    }
-
-    .devolucao-grid-data {
-        grid-template-columns: 1fr 1fr;
-    }
-
-    .devolucao-acoes {
-        flex-direction: row;
-    }
-
-    .devolucao-acoes button {
-        flex: 1;
+@media (max-width: 720px) {
+    .nd-grid-2,
+    .nd-grid-3 {
+        grid-template-columns: 1fr;
     }
 }

@@ -293,7 +293,7 @@ def devolucoes_pendentes(request):
     )
     contexto = {
         'devolucoes': lista,
-        'pagina_ativa': 'nova_devolucao',
+        'pagina_ativa': 'devolucoes_pendentes',
     }
     return render(request, 'devolucoes/devolucoes_pendentes.html', contexto)
 
