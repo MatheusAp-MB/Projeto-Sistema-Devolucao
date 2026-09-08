@@ -82,8 +82,9 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
     .plataforma-nome { font-size: 12px; font-weight: 700; margin: 0 0 4px 0; }
     .plataforma-venda { font-size: 11px; color: var(--muted); margin: 0; display: flex; align-items: center; gap: 6px; }
     .selo-full { display: inline-block; font-size: 9px; font-weight: 700; color: var(--navy); border: 1px solid var(--navy); border-radius: 999px; padding: 2px 8px; }
-    .reembolso-linha { font-size: 10px; color: var(--muted); margin: 8px 0 0 0; }
-    .reembolso-linha strong { color: var(--texto); }
+    .mediacao { border: 1px solid var(--borda); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+    .mediacao-linhas { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 6px; }
+    .mediacao-anotacao { font-size: 12px; margin: 10px 0 0 0; }
 
     .data-linha { display: flex; justify-content: space-between; gap: 10px; font-size: 10.5px; margin: 3px 0; }
     .data-rotulo { color: var(--muted); }
@@ -161,4 +162,107 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
             <div class="faixa-bloco pedido">
                 <p class="bloco-rotulo">Pedido &amp; Cliente</p>
                 <p class="campo-linha"><span class="campo-nome">Pedido</span><span class="campo-valor mono">{{ devolucao.numero_pedido }}</span></p>
-                <p class="campo-linha"><span
+                <p class="campo-linha"><span class="campo-nome">NF</span><span class="campo-valor mono">{{ devolucao.numero_nota_fiscal }}</span></p>
+                <p class="campo-linha"><span class="campo-nome">Cliente</span><span class="campo-valor">{{ devolucao.nome_cliente }}</span></p>
+            </div>
+            <div class="faixa-bloco plataforma">
+                <p class="bloco-rotulo">Plataforma</p>
+                <p class="plataforma-nome">{{ devolucao.nome_plataforma }}</p>
+                <p class="plataforma-venda">
+                    {% if devolucao.tipo_venda == 'full' %}
+                        Venda <span class="selo-full">FULL</span>
+                    {% else %}
+                        {{ devolucao.get_tipo_venda_display }}
+                    {% endif %}
+                </p>
+            </div>
+            <div class="faixa-bloco datas">
+                <p class="bloco-rotulo">Datas</p>
+                <p class="data-linha"><span class="data-rotulo">Venda</span><span class="data-valor mono">{{ devolucao.data_venda|date:"d/m/y" }}</span></p>
+                <p class="data-linha"><span class="data-rotulo">Recebido (cliente)</span><span class="data-valor mono">{{ devolucao.data_recebimento_cliente|date:"d/m/y" }}</span></p>
+                <p class="data-linha"><span class="data-rotulo">Reclamação aberta</span><span class="data-valor mono">{{ devolucao.data_reclamacao_cliente|date:"d/m/y" }}</span></p>
+                <p class="data-linha"><span class="data-rotulo">Recebido (nós)</span><span class="data-valor mono">{{ devolucao.data_recebimento_por_nos|date:"d/m/y" }}</span></p>
+            </div>
+        </div>
+
+        <div class="observacao">
+            <p class="bloco-rotulo" style="white-space:nowrap;">Motivo da reclamação</p>
+            <p>{{ devolucao.motivo_reclamacao }}</p>
+        </div>
+
+        {% if devolucao.reembolsado is not None or devolucao.data_abertura_mediacao or devolucao.data_finalizacao_mediacao or devolucao.anotacao_mediacao %}
+            <div class="mediacao">
+                <p class="bloco-rotulo">Mediação</p>
+                <div class="mediacao-linhas">
+                    {% if devolucao.reembolsado is not None %}
+                        <p class="campo-linha"><span class="campo-nome">Reembolsado</span><span class="campo-valor">{% if devolucao.reembolsado %}Sim{% else %}Não{% endif %}</span></p>
+                    {% endif %}
+                    {% if devolucao.data_abertura_mediacao %}
+                        <p class="campo-linha"><span class="campo-nome">Aberta em</span><span class="campo-valor mono">{{ devolucao.data_abertura_mediacao|date:"d/m/y" }}</span></p>
+                    {% endif %}
+                    {% if devolucao.data_finalizacao_mediacao %}
+                        <p class="campo-linha"><span class="campo-nome">Finalizada em</span><span class="campo-valor mono">{{ devolucao.data_finalizacao_mediacao|date:"d/m/y" }}</span></p>
+                    {% endif %}
+                </div>
+                {% if devolucao.anotacao_mediacao %}
+                    <p class="mediacao-anotacao">{{ devolucao.anotacao_mediacao }}</p>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        {% if devolucao.observacao_geral %}
+            <div class="observacao">
+                <p class="bloco-rotulo" style="white-space:nowrap;">Obs. geral</p>
+                <p>{{ devolucao.observacao_geral }}</p>
+            </div>
+        {% endif %}
+
+        <p class="secao-titulo">Estado das peças</p>
+
+        {% if pecas_conferidas %}
+            <table class="pecas">
+                <thead>
+                    <tr>
+                        <th style="width:44%;">Peça</th>
+                        <th style="width:20%;">Situação</th>
+                        <th>Anotação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in pecas_conferidas %}
+                        <tr>
+                            <td class="nome">
+                                <div class="nome-linha">
+                                    {% if item.peca.imagem %}
+                                        <img src="{{ item.peca.imagem.url }}" class="peca-foto">
+                                    {% else %}
+                                        <div class="peca-foto-vazia"></div>
+                                    {% endif %}
+                                    {{ item.peca.nome_generico }}
+                                </div>
+                            </td>
+                            <td>
+                                {% if item.situacao == 'nao_recebida' %}
+                                    <span class="status bad">NÃO VEIO</span>
+                                {% elif item.situacao == 'incompleta' %}
+                                    <span class="status warn">FALTAM {{ item.deficit }}</span>
+                                {% elif item.anotacao %}
+                                    <span class="status warn">COM DEFEITO</span>
+                                {% else %}
+                                    <span class="status ok">OK</span>
+                                {% endif %}
+                            </td>
+                            <td class="nota">{{ item.anotacao|default:"—" }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p class="vazio">Nenhuma peça conferida ainda.</p>
+        {% endif %}
+
+        <p class="rodape">Relatório gerado em {% now "d/m/Y H:i" %} — Sistema de Relatório de Devoluções</p>
+
+    </div>
+</body>
+</html>
