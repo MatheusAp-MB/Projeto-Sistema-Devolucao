@@ -6,6 +6,8 @@ from . import views
 
 urlpatterns = [
     path('nova-devolucao/', views.nova_devolucao, name='nova_devolucao'),
+    path('nova-devolucao/buscar-produto/', views.buscar_produtos_devolucao, name='buscar_produtos_devolucao'),
+    path('devolucoes/pendentes/', views.devolucoes_pendentes, name='devolucoes_pendentes'),
     path('produtos/', views.produtos, name='produtos'),
     path('produtos/<int:produto_id>/', views.visualizar_produto, name='visualizar_produto'),
     path('produtos/<int:produto_id>/excluir/', views.excluir_produto, name='excluir_produto'),

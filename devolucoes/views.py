@@ -1,22 +1,25 @@
 # devolucoes/views.py
 
-# Função Objetivo: views da tela de nova devolução — busca produto/peças
-# reais do catálogo por código de barras e gera o PDF do relatório na
-# hora (sem salvar nada no banco) — views do catálogo de produtos e
-# peças — criar/excluir produto e 3 telas próprias e separadas pra ele
-# (Visualizar, só leitura; Editar, só os dados do produto; Vincular
-# peças, tela dedicada que reaproveita a visão agrupada da Gaveta de
-# Peças pra selecionar em massa quais peças ficam vinculadas e com que
+# Função Objetivo: views da tela de Nova Devolução (Fase 0 + busca/
+# seleção de produto — salva a base da devolução no banco; a
+# conferência de peças em si é um Objetivo separado, feita depois pelo
+# celular) — views do catálogo de produtos e peças — criar/excluir
+# produto e 3 telas próprias e separadas pra ele (Visualizar, só
+# leitura; Editar, só os dados do produto; Vincular peças, tela
+# dedicada que reaproveita a visão agrupada da Gaveta de Peças pra
+# selecionar em massa quais peças ficam vinculadas e com que
 # quantidade) — cadastrar/editar/excluir/desvincular peça — cadastro
 # isolado de Marca/Grupo Fornecedor via AJAX (chamado de dentro da tela
 # de produto) — e a tela própria de gerenciar Marcas e Grupos
 # Fornecedores (criar/editar/excluir cada um, direto na lista).
 
-# * [ATENÇÃO] → nova_devolucao ainda usa produto.pecas.all(), que não
-#               existe mais depois dessa mudança (peça deixou de
-#               pertencer a um produto só). Isso é esperado — combinado
-#               deixar quebrado por enquanto, a reforma dessa tela fica
-#               pra depois.
+# * [ATENÇÃO] → gerar_pdf_devolucao/formatar_data_br/link_callback (logo
+#               abaixo) ficaram sem nenhum chamador depois da reforma de
+#               nova_devolucao — são do fluxo antigo (sem persistência,
+#               gerava o PDF na hora por GET, direto do código de
+#               barras). Mantidos aqui de propósito: serão reaproveitados
+#               e reformados quando a geração de relatório de verdade
+#               entrar no checklist da Nova Devolução.
 
 import json
 import os
@@ -27,13 +30,13 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.staticfiles import finders
 from django.db import transaction
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
 
-from .models import Compatibilidade, GrupoFornecedor, Marca, Peca, Produto
+from .models import Compatibilidade, Devolucao, GrupoFornecedor, Marca, Peca, Produto
 
 
 def formatar_data_br(valor_iso):
@@ -111,41 +114,188 @@ def gerar_pdf_devolucao(request, dados, produto, pecas):
     return resposta
 
 
-def nova_devolucao(request):
-    dados = {
-        'nf': '',
-        'pedido': '',
-        'cliente': '',
-        'data_recebimento': '',
-        'data_chamado_ml': '',
-        'codigo_barras': '',
-    }
-    produto = None
-    pecas = []
-    buscou = False
+def _parse_data_opcional(valor):
+    """Converte o valor de um <input type=date> pro DateField — string
+    vazia vira None (campo realmente em branco, ex: mediação que nem
+    abriu ainda), senão passa a string ISO adiante pro Django parsear
+    na hora de salvar."""
+    valor = (valor or '').strip()
+    return valor or None
 
-    acao = request.GET.get('acao')
 
-    if acao:
-        for campo in dados:
-            dados[campo] = request.GET.get(campo, '').strip()
-        buscou = True
-        if dados['codigo_barras']:
-            produto = Produto.objects.filter(codigo_barras=dados['codigo_barras']).first()
-            if produto:
-                pecas = produto.pecas.all()
+def _parse_reembolsado(valor):
+    """Converte o <select> de reembolso (3 estados) pro BooleanField
+    null=True do model: '' = ainda não sei/mediação em aberto, 'sim'/
+    'nao' = já resolvido."""
+    if valor == 'sim':
+        return True
+    if valor == 'nao':
+        return False
+    return None
 
-        if produto and acao == 'gerar_pdf':
-            return gerar_pdf_devolucao(request, dados, produto, pecas)
 
-    contexto = {
-        'dados': dados,
-        'produto': produto,
-        'pecas': pecas,
-        'buscou': buscou,
+def _contexto_nova_devolucao(valores=None, produto_selecionado=None):
+    """Monta o contexto da tela de Nova Devolução (Fase 0 + busca/
+    seleção de produto) — usada tanto pro GET simples quanto pra
+    re-exibir o formulário com o que a pessoa digitou quando a
+    validação falha."""
+    if valores is None:
+        valores = {
+            'nome_plataforma': '', 'tipo_venda': '',
+            'numero_pedido': '', 'numero_nota_fiscal': '', 'nome_cliente': '',
+            'data_recebimento_cliente': '', 'data_reclamacao_cliente': '', 'data_recebimento_por_nos': '',
+            'data_abertura_mediacao': '', 'data_finalizacao_mediacao': '',
+            'reembolsado': '', 'anotacao_mediacao': '',
+            'motivo_reclamacao': '',
+        }
+
+    return {
+        'valores': valores,
+        'produto_selecionado': produto_selecionado,
+        'tipo_venda_choices': Devolucao.TIPO_VENDA_CHOICES,
         'pagina_ativa': 'nova_devolucao',
     }
-    return render(request, 'devolucoes/nova_devolucao.html', contexto)
+
+
+def nova_devolucao(request):
+    """Tela de abertura da devolução — preenchida no PC. Reúne os dados
+    da Fase 0 (plataforma, pedido, cliente, datas, mediação, reclamação
+    do cliente) mais a busca/seleção do produto (Fases 1-2, via
+    buscar_produtos_devolucao). Ao salvar, cria a Devolucao no banco já
+    com o produto definido — mas ainda sem destino_produto nem peças
+    conferidas, porque essa 2ª parte é feita depois, pelo celular (ver
+    devolucoes_pendentes)."""
+    if request.method == 'POST':
+        valores = {
+            'nome_plataforma': request.POST.get('nome_plataforma', '').strip(),
+            'tipo_venda': request.POST.get('tipo_venda', '').strip(),
+            'numero_pedido': request.POST.get('numero_pedido', '').strip(),
+            'numero_nota_fiscal': request.POST.get('numero_nota_fiscal', '').strip(),
+            'nome_cliente': request.POST.get('nome_cliente', '').strip(),
+            'data_recebimento_cliente': request.POST.get('data_recebimento_cliente', '').strip(),
+            'data_reclamacao_cliente': request.POST.get('data_reclamacao_cliente', '').strip(),
+            'data_recebimento_por_nos': request.POST.get('data_recebimento_por_nos', '').strip(),
+            'data_abertura_mediacao': request.POST.get('data_abertura_mediacao', '').strip(),
+            'data_finalizacao_mediacao': request.POST.get('data_finalizacao_mediacao', '').strip(),
+            'reembolsado': request.POST.get('reembolsado', '').strip(),
+            'anotacao_mediacao': request.POST.get('anotacao_mediacao', '').strip(),
+            'motivo_reclamacao': request.POST.get('motivo_reclamacao', '').strip(),
+        }
+        produto_id = request.POST.get('produto_id', '').strip()
+        produto = Produto.objects.select_related('marca').filter(pk=produto_id).first() if produto_id else None
+
+        rerenderizar = lambda: render(
+            request, 'devolucoes/nova_devolucao.html',
+            _contexto_nova_devolucao(valores, produto),
+        )
+
+        obrigatorios = [
+            ('nome_plataforma', 'Plataforma'), ('tipo_venda', 'Tipo de venda'),
+            ('numero_pedido', 'Número do pedido'), ('numero_nota_fiscal', 'Número da nota fiscal'),
+            ('nome_cliente', 'Nome do cliente'),
+            ('data_recebimento_cliente', 'Data de recebimento pelo cliente'),
+            ('data_reclamacao_cliente', 'Data da reclamação'),
+            ('data_recebimento_por_nos', 'Data de recebimento por nós'),
+            ('motivo_reclamacao', 'Motivo da reclamação'),
+        ]
+        faltando = [rotulo for campo, rotulo in obrigatorios if not valores[campo]]
+        if faltando:
+            messages.error(request, f'Preencha: {", ".join(faltando)}.')
+            return rerenderizar()
+
+        if not produto:
+            messages.error(request, 'Selecione um produto pela busca antes de salvar.')
+            return rerenderizar()
+
+        if valores['tipo_venda'] not in dict(Devolucao.TIPO_VENDA_CHOICES):
+            messages.error(request, 'Tipo de venda inválido.')
+            return rerenderizar()
+
+        devolucao = Devolucao.objects.create(
+            produto=produto,
+            nome_plataforma=valores['nome_plataforma'],
+            tipo_venda=valores['tipo_venda'],
+            numero_pedido=valores['numero_pedido'],
+            numero_nota_fiscal=valores['numero_nota_fiscal'],
+            nome_cliente=valores['nome_cliente'],
+            data_recebimento_cliente=valores['data_recebimento_cliente'],
+            data_reclamacao_cliente=valores['data_reclamacao_cliente'],
+            data_recebimento_por_nos=valores['data_recebimento_por_nos'],
+            data_abertura_mediacao=_parse_data_opcional(valores['data_abertura_mediacao']),
+            data_finalizacao_mediacao=_parse_data_opcional(valores['data_finalizacao_mediacao']),
+            reembolsado=_parse_reembolsado(valores['reembolsado']),
+            anotacao_mediacao=valores['anotacao_mediacao'],
+            motivo_reclamacao=valores['motivo_reclamacao'],
+        )
+        messages.success(
+            request,
+            f'Devolução do pedido {devolucao.numero_pedido} criada — pendente de conferência das peças.',
+        )
+        return redirect('devolucoes_pendentes')
+
+    return render(request, 'devolucoes/nova_devolucao.html', _contexto_nova_devolucao())
+
+
+def _produto_para_busca(produto):
+    return {
+        'id': produto.id,
+        'nome': produto.nome,
+        'codigo_barras': produto.codigo_barras,
+        'sku': produto.sku or '',
+        'marca_nome': produto.marca.nome,
+        'foto_url': produto.foto.url if produto.foto else None,
+    }
+
+
+def buscar_produtos_devolucao(request):
+    """Busca de produto pra abrir uma nova devolução — aceita tanto
+    digitação livre e robusta (várias palavras, em qualquer ordem,
+    batendo em nome/SKU/cód. fabricante/marca — ex: 'pulv 9121
+    brudden') quanto a leitura direta de um leitor de código de barras
+    no mesmo campo: se o termo digitado bate exatamente com um código
+    de barras, esse produto volta sozinho e marcado como match_exato,
+    pra tela já selecionar ele sem precisar clicar."""
+    termo = request.GET.get('q', '').strip()
+
+    if not termo:
+        return JsonResponse({'resultados': [], 'match_exato': False})
+
+    match_exato = Produto.objects.select_related('marca').filter(codigo_barras=termo).first()
+    if match_exato:
+        return JsonResponse({'resultados': [_produto_para_busca(match_exato)], 'match_exato': True})
+
+    produtos = Produto.objects.select_related('marca')
+    for token in termo.split():
+        produtos = produtos.filter(
+            Q(nome__icontains=token)
+            | Q(sku__icontains=token)
+            | Q(codigo_fabricante__icontains=token)
+            | Q(codigo_barras__icontains=token)
+            | Q(marca__nome__icontains=token)
+        )
+
+    resultados = [_produto_para_busca(produto) for produto in produtos.distinct()[:8]]
+    return JsonResponse({'resultados': resultados, 'match_exato': False})
+
+
+def devolucoes_pendentes(request):
+    """Listagem básica das devoluções já com a base salva (Fase 0 +
+    produto) mas ainda sem a conferência de peças feita — é o ponto de
+    partida pra continuar pelo celular. destino_produto vazio é o sinal
+    de 'ainda não conferida' (ver comentário em Devolucao.destino_produto
+    no model — mesma filosofia de estado derivado usada em
+    ConferenciaPeca.situacao, sem duplicar num campo de status à
+    parte)."""
+    lista = (
+        Devolucao.objects.filter(destino_produto='')
+        .select_related('produto__marca')
+        .order_by('-criado_em')
+    )
+    contexto = {
+        'devolucoes': lista,
+        'pagina_ativa': 'nova_devolucao',
+    }
+    return render(request, 'devolucoes/devolucoes_pendentes.html', contexto)
 
 
 def produtos(request):

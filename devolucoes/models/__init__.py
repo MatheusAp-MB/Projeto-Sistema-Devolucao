@@ -3,3 +3,7 @@ from .marca import Marca
 from .produto import Produto
 from .peca import Peca
 from .compatibilidade import Compatibilidade
+from .devolucao import Devolucao
+from .conferencia_peca import ConferenciaPeca
+from .foto_conferencia_peca import FotoConferenciaPeca
+from .foto_reclamacao_cliente import FotoReclamacaoCliente
