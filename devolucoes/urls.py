@@ -11,6 +11,7 @@ urlpatterns = [
     path('devolucoes/<int:devolucao_id>/editar/', views.editar_devolucao, name='editar_devolucao'),
     path('devolucoes/<int:devolucao_id>/excluir/', views.excluir_devolucao, name='excluir_devolucao'),
     path('devolucoes/<int:devolucao_id>/conferir/', views.conferir_devolucao, name='conferir_devolucao'),
+    path('conferencia-peca/foto/<int:foto_id>/excluir/', views.excluir_foto_conferencia, name='excluir_foto_conferencia'),
     path('produtos/', views.produtos, name='produtos'),
     path('produtos/<int:produto_id>/', views.visualizar_produto, name='visualizar_produto'),
     path('produtos/<int:produto_id>/excluir/', views.excluir_produto, name='excluir_produto'),

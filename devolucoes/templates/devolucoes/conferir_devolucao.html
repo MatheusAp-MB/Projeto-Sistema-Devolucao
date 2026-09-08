@@ -9,7 +9,7 @@
 {% endblock %}
 
 {% block conteudo %}
-    <form method="post" class="cf-pagina" id="form_conferir_devolucao">
+    <form method="post" enctype="multipart/form-data" class="cf-pagina" id="form_conferir_devolucao">
         {% csrf_token %}
 
         {% if ja_conferida %}
@@ -86,6 +86,33 @@
                         <summary><i class="fas fa-plus"></i> Anotação</summary>
                         <textarea name="anotacao_{{ item.peca.id }}" rows="2" placeholder="Ex: veio arranhada, veio a peça errada...">{{ item.anotacao }}</textarea>
                     </details>
+
+                    <div class="cf-fotos">
+                        {% if item.fotos %}
+                            <div class="cf-fotos-grade">
+                                {% for foto in item.fotos %}
+                                    <div class="cf-foto-item">
+                                        <img src="{{ foto.imagem.url }}" alt="Foto da peça {{ item.peca.nome_generico }}">
+                                        <form method="post" action="{% url 'excluir_foto_conferencia' foto.id %}" class="cf-form-excluir-foto">
+                                            {% csrf_token %}
+                                            <button type="submit" class="cf-foto-excluir" title="Excluir foto">
+                                                <i class="fas fa-xmark"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <label class="cf-foto-botao" for="fotos_{{ item.peca.id }}">
+                            <i class="fas fa-camera"></i> Adicionar foto
+                        </label>
+                        <input type="file" name="fotos_{{ item.peca.id }}" id="fotos_{{ item.peca.id }}"
+                               accept="image/*" capture="environment" multiple
+                               class="cf-input-oculto" data-cf-fotos-input>
+
+                        <div class="cf-fotos-preview" data-cf-fotos-preview></div>
+                    </div>
                 </div>
             {% endfor %}
         {% else %}

@@ -16,6 +16,15 @@
 * um <input type="number"> nativo — já funciona sozinho sem JS; o JS
 * só adiciona os botões +/- por cima. A anotação usa <details>/<summary>
 * nativo — sem JS nenhum envolvido no abrir/fechar.
+*
+* * [ATENÇÃO] → fotos por peça (Objetivo 4): o <input type="file"> some
+* visualmente (mesma técnica de clip usada em layout_produto_form.css
+* pra .produto-form-input-oculto) e quem aparece é o <label> estilizado
+* .cf-foto-botao — clicar nele já funciona sozinho (abre câmera/galeria
+* nativa do celular), sem JS nenhum. O JS só acumula fotos entre
+* cliques repetidos e mostra a prévia antes de salvar (ver comentário em
+* script_conferir_devolucao.js) — sem JS, cada clique simplesmente
+* substitui a seleção anterior, mas o campo continua funcionando.
 */
 
 .cf-pagina {
@@ -270,6 +279,136 @@
     font-size: 13px;
     font-family: inherit;
     resize: vertical;
+}
+
+.cf-fotos {
+    margin-top: 12px;
+}
+
+.cf-fotos-grade {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.cf-foto-item {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--cor-borda);
+}
+
+.cf-foto-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cf-form-excluir-foto {
+    display: contents;
+}
+
+.cf-foto-excluir {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+.cf-foto-excluir:hover {
+    background: var(--cor-negativo);
+}
+
+.cf-foto-botao {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1.5px dashed var(--cor-borda);
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--cor-primaria-clara);
+    cursor: pointer;
+    background-color: #fff;
+}
+
+.cf-foto-botao:hover {
+    border-color: var(--cor-primaria-clara);
+    background-color: #f2f8fc;
+}
+
+.cf-input-oculto {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.cf-fotos-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cf-fotos-preview:not(:empty) {
+    margin-top: 8px;
+}
+
+.cf-foto-preview-item {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1.5px solid var(--cor-primaria-clara);
+}
+
+.cf-foto-preview-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cf-foto-preview-remover {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+.cf-foto-preview-remover:hover {
+    background: var(--cor-negativo);
 }
 
 .cf-secao-final {

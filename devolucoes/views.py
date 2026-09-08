@@ -36,7 +36,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from xhtml2pdf import pisa
 
-from .models import Compatibilidade, ConferenciaPeca, Devolucao, GrupoFornecedor, Marca, Peca, Produto
+from .models import (
+    Compatibilidade, ConferenciaPeca, Devolucao, FotoConferenciaPeca,
+    GrupoFornecedor, Marca, Peca, Produto,
+)
 
 
 def formatar_data_br(valor_iso):
@@ -453,9 +456,16 @@ def _pecas_para_conferencia(devolucao):
     registrada nessa devolução continue aparecendo — sem sumir dado já
     gravado. quantidade_esperada de uma peça já conferida vem congelada
     dela mesma (ConferenciaPeca), não da Compatibilidade atual — mesma
-    ideia documentada no model."""
+    ideia documentada no model. 'ja_registrada' é o que o template usa
+    pra decidir se pré-marca o toggle Veio/Não veio — uma peça nova
+    (nunca conferida) começa sem nenhum dos 2 marcado, pra não sugerir
+    uma resposta que ninguém deu ainda. 'fotos' são as fotos de
+    evidência já salvas (FotoConferenciaPeca) — uma peça nova não tem
+    nenhuma ainda, porque só dá pra anexar foto numa ConferenciaPeca que
+    já existe."""
     conferencias_existentes = {
-        c.peca_id: c for c in devolucao.pecas_conferidas.select_related('peca__marca').all()
+        c.peca_id: c for c in
+        devolucao.pecas_conferidas.select_related('peca__marca').prefetch_related('fotos').all()
     }
     compatibilidades = devolucao.produto.compatibilidades.select_related('peca__marca')
 
@@ -467,6 +477,7 @@ def _pecas_para_conferencia(devolucao):
             'quantidade_recebida': 0,
             'anotacao': '',
             'ja_registrada': False,
+            'fotos': [],
         }
     for peca_id, conferencia in conferencias_existentes.items():
         pecas_por_id[peca_id] = {
@@ -475,6 +486,7 @@ def _pecas_para_conferencia(devolucao):
             'quantidade_recebida': conferencia.quantidade_recebida,
             'anotacao': conferencia.anotacao,
             'ja_registrada': True,
+            'fotos': list(conferencia.fotos.all()),
     }
 
     return sorted(pecas_por_id.values(), key=lambda p: p['peca'].nome_generico)
@@ -535,13 +547,22 @@ def conferir_devolucao(request, devolucao_id):
                     conferencia_existente.quantidade_recebida = quantidade_recebida
                     conferencia_existente.anotacao = anotacao
                     conferencia_existente.save(update_fields=['quantidade_recebida', 'anotacao'])
+                    conferencia = conferencia_existente
                 else:
-                    ConferenciaPeca.objects.create(
+                    conferencia = ConferenciaPeca.objects.create(
                         devolucao=devolucao, peca_id=peca_id,
                         quantidade_esperada=quantidade_esperada,
                         quantidade_recebida=quantidade_recebida,
                         anotacao=anotacao,
                     )
+
+                # * [EXPLICAÇÃO] → funciona tanto na 1ª conferência quanto
+                #   numa edição — 'conferencia' aponta pro registro certo
+                #   nos 2 casos (recém criado ou já existente), então dá
+                #   pra anexar foto logo na 1ª vez, sem precisar salvar a
+                #   conferência antes pra só depois anexar foto.
+                for foto in request.FILES.getlist(f'fotos_{peca_id}'):
+                    FotoConferenciaPeca.objects.create(conferencia=conferencia, imagem=foto)
 
             devolucao.destino_produto = destino_produto
             devolucao.observacao_geral = observacao_geral
@@ -558,6 +579,25 @@ def conferir_devolucao(request, devolucao_id):
         'pagina_ativa': 'devolucoes_pendentes',
     }
     return render(request, 'devolucoes/conferir_devolucao.html', contexto)
+
+
+def excluir_foto_conferencia(request, foto_id):
+    """Exclui 1 foto de evidência tirada durante a conferência de uma
+    peça (Objetivo 4) — ação isolada, disparada de dentro da própria
+    tela de conferência (cada foto já salva tem seu próprio botão/form
+    de excluir). Sempre volta pra tela de conferência da devolução dona
+    da foto, tenha dado certo ou não (GET nessa URL só redireciona sem
+    fazer nada — a exclusão em si é POST-only)."""
+    foto = get_object_or_404(
+        FotoConferenciaPeca.objects.select_related('conferencia__devolucao'), pk=foto_id,
+    )
+    devolucao_id = foto.conferencia.devolucao_id
+
+    if request.method == 'POST':
+        foto.delete()
+        messages.success(request, 'Foto excluída.')
+
+    return redirect('conferir_devolucao', devolucao_id)
 
 
 def produtos(request):
