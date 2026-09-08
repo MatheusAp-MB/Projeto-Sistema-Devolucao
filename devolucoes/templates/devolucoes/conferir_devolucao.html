@@ -93,12 +93,10 @@
                                 {% for foto in item.fotos %}
                                     <div class="cf-foto-item">
                                         <img src="{{ foto.imagem.url }}" alt="Foto da peça {{ item.peca.nome_generico }}">
-                                        <form method="post" action="{% url 'excluir_foto_conferencia' foto.id %}" class="cf-form-excluir-foto">
-                                            {% csrf_token %}
-                                            <button type="submit" class="cf-foto-excluir" title="Excluir foto">
-                                                <i class="fas fa-xmark"></i>
-                                            </button>
-                                        </form>
+                                        <button type="submit" class="cf-foto-excluir" title="Excluir foto"
+                                                formmethod="post" formaction="{% url 'excluir_foto_conferencia' foto.id %}">
+                                            <i class="fas fa-xmark"></i>
+                                        </button>
                                     </div>
                                 {% endfor %}
                             </div>

@@ -307,10 +307,6 @@
     object-fit: cover;
 }
 
-.cf-form-excluir-foto {
-    display: contents;
-}
-
 .cf-foto-excluir {
     position: absolute;
     top: 2px;
