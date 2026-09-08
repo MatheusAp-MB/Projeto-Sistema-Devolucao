@@ -15,7 +15,7 @@
         <div class="nd-secao nd-colar-erp">
             <button type="button" id="nd_colar_toggle" class="nd-colar-toggle">
                 <i class="fas fa-paste"></i> Colar linha do ERP
-                <span class="nd-colar-dica-inline">(preenche pedido, NF, cliente e plataforma sozinho)</span>
+                <span class="nd-colar-dica-inline">(preenche pedido, NF, cliente, plataforma e data da venda sozinho)</span>
             </button>
             <div id="nd_colar_bloco" hidden>
                 <p class="nd-colar-dica">
@@ -66,7 +66,11 @@
 
         <div class="nd-secao">
             <p class="nd-secao-titulo"><i class="fas fa-calendar-days"></i> Datas</p>
-            <div class="nd-grid-3">
+            <div class="nd-grid-4">
+                <div class="nd-campo">
+                    <label for="id_data_venda">Data da venda *</label>
+                    <input type="date" id="id_data_venda" name="data_venda" value="{{ valores.data_venda }}" required>
+                </div>
                 <div class="nd-campo">
                     <label for="id_data_recebimento_cliente">Recebido pelo cliente em *</label>
                     <input type="date" id="id_data_recebimento_cliente" name="data_recebimento_cliente" value="{{ valores.data_recebimento_cliente }}" required>

@@ -237,6 +237,19 @@
         return null;
     }
 
+    // "Data da venda" vem da coluna "Emissão" do ERP (data de emissão da
+    // nota fiscal) — mas o ERP mostra ela como dd/mm/aaaa (às vezes com
+    // hora junto, "dd/mm/aaaa hh:mm:ss"), e o <input type="date"> só
+    // aceita aaaa-mm-dd. Só preenche se reconhecer esse formato exato —
+    // sem bater o padrão, não adivinha e deixa o campo em branco.
+    function converterDataErpParaIso(valorErp) {
+        var match = valorErp.trim().match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+        if (!match) return null;
+
+        var dia = match[1], mes = match[2], ano = match[3];
+        return ano + '-' + mes + '-' + dia;
+    }
+
     toggleBtn.addEventListener('click', function () {
         bloco.hidden = !bloco.hidden;
         if (!bloco.hidden) textarea.focus();
@@ -298,6 +311,16 @@
             if (plataformaDetectada && campoPlataforma) {
                 campoPlataforma.value = plataformaDetectada;
                 preenchidos.push('Plataforma');
+            }
+        }
+
+        var emissao = valorPorColuna['Emissão'];
+        if (emissao) {
+            var dataVendaIso = converterDataErpParaIso(emissao);
+            var campoDataVenda = document.getElementById('id_data_venda');
+            if (dataVendaIso && campoDataVenda) {
+                campoDataVenda.value = dataVendaIso;
+                preenchidos.push('Data da venda');
             }
         }
 

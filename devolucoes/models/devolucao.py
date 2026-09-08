@@ -59,6 +59,7 @@ class Devolucao(models.Model):
     nome_cliente = models.CharField('Nome do cliente', max_length=200)
 
     # ===== Sobre datas da devolução em si =====
+    data_venda = models.DateField('Data da venda')
     data_recebimento_cliente = models.DateField('Recebido pelo cliente em')
     data_reclamacao_cliente = models.DateField('Reclamação/solicitação aberta em')
     data_recebimento_por_nos = models.DateField('Recebido por nós em')
