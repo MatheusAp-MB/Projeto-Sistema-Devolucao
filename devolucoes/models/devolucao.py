@@ -54,7 +54,9 @@ class Devolucao(models.Model):
     tipo_venda = models.CharField('Tipo de venda', max_length=10, choices=TIPO_VENDA_CHOICES)
 
     # ===== Sobre o pedido =====
-    numero_pedido = models.CharField('Número do pedido', max_length=100)
+    # * [EXPLICAÇÃO] → 1 pedido gera 1 devolução, mesmo se o pedido tinha
+    #   mais de 1 produto — por isso numero_pedido sozinho já é único.
+    numero_pedido = models.CharField('Número do pedido', max_length=100, unique=True)
     numero_nota_fiscal = models.CharField('Número da nota fiscal', max_length=100)
     nome_cliente = models.CharField('Nome do cliente', max_length=200)
 
@@ -99,6 +101,12 @@ class Devolucao(models.Model):
 
     class Meta:
         ordering = ['-criado_em']
+        # * [EXPLICAÇÃO] → o único não é só numero_pedido — um mesmo pedido
+        #   pode ter mais de 1 produto diferente devolvido (cada um vira sua
+        #   própria Devolucao, já que hoje é 1 devolução = 1 produto). O que
+        #   não pode duplicar é o MESMO produto sendo registrado 2x pro
+        #   MESMO pedido.
+        unique_together = [('numero_pedido', 'produto')]
 
     def __str__(self):
         return f'Devolução de {self.produto.nome} — pedido {self.numero_pedido}'
