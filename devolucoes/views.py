@@ -14,17 +14,12 @@
 # Fornecedores (criar/editar/excluir cada um, direto na lista).
 
 import json
-import os
 
-from django.conf import settings
 from django.contrib import messages
-from django.contrib.staticfiles import finders
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.template.loader import render_to_string
-from xhtml2pdf import pisa
 
 from .models import (
     Compatibilidade, ConferenciaPeca, Devolucao, FotoConferenciaPeca,
@@ -32,29 +27,25 @@ from .models import (
 )
 
 
-def link_callback(uri, rel):
-    """Traduz uma URL de /media/ ou /static/ pro caminho real no disco —
-    o xhtml2pdf não tem servidor rodando, então não consegue buscar essas
-    URLs sozinho na hora de montar o PDF."""
-    if uri.startswith(settings.MEDIA_URL):
-        return os.path.join(settings.MEDIA_ROOT, uri.replace(settings.MEDIA_URL, ''))
-    if uri.startswith(settings.STATIC_URL):
-        caminho = finders.find(uri.replace(settings.STATIC_URL, ''))
-        return caminho or uri
-    return uri
+def imprimir_relatorio_devolucao(request, devolucao_id):
+    """Tela de impressão do relatório de 1 devolução (Objetivo 5/Finalizar).
 
+    [ATENÇÃO] → Isso NÃO gera PDF no servidor. É uma página HTML normal,
+    com estilos de impressão (@media print) — a pessoa aperta Ctrl+P (ou
+    o botão "Imprimir" da própria página) e usa a tela de impressão do
+    navegador (imprime na física ou "Salvar como PDF"). Trocamos de
+    abordagem depois de bater de frente com as limitações de bibliotecas
+    de PDF em Python (xhtml2pdf ignora background/border em elemento
+    inline dentro de tabela; WeasyPrint precisa de Pango/GObject nativo,
+    que não empacota bem no PyInstaller no Windows; Playwright exige
+    baixar um Chromium inteiro). Usando render() (não render_to_string)
+    o context processor de empresa_ativa_nome roda sozinho, sem precisar
+    passar request= manualmente.
 
-def gerar_relatorio_devolucao(request, devolucao_id):
-    """Gera o relatório em PDF de 1 devolução (Objetivo 5/Finalizar) —
-    busca tudo direto do banco (produto, peças conferidas); diferente do
-    fluxo antigo (gerar_pdf_devolucao, removida aqui), que montava tudo
-    na hora via querystring, de antes da devolução ser persistida. Pode
-    ser gerado a qualquer momento, mas só faz sentido de verdade depois
-    de conferida — por isso o botão que chama essa view
-    (devolucoes_pendentes.html) só aparece quando destino_produto já
-    está preenchido. request=request no render_to_string é de propósito
-    — sem isso o context processor de empresa_ativa_nome (usado no
-    cabeçalho do relatório) não roda."""
+    Só faz sentido de verdade depois de conferida — por isso o botão que
+    chama essa view (devolucoes_pendentes.html) só aparece quando
+    destino_produto já está preenchido, mas pode ser aberta a qualquer
+    momento."""
     devolucao = get_object_or_404(
         Devolucao.objects.select_related('produto__marca'), pk=devolucao_id,
     )
@@ -63,20 +54,10 @@ def gerar_relatorio_devolucao(request, devolucao_id):
         .select_related('peca__marca')
         .order_by('peca__nome_generico')
     )
-
-    html = render_to_string('devolucoes/relatorio_devolucao_pdf.html', {
+    return render(request, 'devolucoes/relatorio_devolucao_impressao.html', {
         'devolucao': devolucao,
         'pecas_conferidas': pecas_conferidas,
-    }, request=request)
-
-    resposta = HttpResponse(content_type='application/pdf')
-    resposta['Content-Disposition'] = f'inline; filename="relatorio_devolucao_{devolucao.numero_pedido}.pdf"'
-
-    pisa_status = pisa.CreatePDF(html, dest=resposta, link_callback=link_callback)
-    if pisa_status.err:
-        return HttpResponse('Erro ao gerar o PDF.', status=500)
-
-    return resposta
+    })
 
 
 def _parse_data_opcional(valor):
