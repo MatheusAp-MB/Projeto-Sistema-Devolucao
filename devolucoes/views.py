@@ -152,6 +152,7 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None):
     return {
         'valores': valores,
         'produto_selecionado': produto_selecionado,
+        'plataforma_choices': Devolucao.PLATAFORMA_CHOICES,
         'tipo_venda_choices': Devolucao.TIPO_VENDA_CHOICES,
         'pagina_ativa': 'nova_devolucao',
     }
@@ -205,6 +206,10 @@ def nova_devolucao(request):
 
         if not produto:
             messages.error(request, 'Selecione um produto pela busca antes de salvar.')
+            return rerenderizar()
+
+        if valores['nome_plataforma'] not in dict(Devolucao.PLATAFORMA_CHOICES):
+            messages.error(request, 'Plataforma inválida — selecione uma da lista.')
             return rerenderizar()
 
         if valores['tipo_venda'] not in dict(Devolucao.TIPO_VENDA_CHOICES):

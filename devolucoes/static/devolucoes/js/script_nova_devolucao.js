@@ -209,8 +209,33 @@
         { coluna: 'Pedido Marketplace', campoId: 'id_numero_pedido', rotulo: 'Número do pedido' },
         { coluna: 'Nota Fiscal', campoId: 'id_numero_nota_fiscal', rotulo: 'Nota fiscal' },
         { coluna: 'Parceiro de Negócio', campoId: 'id_nome_cliente', rotulo: 'Cliente' },
-        { coluna: 'Canal de Vendas', campoId: 'id_nome_plataforma', rotulo: 'Plataforma' },
     ];
+
+    // "Plataforma" virou <select> com uma lista fechada de marketplaces —
+    // não dá mais pra jogar o texto cru da coluna "Canal de Vendas" direto
+    // nela (ex: vem "MAGAZINE MAGALU", não bate com nenhuma <option>). Por
+    // isso essa aqui não entra no MAPEAMENTOS genérico: procura uma palavra-
+    // chave conhecida dentro do texto e só marca a opção se achar uma —
+    // sem match, o campo fica em branco (não tenta adivinhar).
+    var DETECCAO_PLATAFORMA = [
+        { rotulo: 'Shopee', chave: 'SHOPEE' },
+        { rotulo: 'Magalu', chave: 'MAGALU' },
+        { rotulo: 'Tiktok Shop', chave: 'TIKTOK' },
+        { rotulo: 'Raia', chave: 'RAIA' },
+        { rotulo: 'Mercado Livre', chave: 'MERCADO LIVRE' },
+        { rotulo: 'Amazon', chave: 'AMAZON' },
+        { rotulo: 'Mais correios', chave: 'CORREIOS' },
+    ];
+
+    function detectarPlataforma(textoErp) {
+        var textoNormalizado = textoErp.toUpperCase();
+        for (var i = 0; i < DETECCAO_PLATAFORMA.length; i++) {
+            if (textoNormalizado.indexOf(DETECCAO_PLATAFORMA[i].chave) !== -1) {
+                return DETECCAO_PLATAFORMA[i].rotulo;
+            }
+        }
+        return null;
+    }
 
     toggleBtn.addEventListener('click', function () {
         bloco.hidden = !bloco.hidden;
@@ -265,6 +290,16 @@
             campo.value = valor;
             preenchidos.push(mapeamento.rotulo);
         });
+
+        var canalVendas = valorPorColuna['Canal de Vendas'];
+        if (canalVendas) {
+            var plataformaDetectada = detectarPlataforma(canalVendas);
+            var campoPlataforma = document.getElementById('id_nome_plataforma');
+            if (plataformaDetectada && campoPlataforma) {
+                campoPlataforma.value = plataformaDetectada;
+                preenchidos.push('Plataforma');
+            }
+        }
 
         var nomeProduto = valorPorColuna['Produto'];
         var buscaBloco = document.getElementById('nd_produto_busca_bloco');

@@ -31,16 +31,12 @@
             <div class="nd-grid-2">
                 <div class="nd-campo">
                     <label for="id_nome_plataforma">Plataforma *</label>
-                    <input type="text" id="id_nome_plataforma" name="nome_plataforma" list="nd_lista_plataformas"
-                           placeholder="Ex: Mercado Livre" value="{{ valores.nome_plataforma }}" required>
-                    <datalist id="nd_lista_plataformas">
-                        <option value="Mercado Livre">
-                        <option value="Shopee">
-                        <option value="Magalu">
-                        <option value="Amazon">
-                        <option value="Shein">
-                        <option value="Site próprio">
-                    </datalist>
+                    <select id="id_nome_plataforma" name="nome_plataforma" required>
+                        <option value="">Selecione...</option>
+                        {% for valor, rotulo in plataforma_choices %}
+                            <option value="{{ valor }}" {% if valores.nome_plataforma == valor %}selected{% endif %}>{{ rotulo }}</option>
+                        {% endfor %}
+                    </select>
                 </div>
                 <div class="nd-campo">
                     <label for="id_tipo_venda">Tipo de venda *</label>

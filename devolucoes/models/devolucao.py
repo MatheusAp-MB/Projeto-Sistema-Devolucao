@@ -32,8 +32,25 @@ class Devolucao(models.Model):
         (DESTINO_USADO, 'Venda como usado'),
     ]
 
+    PLATAFORMA_AMAZON = 'Amazon'
+    PLATAFORMA_MAGALU = 'Magalu'
+    PLATAFORMA_MAIS_CORREIOS = 'Mais correios'
+    PLATAFORMA_MERCADO_LIVRE = 'Mercado Livre'
+    PLATAFORMA_RAIA = 'Raia'
+    PLATAFORMA_SHOPEE = 'Shopee'
+    PLATAFORMA_TIKTOK_SHOP = 'Tiktok Shop'
+    PLATAFORMA_CHOICES = [
+        (PLATAFORMA_AMAZON, 'Amazon'),
+        (PLATAFORMA_MAGALU, 'Magalu'),
+        (PLATAFORMA_MAIS_CORREIOS, 'Mais correios'),
+        (PLATAFORMA_MERCADO_LIVRE, 'Mercado Livre'),
+        (PLATAFORMA_RAIA, 'Raia'),
+        (PLATAFORMA_SHOPEE, 'Shopee'),
+        (PLATAFORMA_TIKTOK_SHOP, 'Tiktok Shop'),
+    ]
+
     # ===== Sobre a plataforma (Fase 0, preenchido no PC) =====
-    nome_plataforma = models.CharField('Plataforma', max_length=100)
+    nome_plataforma = models.CharField('Plataforma', max_length=100, choices=PLATAFORMA_CHOICES)
     tipo_venda = models.CharField('Tipo de venda', max_length=10, choices=TIPO_VENDA_CHOICES)
 
     # ===== Sobre o pedido =====
@@ -75,7 +92,7 @@ class Devolucao(models.Model):
         'Destino do produto', max_length=10, choices=DESTINO_CHOICES, blank=True,
     )
     # * [EXPLICAÇÃO] → o estado de cada peça (recebida/incompleta/não
-    #   recebida) mora em ConferenciaPeca (relação 1-N), não aqui.
+    #   recebida) mora em ConferenciaPeca (relação 1-N), não aqui. 
 
     criado_em = models.DateTimeField(auto_now_add=True)
 
