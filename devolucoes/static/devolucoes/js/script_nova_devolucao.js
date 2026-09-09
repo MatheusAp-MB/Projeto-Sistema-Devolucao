@@ -269,9 +269,20 @@
     // simplesmente não era encontrada, então a Plataforma ficava sempre
     // em branco). Essa função tenta uma lista de nomes possíveis, na
     // ordem, e usa o primeiro que existir no cabeçalho colado.
+    // Deixa a busca de coluna resistente a pequenas diferenças de escrita
+    // que podem aparecer entre exportações do ERP (maiúscula × minúscula,
+    // espaço duplo, espaço sobrando no fim de "CFOP ", etc.) — sem isso,
+    // qualquer diferença de escrita faz a coluna simplesmente não ser
+    // encontrada, do mesmo jeito que o caso "Canal de Vendas" × "Canal de
+    // Venda". Não muda o valor da célula, só a CHAVE usada pra achar a
+    // coluna certa.
+    function normalizarNomeColuna(nome) {
+        return nome.trim().replace(/\s+/g, ' ').toUpperCase();
+    }
+
     function buscarValorPorAliases(valorPorColuna, nomesPossiveis) {
         for (var i = 0; i < nomesPossiveis.length; i++) {
-            var valor = valorPorColuna[nomesPossiveis[i]];
+            var valor = valorPorColuna[normalizarNomeColuna(nomesPossiveis[i])];
             if (valor) return valor;
         }
         return undefined;
@@ -315,7 +326,7 @@
 
         var valorPorColuna = {};
         cabecalho.forEach(function (nomeColuna, indice) {
-            valorPorColuna[nomeColuna.trim()] = (valores[indice] || '').trim();
+            valorPorColuna[normalizarNomeColuna(nomeColuna)] = (valores[indice] || '').trim();
         });
 
         var preenchidos = [];
