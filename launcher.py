@@ -11,6 +11,7 @@ import sys
 import threading
 import urllib.parse
 import webbrowser
+from pathlib import Path
 
 import pystray
 from PIL import Image
@@ -73,11 +74,13 @@ def rodar_servidor():
 
 def abrir_tela_de_carregamento():
     caminho = caminho_recurso("launcher_recursos/loading.html")
-    # Manda a URL de rede (ou localhost, se IPV4_LOCAL não existir) pra
-    # tela de carregamento via query string — ela só espera um tempo
-    # fixo e navega direto pra lá, sem checagem nem fallback.
+    # Path(...).as_uri() em vez de "file:///" + caminho na unha: a
+    # pasta do projeto tem espaço ("PROJETO MB"), e espaço sem escapar
+    # numa URL quebra o "?query" que vem depois — era por isso que o
+    # "url" nunca chegava na tela de carregamento, em qualquer teste.
     query = urllib.parse.urlencode({"url": URL})
-    webbrowser.open(f"file:///{caminho}?{query}")
+    uri = Path(caminho).as_uri()
+    webbrowser.open(f"{uri}?{query}")
 
 
 def abrir_navegador(icone=None, item=None):
