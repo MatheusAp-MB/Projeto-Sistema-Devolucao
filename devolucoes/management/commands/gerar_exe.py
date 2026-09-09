@@ -45,6 +45,8 @@ class Command(BaseCommand):
             "--add-data", "launcher_recursos/icone_app.ico;launcher_recursos",
             "--add-data", "devolucoes/templates;devolucoes/templates",
             "--add-data", "devolucoes/static;devolucoes/static",
+            "--add-data", "core/templates;core/templates",
+            "--add-data", "core/static;core/static",
 
             # Imports dinâmicos que o PyInstaller não detecta analisando o
             # código (por isso precisam ser forçados manualmente): ícone de
