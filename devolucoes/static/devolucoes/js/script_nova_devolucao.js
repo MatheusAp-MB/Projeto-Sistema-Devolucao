@@ -276,6 +276,22 @@
     // encontrada, do mesmo jeito que o caso "Canal de Vendas" × "Canal de
     // Venda". Não muda o valor da célula, só a CHAVE usada pra achar a
     // coluna certa.
+    // Achado real em 09/09/2026 (o mais grave até agora): String.trim()
+    // remove Tab também, porque Tab conta como espaço em branco pro
+    // JavaScript. Isso quer dizer que, se a PRIMEIRA ou a ÚLTIMA coluna de
+    // uma linha colada estiver vazia (ex.: "BL" em branco no início da
+    // linha da SAMVALE, ou "Separado Por:" em branco no fim da linha da
+    // MAGAZINE — as duas coisas são super comuns nos exemplos reais), o
+    // Tab que marcava aquela célula vazia desaparecia junto com o
+    // .trim() de antes, e a linha inteira desalinhava 1 coluna pra
+    // esquerda ou pra direita — cada campo pegava o valor do vizinho
+    // errado, sem erro nenhum aparecer. Essa função tira só espaço de
+    // verdade (e sobra de linha) das pontas, nunca um Tab — preserva a
+    // célula vazia, preserva o alinhamento.
+    function apararSemPerderTabs(linha) {
+        return linha.replace(/^[^\S\t]+/, '').replace(/[^\S\t]+$/, '');
+    }
+
     function normalizarNomeColuna(nome) {
         return nome.trim().replace(/\s+/g, ' ').toUpperCase();
     }
@@ -308,7 +324,7 @@
     function processarColagem(texto) {
         var linhas = texto
             .split(/\r\n|\r|\n/)
-            .map(function (linha) { return linha.trim(); })
+            .map(function (linha) { return apararSemPerderTabs(linha); })
             .filter(function (linha) { return linha.length > 0; });
 
         if (linhas.length < 2) {
@@ -330,10 +346,14 @@
         });
 
         var preenchidos = [];
+        var avisos = [];
 
         MAPEAMENTOS.forEach(function (mapeamento) {
             var valor = buscarValorPorAliases(valorPorColuna, mapeamento.colunas);
-            if (!valor) return;
+            if (!valor) {
+                avisos.push(mapeamento.rotulo + ' (não achei a coluna "' + mapeamento.colunas.join('" nem "') + '" nessa colagem)');
+                return;
+            }
 
             var campo = document.getElementById(mapeamento.campoId);
             if (!campo) return;
@@ -349,7 +369,11 @@
             if (plataformaDetectada && campoPlataforma) {
                 campoPlataforma.value = plataformaDetectada;
                 preenchidos.push('Plataforma');
+            } else if (campoPlataforma) {
+                avisos.push('Plataforma (não reconheci nenhum marketplace conhecido no texto "' + canalVendas + '")');
             }
+        } else {
+            avisos.push('Plataforma (não achei a coluna "Canal de Vendas" nem "Canal de Venda" nessa colagem)');
         }
 
         var emissao = buscarValorPorAliases(valorPorColuna, ['Emissão']);
@@ -359,7 +383,11 @@
             if (dataVendaIso && campoDataVenda) {
                 campoDataVenda.value = dataVendaIso;
                 preenchidos.push('Data da venda');
+            } else if (campoDataVenda) {
+                avisos.push('Data da venda (a coluna "Emissão" veio com "' + emissao + '", formato que não reconheço)');
             }
+        } else {
+            avisos.push('Data da venda (não achei a coluna "Emissão" nessa colagem)');
         }
 
         var nomeProduto = buscarValorPorAliases(valorPorColuna, ['Produto']);
@@ -370,13 +398,21 @@
             buscaInputProduto.value = limparNomeProduto(nomeProduto);
             buscaInputProduto.dispatchEvent(new Event('input')); // já dispara a busca de produto sozinha
             preenchidos.push('Busca de produto (confirme clicando no resultado certo)');
+        } else if (!nomeProduto && buscaBloco && !buscaBloco.hidden) {
+            avisos.push('Busca de produto (não achei a coluna "Produto" nessa colagem)');
         }
 
+        var mensagem = '';
         if (preenchidos.length) {
-            mostrarStatus('Preenchido: ' + preenchidos.join(', ') + '.', true);
-        } else {
-            mostrarStatus('Não encontrei nenhuma coluna reconhecida nessa linha.', false);
+            mensagem += 'Preenchido: ' + preenchidos.join(', ') + '.';
         }
+        if (avisos.length) {
+            mensagem += (mensagem ? ' ' : '') + 'Não preenchido: ' + avisos.join('; ') + '.';
+        }
+        if (!mensagem) {
+            mensagem = 'Não encontrei nenhuma coluna reconhecida nessa linha.';
+        }
+        mostrarStatus(mensagem, preenchidos.length > 0);
     }
 
     textarea.addEventListener('paste', function (evento) {
