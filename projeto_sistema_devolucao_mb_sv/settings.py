@@ -11,15 +11,26 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# override=True: o .env sempre vence, mesmo se já existir uma variável
-# de ambiente igual configurada no Windows (sistema/usuário) — sem
-# isso, o load_dotenv() só preenche o que está faltando, e uma
-# variável travada em algum lugar do SO nunca seria atualizada por
-# aqui, mesmo editando o .env certinho.
-load_dotenv(override=True)
+# find_dotenv() (chamado por load_dotenv() sem caminho) procura a
+# partir do CWD (pasta de trabalho do processo) quando detecta
+# sys.frozen (.exe do PyInstaller) — só que o CWD NÃO é garantido ser
+# a pasta do .exe, mesmo com duplo clique no Explorer (é herdado do
+# processo pai, pode variar). Isso fazia o .env nunca ser encontrado
+# na prática, mesmo estando do lado certo do .exe (achado consultando
+# outra IA + issue #259 do próprio python-dotenv no GitHub, que cobre
+# exatamente esse cenário). Por isso o caminho é apontado na mão:
+# pasta do .exe quando congelado (sys.executable), ou pasta deste
+# arquivo em desenvolvimento (python manage.py ...).
+if getattr(sys, "frozen", False):
+    PASTA_ENV = Path(sys.executable).resolve().parent
+else:
+    PASTA_ENV = Path(__file__).resolve().parent.parent
+
+load_dotenv(PASTA_ENV / ".env", override=True)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
