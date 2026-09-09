@@ -222,7 +222,13 @@
         { rotulo: 'Magalu', chave: 'MAGALU' },
         { rotulo: 'Tiktok Shop', chave: 'TIKTOK' },
         { rotulo: 'Raia', chave: 'RAIA' },
+        // "MERCADO LIVRE" cobre quando o ERP escreve o nome por extenso;
+        // "MELI" (sigla que o ERP usa em vendas FULL, ex.: "MAGAZINE MELI
+        // FULL") cobre a abreviação — achado real em 09/09/2026: um exemplo
+        // colado direto do ERP não tinha "MERCADO LIVRE" escrito em lugar
+        // nenhum, só "MELI FULL", e a detecção antiga nunca batia.
         { rotulo: 'Mercado Livre', chave: 'MERCADO LIVRE' },
+        { rotulo: 'Mercado Livre', chave: 'MELI' },
         { rotulo: 'Amazon', chave: 'AMAZON' },
         { rotulo: 'Mais correios', chave: 'CORREIOS' },
     ];
@@ -248,6 +254,21 @@
 
         var dia = match[1], mes = match[2], ano = match[3];
         return ano + '-' + mes + '-' + dia;
+    }
+
+    // Achado real em 09/09/2026: o nome da coluna não é o mesmo nos dois
+    // ERPs — o ERP MAGAZINE manda "Canal de Vendas" (plural) e o ERP
+    // SAMVALE manda "Canal de Venda" (singular). Buscar só um nome fixo
+    // funcionava pra um e falhava silenciosamente pro outro (a coluna
+    // simplesmente não era encontrada, então a Plataforma ficava sempre
+    // em branco). Essa função tenta uma lista de nomes possíveis, na
+    // ordem, e usa o primeiro que existir no cabeçalho colado.
+    function buscarValorPorAliases(valorPorColuna, nomesPossiveis) {
+        for (var i = 0; i < nomesPossiveis.length; i++) {
+            var valor = valorPorColuna[nomesPossiveis[i]];
+            if (valor) return valor;
+        }
+        return undefined;
     }
 
     toggleBtn.addEventListener('click', function () {
@@ -304,7 +325,7 @@
             preenchidos.push(mapeamento.rotulo);
         });
 
-        var canalVendas = valorPorColuna['Canal de Vendas'];
+        var canalVendas = buscarValorPorAliases(valorPorColuna, ['Canal de Vendas', 'Canal de Venda']);
         if (canalVendas) {
             var plataformaDetectada = detectarPlataforma(canalVendas);
             var campoPlataforma = document.getElementById('id_nome_plataforma');
