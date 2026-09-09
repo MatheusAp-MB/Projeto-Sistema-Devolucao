@@ -14,7 +14,12 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+# override=True: o .env sempre vence, mesmo se já existir uma variável
+# de ambiente igual configurada no Windows (sistema/usuário) — sem
+# isso, o load_dotenv() só preenche o que está faltando, e uma
+# variável travada em algum lugar do SO nunca seria atualizada por
+# aqui, mesmo editando o .env certinho.
+load_dotenv(override=True)
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent

@@ -78,7 +78,10 @@ def abrir_tela_de_carregamento():
     # pasta do projeto tem espaço ("PROJETO MB"), e espaço sem escapar
     # numa URL quebra o "?query" que vem depois — era por isso que o
     # "url" nunca chegava na tela de carregamento, em qualquer teste.
-    query = urllib.parse.urlencode({"url": URL})
+    # ip_bruto manda o repr() do que o os.getenv() leu de verdade, pra
+    # aparecer na tela — None, string vazia ou com espaço/caractere
+    # escondido ficam visíveis, em vez de só a URL final já montada.
+    query = urllib.parse.urlencode({"url": URL, "ip_bruto": repr(IP_REDE)})
     uri = Path(caminho).as_uri()
     webbrowser.open(f"{uri}?{query}")
 
