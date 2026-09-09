@@ -205,10 +205,16 @@
     var statusEl = document.getElementById('nd_colar_status');
     if (!toggleBtn || !textarea) return;
 
+    // Achado real em 09/09/2026: o nome da coluna não é sempre igual entre
+    // os ERPs (ex.: "Canal de Vendas" na MAGAZINE vira "Canal de Venda" —
+    // sem o "s" — na SAMVALE, achado que já corrigimos ali embaixo). Pra
+    // não correr o mesmo risco aqui, "colunas" é uma lista de nomes
+    // possíveis pra essa mesma informação — tenta cada um, na ordem, e usa
+    // o primeiro que aparecer no cabeçalho colado.
     var MAPEAMENTOS = [
-        { coluna: 'Pedido Marketplace', campoId: 'id_numero_pedido', rotulo: 'Número do pedido' },
-        { coluna: 'Nota Fiscal', campoId: 'id_numero_nota_fiscal', rotulo: 'Nota fiscal' },
-        { coluna: 'Parceiro de Negócio', campoId: 'id_nome_cliente', rotulo: 'Cliente' },
+        { colunas: ['Pedido Marketplace'], campoId: 'id_numero_pedido', rotulo: 'Número do pedido' },
+        { colunas: ['Nota Fiscal'], campoId: 'id_numero_nota_fiscal', rotulo: 'Nota fiscal' },
+        { colunas: ['Parceiro de Negócio'], campoId: 'id_nome_cliente', rotulo: 'Cliente' },
     ];
 
     // "Plataforma" virou <select> com uma lista fechada de marketplaces —
@@ -315,7 +321,7 @@
         var preenchidos = [];
 
         MAPEAMENTOS.forEach(function (mapeamento) {
-            var valor = valorPorColuna[mapeamento.coluna];
+            var valor = buscarValorPorAliases(valorPorColuna, mapeamento.colunas);
             if (!valor) return;
 
             var campo = document.getElementById(mapeamento.campoId);
@@ -335,7 +341,7 @@
             }
         }
 
-        var emissao = valorPorColuna['Emissão'];
+        var emissao = buscarValorPorAliases(valorPorColuna, ['Emissão']);
         if (emissao) {
             var dataVendaIso = converterDataErpParaIso(emissao);
             var campoDataVenda = document.getElementById('id_data_venda');
@@ -345,7 +351,7 @@
             }
         }
 
-        var nomeProduto = valorPorColuna['Produto'];
+        var nomeProduto = buscarValorPorAliases(valorPorColuna, ['Produto']);
         var buscaBloco = document.getElementById('nd_produto_busca_bloco');
         var buscaInputProduto = document.getElementById('nd_produto_busca');
 
