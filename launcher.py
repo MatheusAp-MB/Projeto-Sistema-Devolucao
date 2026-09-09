@@ -23,6 +23,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "projeto_sistema_devolucao_mb_sv
 
 from django.core.management import call_command
 from projeto_sistema_devolucao_mb_sv.wsgi import application
+from django.conf import settings as django_settings
 
 # HOST_LOCAL é usado só pra 2 coisas desta própria máquina: checar se
 # já tem uma instância rodando, e o fallback de bind caso o IPV4_LOCAL
@@ -74,14 +75,21 @@ def rodar_servidor():
 
 def abrir_tela_de_carregamento():
     caminho = caminho_recurso("launcher_recursos/loading.html")
-    # Path(...).as_uri() em vez de "file:///" + caminho na unha: a
-    # pasta do projeto tem espaço ("PROJETO MB"), e espaço sem escapar
-    # numa URL quebra o "?query" que vem depois — era por isso que o
-    # "url" nunca chegava na tela de carregamento, em qualquer teste.
-    # ip_bruto manda o repr() do que o os.getenv() leu de verdade, pra
-    # aparecer na tela — None, string vazia ou com espaço/caractere
-    # escondido ficam visíveis, em vez de só a URL final já montada.
-    query = urllib.parse.urlencode({"url": URL, "ip_bruto": repr(IP_REDE)})
+    # Raio-x completo pra fechar o diagnóstico de vez: mostra se o .exe
+    # está mesmo "congelado" (sys.frozen), qual caminho ele calculou
+    # pro .env (mesma conta do settings.py) e se esse .env realmente
+    # existe ali — tudo que precisamos saber pra achar onde a leitura
+    # está realmente falhando.
+    pasta_env = django_settings.PASTA_ENV
+    diagnostico = {
+        "url": URL,
+        "ip_bruto": repr(IP_REDE),
+        "frozen": str(getattr(sys, "frozen", False)),
+        "exe": sys.executable,
+        "pasta_env": str(pasta_env),
+        "env_existe": str((pasta_env / ".env").is_file()),
+    }
+    query = urllib.parse.urlencode(diagnostico)
     uri = Path(caminho).as_uri()
     webbrowser.open(f"{uri}?{query}")
 
