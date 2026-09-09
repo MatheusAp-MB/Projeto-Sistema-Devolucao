@@ -249,6 +249,19 @@
         return null;
     }
 
+    // "Tipo de venda" só tem 2 opções possíveis (banco de dados: 'comum'
+    // ou 'full' — não é uma lista aberta de marketplaces como Plataforma).
+    // O ERP marca canal FULL sempre escrevendo "FULL" no fim do nome do
+    // canal (ex.: "MAGAZINE MELI FULL", "SAMVALE MERCADO LIVRE FULL",
+    // "SAMVALE AMAZON FBA CLASSIC FULL") — achado real em 09/09/2026, a
+    // partir da lista completa de canais que o usuário passou. Como só
+    // existem essas 2 opções, "não tem FULL no texto" já é suficiente pra
+    // saber que é venda comum — não precisa de lista de palavras-chave
+    // feito a Plataforma.
+    function detectarTipoVenda(textoErp) {
+        return textoErp.toUpperCase().indexOf('FULL') !== -1 ? 'full' : 'comum';
+    }
+
     // "Data da venda" vem da coluna "Emissão" do ERP (data de emissão da
     // nota fiscal) — mas o ERP mostra ela como dd/mm/aaaa (às vezes com
     // hora junto, "dd/mm/aaaa hh:mm:ss"), e o <input type="date"> só
@@ -378,8 +391,16 @@
             } else if (campoPlataforma) {
                 avisos.push('Plataforma (não reconheci nenhum marketplace conhecido no texto "' + canalVendas + '")');
             }
+
+            var tipoVendaDetectado = detectarTipoVenda(canalVendas);
+            var campoTipoVenda = document.getElementById('id_tipo_venda');
+            if (campoTipoVenda) {
+                campoTipoVenda.value = tipoVendaDetectado;
+                preenchidos.push('Tipo de venda');
+            }
         } else {
             avisos.push('Plataforma (não achei a coluna "Canal de Vendas" nem "Canal de Venda" nessa colagem)');
+            avisos.push('Tipo de venda (não achei a coluna "Canal de Vendas" nem "Canal de Venda" nessa colagem)');
         }
 
         var emissao = buscarValorPorAliases(valorPorColuna, ['Emissão']);
