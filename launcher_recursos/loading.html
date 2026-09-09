@@ -17,12 +17,29 @@
     <div class="subtitulo">Sistema de Relatório de Devoluções</div>
   </div>
   <script>
-    function tentarConectar() {
-      fetch("http://127.0.0.1:8000/", { mode: "no-cors" })
-        .then(() => { window.location.href = "http://127.0.0.1:8000/"; })
-        .catch(() => { setTimeout(tentarConectar, 300); });
+    // urlPrincipal vem do launcher.py (IPV4_LOCAL, ou localhost se não
+    // existir); urlFallback é sempre localhost. Tenta a principal por
+    // ~4,5s (15 tentativas de 300ms); se não responder, desiste dela e
+    // passa a tentar a de fallback sem limite de tentativas.
+    const parametros = new URLSearchParams(window.location.search);
+    const urlPrincipal = parametros.get("url") || "http://127.0.0.1:8000/";
+    const urlFallback = parametros.get("fallback") || "http://127.0.0.1:8000/";
+
+    function tentarConectar(url, tentativas, proximaUrl) {
+      fetch(url, { mode: "no-cors" })
+        .then(() => { window.location.href = url; })
+        .catch(() => {
+          if (tentativas > 0) {
+            setTimeout(() => tentarConectar(url, tentativas - 1, proximaUrl), 300);
+          } else if (proximaUrl && proximaUrl !== url) {
+            tentarConectar(proximaUrl, 999999, null);
+          } else {
+            setTimeout(() => tentarConectar(url, 0, proximaUrl), 300);
+          }
+        });
     }
-    setTimeout(tentarConectar, 300);
+
+    tentarConectar(urlPrincipal, 15, urlFallback);
   </script>
 </body>
 </html>

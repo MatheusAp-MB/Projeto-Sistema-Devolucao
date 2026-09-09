@@ -9,6 +9,7 @@ import os
 import socket
 import sys
 import threading
+import urllib.parse
 import webbrowser
 
 import pystray
@@ -23,13 +24,19 @@ from django.core.management import call_command
 from projeto_sistema_devolucao_mb_sv.wsgi import application
 
 # HOST_LOCAL é usado só pra 2 coisas desta própria máquina: checar se
-# já tem uma instância rodando, e abrir o navegador local sozinho (o
-# atalho da bandeja/loading). O acesso de fora (celular, outro PC) usa
-# o IPV4_LOCAL do .env — mesmo IP fixo que já é usado direto no
-# "runserver ipv4:8000" no escritório.
+# já tem uma instância rodando, e o fallback de bind caso o IPV4_LOCAL
+# não exista mais nesta máquina. IP_REDE (do .env) é o mesmo IP usado
+# no "runserver ipv4:8000" no escritório — quando existe, URL passa a
+# ser ele, pra abrir o MESMO endereço no PC e no celular (em vez de 2
+# links diferentes conforme o aparelho). URL_FALLBACK é sempre o
+# localhost, usado pela tela de carregamento se a URL de rede não
+# responder.
 HOST_LOCAL = "127.0.0.1"
 PORTA = 8000
-URL = f"http://{HOST_LOCAL}:{PORTA}/"
+
+IP_REDE = os.getenv("IPV4_LOCAL")
+URL = f"http://{IP_REDE}:{PORTA}/" if IP_REDE else f"http://{HOST_LOCAL}:{PORTA}/"
+URL_FALLBACK = f"http://{HOST_LOCAL}:{PORTA}/"
 
 
 def caminho_recurso(nome_arquivo):
@@ -50,16 +57,13 @@ def porta_ja_em_uso():
 
 
 def rodar_servidor():
-    # IPV4_LOCAL vem do .env (ex.: 192.168.0.50) — mesmo IP fixo já
-    # usado no "runserver ipv4:8000" no escritório. Escuta em 2
-    # endereços específicos (não em "tudo"): localhost, pra continuar
-    # abrindo sozinho nesta máquina, e o IP da rede, pro celular
-    # acessar. Se IPV4_LOCAL não estiver no .env (ex.: teste local seu,
-    # sem essa variável), escuta só em localhost mesmo.
-    ip_rede = os.getenv("IPV4_LOCAL")
+    # Escuta em 2 endereços específicos (não em "tudo"): localhost, pra
+    # continuar abrindo sozinho nesta máquina, e IP_REDE (do .env), pro
+    # celular acessar. Se IPV4_LOCAL não estiver no .env (ex.: teste
+    # local seu, sem essa variável), escuta só em localhost mesmo.
     enderecos = f"{HOST_LOCAL}:{PORTA}"
-    if ip_rede:
-        enderecos += f" {ip_rede}:{PORTA}"
+    if IP_REDE:
+        enderecos += f" {IP_REDE}:{PORTA}"
 
     try:
         serve(application, listen=enderecos)
@@ -72,11 +76,17 @@ def rodar_servidor():
 
 def abrir_tela_de_carregamento():
     caminho = caminho_recurso("launcher_recursos/loading.html")
-    webbrowser.open(f"file:///{caminho}")
+    # Manda a URL de rede (ou localhost, se IPV4_LOCAL não existir) e a
+    # de fallback pra tela de carregamento via query string — ela tenta
+    # a primeira, e só cai pra localhost se a primeira não responder.
+    query = urllib.parse.urlencode({"url": URL, "fallback": URL_FALLBACK})
+    webbrowser.open(f"file:///{caminho}?{query}")
 
 
 def abrir_navegador(icone=None, item=None):
-    webbrowser.open(URL)
+    # Reaproveita a mesma tela/lógica de conexão do início — evita
+    # abrir direto numa URL que pode não estar mais respondendo.
+    abrir_tela_de_carregamento()
 
 
 def criar_imagem_icone():
