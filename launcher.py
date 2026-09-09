@@ -27,16 +27,13 @@ from projeto_sistema_devolucao_mb_sv.wsgi import application
 # já tem uma instância rodando, e o fallback de bind caso o IPV4_LOCAL
 # não exista mais nesta máquina. IP_REDE (do .env) é o mesmo IP usado
 # no "runserver ipv4:8000" no escritório — quando existe, URL passa a
-# ser ele, pra abrir o MESMO endereço no PC e no celular (em vez de 2
-# links diferentes conforme o aparelho). URL_FALLBACK é sempre o
-# localhost, usado pela tela de carregamento se a URL de rede não
-# responder.
+# ser ele, pra abrir direto nesse endereço (PC e celular usam o mesmo
+# link, sem fallback).
 HOST_LOCAL = "127.0.0.1"
 PORTA = 8000
 
 IP_REDE = os.getenv("IPV4_LOCAL")
 URL = f"http://{IP_REDE}:{PORTA}/" if IP_REDE else f"http://{HOST_LOCAL}:{PORTA}/"
-URL_FALLBACK = f"http://{HOST_LOCAL}:{PORTA}/"
 
 
 def caminho_recurso(nome_arquivo):
@@ -76,10 +73,10 @@ def rodar_servidor():
 
 def abrir_tela_de_carregamento():
     caminho = caminho_recurso("launcher_recursos/loading.html")
-    # Manda a URL de rede (ou localhost, se IPV4_LOCAL não existir) e a
-    # de fallback pra tela de carregamento via query string — ela tenta
-    # a primeira, e só cai pra localhost se a primeira não responder.
-    query = urllib.parse.urlencode({"url": URL, "fallback": URL_FALLBACK})
+    # Manda a URL de rede (ou localhost, se IPV4_LOCAL não existir) pra
+    # tela de carregamento via query string — ela só espera um tempo
+    # fixo e navega direto pra lá, sem checagem nem fallback.
+    query = urllib.parse.urlencode({"url": URL})
     webbrowser.open(f"file:///{caminho}?{query}")
 
 

@@ -17,23 +17,13 @@
     <div class="subtitulo">Sistema de Relatório de Devoluções</div>
   </div>
   <script>
-    // O navegador bloqueia fetch() de uma página file:// pra um IP de
-    // rede local (192.168.x.x) — proteção de segurança contra página
-    // local "sondando" a rede. Por isso a checagem (fetch) é sempre no
-    // localhost (que funciona normalmente); só depois de confirmar que
-    // o servidor subiu, navega de verdade (não é mais fetch, é troca
-    // de página mesmo) pro endereço real — seja ele o de rede (celular)
-    // ou o próprio localhost, se IPV4_LOCAL não estiver configurado.
+    // Sem checagem via fetch (é o que dava problema pra IP de rede,
+    // vindo de página file://) — espera um tempo fixo (de sobra pro
+    // Django/waitress subirem) e navega direto pro endereço, sem
+    // fallback.
     const parametros = new URLSearchParams(window.location.search);
     const urlDestino = parametros.get("url") || "http://127.0.0.1:8000/";
-    const urlChecagem = parametros.get("fallback") || "http://127.0.0.1:8000/";
-
-    function tentarConectar() {
-      fetch(urlChecagem, { mode: "no-cors" })
-        .then(() => { window.location.href = urlDestino; })
-        .catch(() => { setTimeout(tentarConectar, 300); });
-    }
-    setTimeout(tentarConectar, 300);
+    setTimeout(() => { window.location.href = urlDestino; }, 2000);
   </script>
 </body>
 </html>
