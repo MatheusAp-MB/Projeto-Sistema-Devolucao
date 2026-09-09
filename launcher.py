@@ -12,7 +12,7 @@ import threading
 import webbrowser
 
 import pystray
-from PIL import Image, ImageDraw
+from PIL import Image
 from waitress import serve
 
 # Precisa ser setado antes do import de core.wsgi, que dispara o
@@ -58,10 +58,8 @@ def abrir_navegador(icone=None, item=None):
 
 
 def criar_imagem_icone():
-    imagem = Image.new("RGB", (64, 64), color=(112, 59, 246))
-    desenho = ImageDraw.Draw(imagem)
-    desenho.ellipse((16, 16, 48, 48), fill=(255, 255, 255))
-    return imagem
+    caminho = caminho_recurso("launcher_recursos/icone_app.ico")
+    return Image.open(caminho).convert("RGBA").resize((64, 64), Image.LANCZOS)
 
 
 def encerrar(icone, item):

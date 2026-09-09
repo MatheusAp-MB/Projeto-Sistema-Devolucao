@@ -32,11 +32,17 @@ class Command(BaseCommand):
             "--noconsole",
             "--clean",
             "--name", "SistemaDevolucoes",
+            "--icon", "launcher_recursos/icone_app.ico",
 
             # Arquivos estáticos que o PyInstaller não empacota sozinho —
             # precisam ser apontados manualmente: tela de carregamento HTML,
-            # templates e estáticos do Django
+            # ícone da bandeja (reaproveita o mesmo .ico do --icon acima,
+            # mas precisa entrar também aqui — --icon só grava o ícone no
+            # próprio .exe, não deixa o arquivo disponível em tempo de
+            # execução pro launcher.py abrir), templates e estáticos do
+            # Django
             "--add-data", "launcher_recursos/loading.html;launcher_recursos",
+            "--add-data", "launcher_recursos/icone_app.ico;launcher_recursos",
             "--add-data", "devolucoes/templates;devolucoes/templates",
             "--add-data", "devolucoes/static;devolucoes/static",
 
