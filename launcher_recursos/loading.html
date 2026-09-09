@@ -17,29 +17,23 @@
     <div class="subtitulo">Sistema de Relatório de Devoluções</div>
   </div>
   <script>
-    // urlPrincipal vem do launcher.py (IPV4_LOCAL, ou localhost se não
-    // existir); urlFallback é sempre localhost. Tenta a principal por
-    // ~4,5s (15 tentativas de 300ms); se não responder, desiste dela e
-    // passa a tentar a de fallback sem limite de tentativas.
+    // O navegador bloqueia fetch() de uma página file:// pra um IP de
+    // rede local (192.168.x.x) — proteção de segurança contra página
+    // local "sondando" a rede. Por isso a checagem (fetch) é sempre no
+    // localhost (que funciona normalmente); só depois de confirmar que
+    // o servidor subiu, navega de verdade (não é mais fetch, é troca
+    // de página mesmo) pro endereço real — seja ele o de rede (celular)
+    // ou o próprio localhost, se IPV4_LOCAL não estiver configurado.
     const parametros = new URLSearchParams(window.location.search);
-    const urlPrincipal = parametros.get("url") || "http://127.0.0.1:8000/";
-    const urlFallback = parametros.get("fallback") || "http://127.0.0.1:8000/";
+    const urlDestino = parametros.get("url") || "http://127.0.0.1:8000/";
+    const urlChecagem = parametros.get("fallback") || "http://127.0.0.1:8000/";
 
-    function tentarConectar(url, tentativas, proximaUrl) {
-      fetch(url, { mode: "no-cors" })
-        .then(() => { window.location.href = url; })
-        .catch(() => {
-          if (tentativas > 0) {
-            setTimeout(() => tentarConectar(url, tentativas - 1, proximaUrl), 300);
-          } else if (proximaUrl && proximaUrl !== url) {
-            tentarConectar(proximaUrl, 999999, null);
-          } else {
-            setTimeout(() => tentarConectar(url, 0, proximaUrl), 300);
-          }
-        });
+    function tentarConectar() {
+      fetch(urlChecagem, { mode: "no-cors" })
+        .then(() => { window.location.href = urlDestino; })
+        .catch(() => { setTimeout(tentarConectar, 300); });
     }
-
-    tentarConectar(urlPrincipal, 15, urlFallback);
+    setTimeout(tentarConectar, 300);
   </script>
 </body>
 </html>
