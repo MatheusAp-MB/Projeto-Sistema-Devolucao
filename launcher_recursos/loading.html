@@ -23,12 +23,9 @@
     <div class="continuar"><a href="#" id="link">Clique aqui pra continuar →</a></div>
   </div>
   <script>
-    const parametros = new URLSearchParams(window.location.search);
-    const urlDestino = parametros.get("url") || "http://127.0.0.1:8000/";
-    const linhas = [];
-    for (const [chave, valor] of parametros.entries()) {
-      linhas.push(chave + " = " + valor);
-    }
+    const dados = __DADOS_JSON__;
+    const urlDestino = dados.url || "http://127.0.0.1:8000/";
+    const linhas = Object.entries(dados).map(([chave, valor]) => chave + " = " + valor);
     document.getElementById("debug").textContent = linhas.join("\n");
     document.getElementById("link").href = urlDestino;
   </script>

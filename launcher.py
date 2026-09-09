@@ -5,11 +5,12 @@
 # (loading.html) e expõe o ícone de bandeja (pystray) para controle do
 # ciclo de vida do processo (abrir de novo / encerrar).
 
+import json
 import os
 import socket
 import sys
+import tempfile
 import threading
-import urllib.parse
 import webbrowser
 from pathlib import Path
 
@@ -74,12 +75,15 @@ def rodar_servidor():
 
 
 def abrir_tela_de_carregamento():
-    caminho = caminho_recurso("launcher_recursos/loading.html")
-    # Raio-x completo pra fechar o diagnóstico de vez: mostra se o .exe
-    # está mesmo "congelado" (sys.frozen), qual caminho ele calculou
-    # pro .env (mesma conta do settings.py) e se esse .env realmente
-    # existe ali — tudo que precisamos saber pra achar onde a leitura
-    # está realmente falhando.
+    # Os dados vão embutidos DENTRO do HTML (arquivo temporário gerado
+    # agora, substituindo um marcador), não mais numa "?query" da URL
+    # — passar dado por query string numa URL file:// se mostrou pouco
+    # confiável (o navegador descartava o "?..." silenciosamente, foi
+    # por isso que a tela de diagnóstico apareceu vazia).
+    caminho_modelo = caminho_recurso("launcher_recursos/loading.html")
+    with open(caminho_modelo, "r", encoding="utf-8") as f:
+        html = f.read()
+
     pasta_env = django_settings.PASTA_ENV
     diagnostico = {
         "url": URL,
@@ -89,9 +93,13 @@ def abrir_tela_de_carregamento():
         "pasta_env": str(pasta_env),
         "env_existe": str((pasta_env / ".env").is_file()),
     }
-    query = urllib.parse.urlencode(diagnostico)
-    uri = Path(caminho).as_uri()
-    webbrowser.open(f"{uri}?{query}")
+    html = html.replace("__DADOS_JSON__", json.dumps(diagnostico))
+
+    caminho_temp = os.path.join(tempfile.gettempdir(), "sistema_devolucoes_tela.html")
+    with open(caminho_temp, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    webbrowser.open(Path(caminho_temp).as_uri())
 
 
 def abrir_navegador(icone=None, item=None):
