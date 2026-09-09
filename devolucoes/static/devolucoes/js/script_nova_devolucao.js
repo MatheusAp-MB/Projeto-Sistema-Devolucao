@@ -282,15 +282,16 @@
     // uma linha colada estiver vazia (ex.: "BL" em branco no início da
     // linha da SAMVALE, ou "Separado Por:" em branco no fim da linha da
     // MAGAZINE — as duas coisas são super comuns nos exemplos reais), o
-    // Tab que marcava aquela célula vazia desaparecia junto com o
-    // .trim() de antes, e a linha inteira desalinhava 1 coluna pra
-    // esquerda ou pra direita — cada campo pegava o valor do vizinho
-    // errado, sem erro nenhum aparecer. Essa função tira só espaço de
-    // verdade (e sobra de linha) das pontas, nunca um Tab — preserva a
-    // célula vazia, preserva o alinhamento.
-    function apararSemPerderTabs(linha) {
-        return linha.replace(/^[^\S\t]+/, '').replace(/[^\S\t]+$/, '');
-    }
+    // Tab que marcava aquela célula vazia desaparecia junto com o .trim(),
+    // e a linha inteira desalinhava 1 coluna pra esquerda ou pra direita —
+    // cada campo pegava o valor do vizinho errado, sem erro nenhum
+    // aparecer. Correção definitiva (sugestão do usuário, 09/09/2026):
+    // trocar o Tab por um marcador visível ("|SEP|") ANTES de qualquer
+    // limpeza de espaço — "|SEP|" nunca é espaço em branco, então nenhum
+    // .trim() (esse ou qualquer outro escrito no futuro) corre o risco de
+    // apagar um separador de coluna sem querer. Resolve a causa, não só o
+    // sintoma.
+    var SEPARADOR_COLUNA = '|SEP|';
 
     function normalizarNomeColuna(nome) {
         return nome.trim().replace(/\s+/g, ' ').toUpperCase();
@@ -322,9 +323,14 @@
     }
 
     function processarColagem(texto) {
-        var linhas = texto
+        // Troca todo Tab por "|SEP|" logo de cara, antes de QUALQUER outra
+        // limpeza — a partir daqui, célula vazia numa ponta da linha não
+        // corre mais risco nenhum de sumir junto com espaço em branco.
+        var textoComSeparadorVisivel = texto.split('\t').join(SEPARADOR_COLUNA);
+
+        var linhas = textoComSeparadorVisivel
             .split(/\r\n|\r|\n/)
-            .map(function (linha) { return apararSemPerderTabs(linha); })
+            .map(function (linha) { return linha.trim(); })
             .filter(function (linha) { return linha.length > 0; });
 
         if (linhas.length < 2) {
@@ -332,8 +338,8 @@
             return;
         }
 
-        var cabecalho = linhas[0].split('\t');
-        var valores = linhas[1].split('\t');
+        var cabecalho = linhas[0].split(SEPARADOR_COLUNA);
+        var valores = linhas[1].split(SEPARADOR_COLUNA);
 
         if (cabecalho.length < 2 || valores.length < 2) {
             mostrarStatus('Não consegui separar as colunas — copie direto da grade do ERP (com Tab entre as colunas).', false);
