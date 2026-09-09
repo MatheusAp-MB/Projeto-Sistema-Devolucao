@@ -22,9 +22,14 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "projeto_sistema_devolucao_mb_sv
 from django.core.management import call_command
 from projeto_sistema_devolucao_mb_sv.wsgi import application
 
-HOST = "127.0.0.1"
+# HOST_LOCAL é usado só pra 2 coisas desta própria máquina: checar se
+# já tem uma instância rodando, e abrir o navegador local sozinho (o
+# atalho da bandeja/loading). O acesso de fora (celular, outro PC) usa
+# o IPV4_LOCAL do .env — mesmo IP fixo que já é usado direto no
+# "runserver ipv4:8000" no escritório.
+HOST_LOCAL = "127.0.0.1"
 PORTA = 8000
-URL = f"http://{HOST}:{PORTA}/"
+URL = f"http://{HOST_LOCAL}:{PORTA}/"
 
 
 def caminho_recurso(nome_arquivo):
@@ -36,7 +41,7 @@ def caminho_recurso(nome_arquivo):
 def porta_ja_em_uso():
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        sock.bind((HOST, PORTA))
+        sock.bind((HOST_LOCAL, PORTA))
         return False
     except OSError:
         return True
@@ -45,7 +50,24 @@ def porta_ja_em_uso():
 
 
 def rodar_servidor():
-    serve(application, host=HOST, port=PORTA)
+    # IPV4_LOCAL vem do .env (ex.: 192.168.0.50) — mesmo IP fixo já
+    # usado no "runserver ipv4:8000" no escritório. Escuta em 2
+    # endereços específicos (não em "tudo"): localhost, pra continuar
+    # abrindo sozinho nesta máquina, e o IP da rede, pro celular
+    # acessar. Se IPV4_LOCAL não estiver no .env (ex.: teste local seu,
+    # sem essa variável), escuta só em localhost mesmo.
+    ip_rede = os.getenv("IPV4_LOCAL")
+    enderecos = f"{HOST_LOCAL}:{PORTA}"
+    if ip_rede:
+        enderecos += f" {ip_rede}:{PORTA}"
+
+    try:
+        serve(application, listen=enderecos)
+    except OSError:
+        # Rede de segurança: se o IP do .env não existir mais nesta
+        # máquina (mudou de rede, .env desatualizado), não deixa o
+        # sistema travar sem abrir nem localmente — cai pra localhost.
+        serve(application, host=HOST_LOCAL, port=PORTA)
 
 
 def abrir_tela_de_carregamento():
