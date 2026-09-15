@@ -27,6 +27,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('core.urls')),
     path('', include('devolucoes.urls')),
+    path('', include('integracao_mercado_livre.urls')),
     path('static/<path:path>', servir_estatico),
     path('media/<path:path>', servir_midia),
 ]
