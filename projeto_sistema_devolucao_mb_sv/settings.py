@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'core',
     'devolucoes',
+    'integracao_mercado_livre',
 ]
 
 MIDDLEWARE = [

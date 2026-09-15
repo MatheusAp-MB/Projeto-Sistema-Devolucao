@@ -1,0 +1,26 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Teste API Mercado Livre — Sistema de Devoluções{% endblock %}
+{% block toolbar_titulo %}Teste API Mercado Livre{% endblock %}
+
+{% block conteudo %}
+<div class="ml-teste-pagina">
+    <p>Empresa ativa: <strong>{{ empresa }}</strong> → conta ML: <strong>{{ conta|default:"—" }}</strong></p>
+
+    {% if erro %}
+        <div class="aviso-global aviso-global--error">
+            <i class="fas fa-exclamation-circle"></i>
+            {{ erro }}
+        </div>
+    {% elif resultado_json %}
+        <div class="aviso-global aviso-global--success">
+            <i class="fas fa-check-circle"></i>
+            Conexão OK — GET /users/me respondeu 200.
+        </div>
+        <pre>{{ resultado_json }}</pre>
+    {% endif %}
+
+    <a href="{% url 'home' %}" class="text-decoration-none">&larr; Voltar</a>
+</div>
+{% endblock %}

@@ -60,13 +60,15 @@
     </a>
 </div>
 
-<!-- Card vazio — reservado para módulos futuros -->
+<!-- Card: Teste API Mercado Livre -->
 <div class="col-md-4">
-    <div class="card-modulo card-modulo-vazio">
-        <i class="fas fa-plus fa-2x mb-3"></i>
-        <h5>Em breve</h5>
-        <p>Novo módulo</p>
-    </div>
+    <a href="{% url 'teste_conexao_ml' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-plug fa-2x mb-3"></i>
+            <h5>Teste API Mercado Livre</h5>
+            <p>Testar a conexão com a API do ML dentro do .exe</p>
+        </div>
+    </a>
 </div>
 
 {% endblock %}
