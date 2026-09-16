@@ -1,3 +1,6 @@
+
+*.log 
+
 # Bytecode e cache do Python
 __pycache__/
 *.py[cod]
