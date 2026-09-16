@@ -93,7 +93,7 @@ TRADUCAO_PAPEL = {
 
 def traduzir_resolucao(resolucao):
     if not resolucao:
-        return {'texto': "Ainda não resolvida", 'confirmado': True}
+        return {'texto': "Ainda não resolvida", 'motivo_curto': "Ainda não resolvida", 'confirmado': True}
     motivo_bruto = resolucao.get("reason")
     motivo_texto = TRADUCAO_RESOLUTION_REASON.get(motivo_bruto)
     closed_by_bruto = resolucao.get("closed_by")
@@ -107,5 +107,6 @@ def traduzir_resolucao(resolucao):
             f"{motivo_texto or motivo_bruto} — encerrada por {closed_by_texto or closed_by_bruto}, "
             f"beneficiando {texto_beneficiados}, {cobertura} cobertura aplicada."
         ),
+        'motivo_curto': motivo_texto or motivo_bruto,
         'confirmado': confirmado,
     }
