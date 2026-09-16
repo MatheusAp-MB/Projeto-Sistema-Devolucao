@@ -10,6 +10,7 @@
 # número do pedido.
 
 import json
+import bleach
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -35,6 +36,13 @@ PASTA_LOGS_ML = settings.DADOS_DIR / 'logs' / 'mercado_livre'
 
 FUSO_HORARIO_EXIBICAO = ZoneInfo("America/Sao_Paulo")
 HEADER_FORMATO_NOVO = {"x-format-new": "true"}
+
+# Tags que sobrevivem à sanitização do campo "message" das mensagens da claim
+# — o mediador do ML manda esse campo em HTML (parágrafo, negrito, link);
+# sanitizamos com bleach pra poder renderizar com |safe no template sem abrir
+# brecha de XSS.
+TAGS_PERMITIDAS_MENSAGEM = ["p", "br", "strong", "b", "em", "i", "a"]
+ATRIBUTOS_PERMITIDOS_MENSAGEM = {"a": ["href"]}
 
 
 def view_teste_conexao_ml(request):
@@ -118,6 +126,69 @@ def _data_abertura_disputa(claim_id, conta):
     if not mensagens_dispute:
         return None
     return min(m.get("date_created") for m in mensagens_dispute if m.get("date_created"))
+
+
+def _preparar_mensagem_html(texto):
+    """Prepara o campo 'message' de uma mensagem da claim pra exibição segura
+    no template com |safe: se já vier com HTML (parágrafo, negrito, link —
+    como normalmente vêm as mensagens do mediador), sanitiza mantendo só um
+    punhado de tags seguras (bleach). Se vier em texto puro (como normalmente
+    vêm as suas e as do comprador), cada quebra de linha vira <br> antes de
+    sanitizar, senão o navegador ignora as quebras. Todo link vira
+    target="_blank" pra não tirar o usuário da tela sem aviso."""
+    if not texto:
+        return '<p class="text-muted mb-0">(sem texto — mensagem só com anexo, ou campo vazio)</p>'
+    if "<" not in texto:
+        texto = texto.replace("\n", "<br>")
+    limpo = bleach.clean(
+        texto,
+        tags=TAGS_PERMITIDAS_MENSAGEM,
+        attributes=ATRIBUTOS_PERMITIDOS_MENSAGEM,
+        strip=True,
+    )
+    return limpo.replace("<a ", '<a target="_blank" rel="noopener" ')
+
+
+def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_cliente):
+    """Monta a lista de mensagens da claim pro Bloco 4, já classificada em
+    ML / você / cliente (mesma lógica do varredura_respostas_mediacao.py:
+    sender_role == 'mediator' é o ML, sender_role == o seu papel nos players
+    é você, o resto é a cliente) e com o texto pronto pra exibir no chat."""
+    meu_papel = None
+    for player in claim.get("players", []):
+        if player.get("user_id") == meu_user_id:
+            meu_papel = player.get("role")
+            break
+
+    try:
+        resposta = chamar_api(
+            "GET", f"/post-purchase/v1/claims/{claim_id}/messages",
+            pasta_logs=PASTA_LOGS_ML, conta=conta,
+        )
+    except (ErroAPI, ErroAutenticacaoAPI):
+        return []
+
+    mensagens = resposta.json()
+    mensagens.sort(key=lambda m: m.get("date_created") or "")
+
+    resultado = []
+    for m in mensagens:
+        sender = m.get("sender_role")
+        if sender == "mediator":
+            papel, lado, rotulo, iniciais = "ml", "esq", "Mercado Livre", "ML"
+        elif meu_papel is not None and sender == meu_papel:
+            papel, lado, rotulo, iniciais = "voce", "dir", "Você", conta
+        else:
+            papel, lado, rotulo, iniciais = "cliente", "esq", "Cliente", iniciais_cliente
+        resultado.append({
+            "papel": papel,
+            "lado": lado,
+            "rotulo": rotulo,
+            "iniciais": iniciais,
+            "data": _formatar_data(m.get("date_created")),
+            "texto_html": _preparar_mensagem_html(m.get("message")),
+        })
+    return resultado
 
 
 def view_consultar_pedido(request):
@@ -238,6 +309,15 @@ def view_consultar_pedido(request):
 
         claim_id = claim.get('id')
 
+        # ----- Conversa da claim (Bloco 4) -----
+        try:
+            me = chamar_api("GET", "/users/me", pasta_logs=PASTA_LOGS_ML, conta=conta).json()
+            mensagens_mediacao = _construir_mensagens_mediacao(
+                claim_id, conta, me.get('id'), claim, (nome_comprador[:1] or "C").upper()
+            )
+        except (ErroAPI, ErroAutenticacaoAPI):
+            mensagens_mediacao = []
+
         contexto.update({
             'encontrado': True,
             'esta_encerrado': bool(devolucao.get('date_closed')),
@@ -269,6 +349,7 @@ def view_consultar_pedido(request):
             'data_abertura_mediacao': data_abertura_mediacao,
             'data_encerramento': _formatar_data(devolucao.get('date_closed')),
             'status_dinheiro': devolucao.get('status_money'),
+            'mensagens_mediacao': mensagens_mediacao,
         })
 
     except (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao) as erro:

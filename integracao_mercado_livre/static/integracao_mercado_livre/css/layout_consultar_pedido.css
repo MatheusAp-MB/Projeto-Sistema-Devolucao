@@ -25,14 +25,100 @@
     color: #92400e;
 }
 
-.consultar-pedido-produto-foto {
-    width: 56px;
-    height: 56px;
-    border-radius: 8px;
-    background-color: #f1f3f6;
+.consultar-pedido-atalho {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--cor-primaria-clara);
+    white-space: nowrap;
+}
+
+.consultar-pedido-atalho:hover {
+    background-color: #eef4fa;
+    text-decoration: none;
+}
+
+.consultar-pedido-atalho .externo {
+    font-size: 0.65rem;
+    opacity: 0.6;
+    margin-left: 2px;
+}
+
+.consultar-pedido-campo-rotulo {
+    font-size: 0.7rem;
+}
+
+.consultar-pedido-chat-msg {
+    display: flex;
+    gap: 10px;
+    max-width: 78%;
+}
+
+.consultar-pedido-chat-msg--dir {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+}
+
+.consultar-pedido-chat-avatar {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #6c757d;
-    flex-shrink: 0;
+    color: #fff;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin-top: 20px;
 }
+
+.consultar-pedido-chat-avatar--ml { background: var(--cor-primaria-clara); }
+.consultar-pedido-chat-avatar--cliente { background: #b0298c; }
+.consultar-pedido-chat-avatar--voce { background: var(--cor-positivo); }
+
+.consultar-pedido-chat-corpo {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.consultar-pedido-chat-remetente {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    font-size: 0.72rem;
+    margin-bottom: 4px;
+}
+
+.consultar-pedido-chat-msg--dir .consultar-pedido-chat-remetente {
+    flex-direction: row-reverse;
+}
+
+.consultar-pedido-chat-nome { font-weight: 700; }
+.consultar-pedido-chat-nome--ml { color: var(--cor-primaria-clara); }
+.consultar-pedido-chat-nome--cliente { color: #b0298c; }
+.consultar-pedido-chat-nome--voce { color: var(--cor-positivo); }
+
+.consultar-pedido-chat-bolha {
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: #2a2a2a;
+}
+
+.consultar-pedido-chat-bolha p { margin: 0 0 8px 0; }
+.consultar-pedido-chat-bolha p:last-child { margin-bottom: 0; }
+.consultar-pedido-chat-bolha a { text-decoration: underline; }
+
+.consultar-pedido-chat-msg--esq .consultar-pedido-chat-bolha { border-top-left-radius: 4px; }
+.consultar-pedido-chat-msg--dir .consultar-pedido-chat-bolha { border-top-right-radius: 4px; }
+
+.consultar-pedido-chat-bolha--ml { background: #e9f2fa; }
+.consultar-pedido-chat-bolha--cliente { background: #f8e9f4; }
+.consultar-pedido-chat-bolha--voce { background: #e6f4ea; }
