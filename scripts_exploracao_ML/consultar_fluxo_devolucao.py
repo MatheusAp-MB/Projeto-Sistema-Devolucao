@@ -257,7 +257,7 @@ def nome_substatus(substatus_id, mapa_oficial):
 
 def imprimir_secao(numero, titulo):
     console.print()
-    console.print(Panel(titulo, title=f"ETAPA {numero}", title_align="left", border_style="bold blue", expand=False))
+    console.print(Panel(titulo, title=f"BLOCO {numero}", title_align="left", border_style="bold blue", expand=False))
 
 
 def campo(rotulo, valor):
@@ -348,7 +348,69 @@ try:
         console.print("  Seguindo só com o dicionário manual do script.")
 
     # -----------------------------------------------------------------
-    imprimir_secao(1, f"Buscando reclamação vinculada ao pedido {ORDER_ID}")
+    imprimir_secao(1, "Pedido e envio de ida (Histórico NÓS → CLIENTE)")
+    with console.status(f"[bold green]Buscando pedido {ORDER_ID}...[/bold green]", spinner="dots"):
+        resposta_pedido = chamar_api(
+            "GET", f"/orders/{ORDER_ID}",
+            pasta_logs=PASTA_LOGS, conta=CONTA,
+            nome_log=NOME_LOG,
+        )
+    pedido = resposta_pedido.json()
+    imprimir_json_cru(f"pedido {ORDER_ID} (/orders/{ORDER_ID})", pedido)
+
+    comprador = pedido.get("buyer") or {}
+    nome_comprador = " ".join(filter(None, [comprador.get("first_name"), comprador.get("last_name")])) \
+        or "(nome não informado)"
+    campo("Comprador", nome_comprador)
+    campo("Status do pedido", traduzir(STATUS_PEDIDO, pedido.get("status"), "status de pedido"))
+    campo("Criado em", formatar_data(pedido.get("date_created")))
+
+    tabela_itens_pedido = Table(title="Itens do pedido", box=box.SIMPLE_HEAD, header_style="bold")
+    tabela_itens_pedido.add_column("Qtd")
+    tabela_itens_pedido.add_column("Título")
+    tabela_itens_pedido.add_column("Preço unitário")
+    for item in pedido.get("order_items", []):
+        titulo = (item.get("item") or {}).get("title", "?")
+        qtd = item.get("quantity")
+        preco = item.get("unit_price")
+        moeda = pedido.get("currency_id", "")
+        tabela_itens_pedido.add_row(str(qtd), escape(titulo), f"{preco} {moeda}")
+    console.print()
+    console.print(tabela_itens_pedido)
+
+    shipping_info = pedido.get("shipping") or {}
+    shipping_id_ida = shipping_info.get("id")
+    console.print()
+    campo("ID do envio de ida", shipping_id_ida or "(pedido sem envio gerenciado pelo ML)")
+
+    if shipping_id_ida:
+        with console.status(f"[bold green]Buscando envio {shipping_id_ida}...[/bold green]", spinner="dots"):
+            resposta_envio_ida = chamar_api(
+                "GET", f"/shipments/{shipping_id_ida}",
+                pasta_logs=PASTA_LOGS, conta=CONTA,
+                headers_extra=HEADER_FORMATO_NOVO,
+                nome_log=NOME_LOG,
+            )
+        envio_ida = resposta_envio_ida.json()
+        imprimir_json_cru(f"envio de ida {shipping_id_ida} (/shipments/{shipping_id_ida})", envio_ida)
+
+        logistic = envio_ida.get("logistic") or {}
+        eh_full = logistic.get("type") == "fulfillment"
+        campo("Tipo de logística", "FULL (saiu de centro de distribuição do Mercado Livre)"
+              if eh_full else "Comum (você mesmo despachou)")
+        campo("Status atual", traduzir(STATUS_ENVIO, envio_ida.get("status"), "status de envio"))
+        campo("Destinatário", (envio_ida.get("destination") or {}).get("receiver_name", "—"))
+        campo("Última atualização", formatar_data(envio_ida.get("last_updated")))
+
+        console.print()
+        console.print("  Linha do tempo completa (NÓS → CLIENTE):")
+        imprimir_timeline_envio(shipping_id_ida, mapa_substatus_oficial)
+    else:
+        console.print()
+        console.print("  (pedido sem envio de ida gerenciado pelo Mercado Livre — sem linha do tempo aqui)")
+
+    # -----------------------------------------------------------------
+    imprimir_secao(2, "Reclamação (cliente descobre o problema)")
     with console.status(f"[bold green]Buscando reclamações do pedido {ORDER_ID}...[/bold green]", spinner="dots"):
         resposta_claims = chamar_api(
             "GET", "/post-purchase/v1/claims/search",
@@ -379,6 +441,9 @@ try:
             formatar_data(c.get("date_created")),
         )
     console.print(tabela_claims)
+
+    # -----------------------------------------------------------------
+    imprimir_secao(3, "Devolução e envio de volta (Histórico CLIENTE → NÓS)")
 
     # IMPORTANTE (achado testando com pedido real): o campo "type" da
     # reclamação NÃO é confiável pra saber se ela tem devolução — uma
@@ -417,18 +482,10 @@ try:
     console.print(f"  → Achei devolução na reclamação {claim_id} "
           f"({traduzir(TIPO_RECLAMACAO, next(c for c in claims if c['id'] == claim_id).get('type'))})")
 
-    # -----------------------------------------------------------------
-    imprimir_secao(2, f"Detalhes da devolução (reclamação {claim_id})")
-
     campo("ID da devolução", devolucao.get("id"))
     campo("Status da devolução", traduzir(STATUS_DEVOLUCAO, devolucao.get("status"), "status de devolução"))
     campo("Subtipo da devolução", traduzir(SUBTIPO_DEVOLUCAO, devolucao.get("subtype"), "subtipo de devolução"))
-    campo("Última atualização", formatar_data(devolucao.get("last_updated")))
     campo("Criada em", formatar_data(devolucao.get("date_created")))
-    campo("Encerrada em", formatar_data(devolucao.get("date_closed")) if devolucao.get("date_closed") else "ainda em aberto")
-    campo("Situação do dinheiro", traduzir(STATUS_DINHEIRO, devolucao.get("status_money"), "status do dinheiro"))
-    campo("Quando o reembolso libera", traduzir(QUANDO_REEMBOLSA, devolucao.get("refund_at"), "regra de reembolso"))
-    campo("Ligada a que tipo de recurso", traduzir(TIPO_RECURSO, devolucao.get("resource_type"), "tipo de recurso"))
 
     itens_devolvidos = devolucao.get("orders", [])
     if itens_devolvidos:
@@ -465,82 +522,23 @@ try:
             shipment_id_volta_lista.append(envio.get("shipment_id"))
         console.print()
         console.print(tabela_envios_volta)
-    else:
-        console.print("  Nenhum envio de volta registrado ainda pra essa devolução.")
 
-    # -----------------------------------------------------------------
-    imprimir_secao(3, f"Buscando dados do pedido original ({ORDER_ID})")
-    with console.status(f"[bold green]Buscando pedido {ORDER_ID}...[/bold green]", spinner="dots"):
-        resposta_pedido = chamar_api(
-            "GET", f"/orders/{ORDER_ID}",
-            pasta_logs=PASTA_LOGS, conta=CONTA,
-            nome_log=NOME_LOG,
-        )
-    pedido = resposta_pedido.json()
-    imprimir_json_cru(f"pedido {ORDER_ID} (/orders/{ORDER_ID})", pedido)
-
-    comprador = pedido.get("buyer") or {}
-    nome_comprador = " ".join(filter(None, [comprador.get("first_name"), comprador.get("last_name")])) \
-        or "(nome não informado)"
-    campo("Comprador", nome_comprador)
-    campo("Status do pedido", traduzir(STATUS_PEDIDO, pedido.get("status"), "status de pedido"))
-    campo("Criado em", formatar_data(pedido.get("date_created")))
-
-    tabela_itens_pedido = Table(title="Itens do pedido", box=box.SIMPLE_HEAD, header_style="bold")
-    tabela_itens_pedido.add_column("Qtd")
-    tabela_itens_pedido.add_column("Título")
-    tabela_itens_pedido.add_column("Preço unitário")
-    for item in pedido.get("order_items", []):
-        titulo = (item.get("item") or {}).get("title", "?")
-        qtd = item.get("quantity")
-        preco = item.get("unit_price")
-        moeda = pedido.get("currency_id", "")
-        tabela_itens_pedido.add_row(str(qtd), escape(titulo), f"{preco} {moeda}")
-    console.print()
-    console.print(tabela_itens_pedido)
-
-    shipping_info = pedido.get("shipping") or {}
-    shipping_id_ida = shipping_info.get("id")
-    console.print()
-    campo("ID do envio de ida", shipping_id_ida or "(pedido sem envio gerenciado pelo ML)")
-
-    if not shipping_id_ida:
         console.print()
-        console.print("Fim do fluxo — esse pedido não tem envio de ida gerenciado pelo Mercado Livre.")
-        sys.exit(0)
-
-    # -----------------------------------------------------------------
-    imprimir_secao(4, f"Buscando envio de ida (entrega ao cliente) — {shipping_id_ida}")
-    with console.status(f"[bold green]Buscando envio {shipping_id_ida}...[/bold green]", spinner="dots"):
-        resposta_envio_ida = chamar_api(
-            "GET", f"/shipments/{shipping_id_ida}",
-            pasta_logs=PASTA_LOGS, conta=CONTA,
-            headers_extra=HEADER_FORMATO_NOVO,
-            nome_log=NOME_LOG,
-        )
-    envio_ida = resposta_envio_ida.json()
-    imprimir_json_cru(f"envio de ida {shipping_id_ida} (/shipments/{shipping_id_ida})", envio_ida)
-
-    logistic = envio_ida.get("logistic") or {}
-    eh_full = logistic.get("type") == "fulfillment"
-    campo("Tipo de logística", "FULL (saiu de centro de distribuição do Mercado Livre)"
-          if eh_full else "Comum (você mesmo despachou)")
-    campo("Status atual", traduzir(STATUS_ENVIO, envio_ida.get("status"), "status de envio"))
-    campo("Destinatário", (envio_ida.get("destination") or {}).get("receiver_name", "—"))
-    campo("Última atualização", formatar_data(envio_ida.get("last_updated")))
-
-    console.print()
-    console.print("  Linha do tempo completa do envio de ida:")
-    imprimir_timeline_envio(shipping_id_ida, mapa_substatus_oficial)
-
-    # -----------------------------------------------------------------
-    imprimir_secao(5, "Linha do tempo do(s) envio(s) de volta")
-    if shipment_id_volta_lista:
+        console.print("  Linha do tempo completa (CLIENTE → NÓS):")
         for shipment_id_volta in shipment_id_volta_lista:
             console.print(f"\n  Envio de volta {shipment_id_volta}:")
             imprimir_timeline_envio(shipment_id_volta, mapa_substatus_oficial)
     else:
-        console.print("  (pulado — nenhum envio de volta foi encontrado na Etapa 2)")
+        console.print("  Nenhum envio de volta registrado ainda pra essa devolução.")
+
+    # -----------------------------------------------------------------
+    imprimir_secao(4, "Recebimento e mediação/resolução")
+
+    campo("Última atualização", formatar_data(devolucao.get("last_updated")))
+    campo("Encerrada em", formatar_data(devolucao.get("date_closed")) if devolucao.get("date_closed") else "ainda em aberto")
+    campo("Situação do dinheiro", traduzir(STATUS_DINHEIRO, devolucao.get("status_money"), "status do dinheiro"))
+    campo("Quando o reembolso libera", traduzir(QUANDO_REEMBOLSA, devolucao.get("refund_at"), "regra de reembolso"))
+    campo("Ligada a que tipo de recurso", traduzir(TIPO_RECURSO, devolucao.get("resource_type"), "tipo de recurso"))
 
     console.print()
     console.print(Panel("Fim do fluxo.", border_style="bold blue", expand=False))
