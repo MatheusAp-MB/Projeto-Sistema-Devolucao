@@ -69,7 +69,7 @@ def formatar_data(valor_iso):
 def campo(rotulo, caminho_api, valor, confirmado=True):
     marca = "  (mapeamento não confirmado)" if not confirmado else ""
     rotulo_completo = f"{rotulo} ({caminho_api})" if caminho_api else rotulo
-    console.print(f"  [cyan]{rotulo_completo:<53}[/cyan]: [bold]{valor}[/bold]{marca}")
+    console.print(f"  [cyan]{rotulo_completo:<60}[/cyan]: [bold]{valor}[/bold]{marca}")
 
 
 def titulo_etapa(numero, titulo):
@@ -325,8 +325,13 @@ try:
     )
     pedido = resposta_pedido.json()
 
+    comprador = pedido.get("buyer") or {}
+    nome_comprador = f"{comprador.get('first_name', '')} {comprador.get('last_name', '')}".strip() or "—"
+    nickname_comprador = comprador.get("nickname") or "—"
+
     item = (pedido.get("order_items") or [{}])[0]
     titulo_item = (item.get("item") or {}).get("title", "—")
+    sku_item = (item.get("item") or {}).get("seller_sku") or "—"
 
     shipping_id_ida = (pedido.get("shipping") or {}).get("id")
     data_entrega_cliente = None
@@ -370,7 +375,10 @@ try:
 
     titulo_etapa(1, "Compra e envio de ida (Histórico NÓS → CLIENTE)")
     campo("Data da compra", "orders.date_created", formatar_data(pedido.get("date_created")))
+    campo("Nome do comprador", "orders.buyer.first_name / last_name", nome_comprador)
+    campo("Nickname do comprador", "orders.buyer.nickname", nickname_comprador)
     campo("Item comprado", "order_items[0].item.title", titulo_item)
+    campo("SKU do item", "order_items[0].item.seller_sku", sku_item)
     campo("Data de entrega ao cliente", "shipments/history",
           formatar_data(data_entrega_cliente) if data_entrega_cliente else "não encontrado no histórico")
     if historico_ida:
@@ -392,7 +400,7 @@ try:
     campo("Data de chegada", "shipments/history",
           (formatar_data(data_chegada_nos) if data_chegada_nos else "ainda não chegou") + nota_destino)
     console.print()
-    console.print(f"[dim]Diagnóstico: {len(envios_volta)} envio(s) de volta em devolucao['shipments'].[/dim]")
+    console.print(f"[dim]  Diagnóstico: {len(envios_volta)} envio(s) de volta em devolucao['shipments'].[/dim]")
     for shipment_id_volta, historico_volta in historicos_volta:
         console.print(f"[dim]  Shipment {shipment_id_volta} — histórico bruto (todos os eventos, sem filtro):[/dim]")
         for evento in historico_volta:
