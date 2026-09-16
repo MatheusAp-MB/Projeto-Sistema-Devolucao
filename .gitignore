@@ -29,5 +29,6 @@ Thumbs.db
 
 # Segredos, se algum dia existir
 .env
-media/scripts_exploracao_ML/logs/
+media/
+scripts_exploracao_ML/logs/
 scripts_exploracao_ML/*.json
