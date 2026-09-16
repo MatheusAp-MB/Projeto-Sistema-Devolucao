@@ -67,13 +67,16 @@ def formatar_data(valor_iso):
 
 
 def campo(rotulo, caminho_api, valor, confirmado=True):
-    marca = "" if confirmado else "  (mapeamento não confirmado)"
-    console.print(f"  {rotulo} [dim]({caminho_api})[/dim]: [bold]{valor}[/bold]{marca}")
+    marca = "  (mapeamento não confirmado)" if not confirmado else ""
+    rotulo_completo = f"{rotulo} ({caminho_api})" if caminho_api else rotulo
+    console.print(f"  [cyan]{rotulo_completo:<53}[/cyan]: [bold]{valor}[/bold]{marca}")
 
 
-def titulo_etapa(numero, nome):
+def titulo_etapa(numero, titulo):
     console.print()
-    console.print(f"[bold blue]ETAPA {numero} — {nome.upper()}[/bold blue]")
+    console.print("=" * 64)
+    console.print(f"[bold blue]BLOCO {numero} — {titulo}[/bold blue]")
+    console.print("=" * 64)
 
 
 def primeiro_evento_com_status(eventos, status_procurado):
@@ -334,20 +337,16 @@ try:
 
     # ----- Envio(s) de volta -----
     envios_volta = devolucao.get("shipments", [])
-    console.print()
-    console.print(f"[dim]Diagnóstico: {len(envios_volta)} envio(s) de volta em devolucao['shipments'].[/dim]")
     data_postagem_cliente = None
     data_chegada_nos = None
     destino_chegada = None
+    historicos_volta = []  # [(shipment_id, historico)] -- guardado pra imprimir no BLOCO 3, não aqui
     for envio in envios_volta:
         shipment_id_volta = envio.get("shipment_id")
         if not shipment_id_volta:
             continue
         historico_volta = buscar_historico_envio(shipment_id_volta)
-        console.print(f"[dim]  Shipment {shipment_id_volta} — histórico bruto (todos os eventos, sem filtro):[/dim]")
-        for evento in historico_volta:
-            console.print(f"[dim]    {json.dumps(evento, ensure_ascii=False)}[/dim]")
-        imprimir_linha_do_tempo_envio(historico_volta, f"Linha do tempo traduzida do envio de volta (shipment {shipment_id_volta}):")
+        historicos_volta.append((shipment_id_volta, historico_volta))
         candidato_postagem = primeiro_evento_com_status(historico_volta, "shipped")
         candidato_chegada = ultimo_evento_com_status(historico_volta, "delivered")
         if candidato_postagem and (not data_postagem_cliente or candidato_postagem < data_postagem_cliente):
@@ -367,48 +366,56 @@ try:
     eh_mediacao = tem_mediador or claim.get("stage") == "dispute"
     ramo = "Mediação" if eh_mediacao else "Devolução simples (sem mediação)"
 
-    # ================= IMPRESSÃO =================
+    # ================= IMPRESSÃO (ordem cronológica: compra -> reclamação -> devolução física -> decisão) =================
 
-    titulo_etapa(1, "Compra")
+    titulo_etapa(1, "Compra e envio de ida (Histórico NÓS → CLIENTE)")
     campo("Data da compra", "orders.date_created", formatar_data(pedido.get("date_created")))
-    campo("Item comprado", "orders.order_items[0].item.title", titulo_item)
-    campo("Data de entrega ao cliente", "shipments/{id}/history → status=delivered",
+    campo("Item comprado", "order_items[0].item.title", titulo_item)
+    campo("Data de entrega ao cliente", "shipments/history",
           formatar_data(data_entrega_cliente) if data_entrega_cliente else "não encontrado no histórico")
     if historico_ida:
         console.print()
-        imprimir_linha_do_tempo_envio(historico_ida, f"Linha do tempo do envio original (shipment {shipping_id_ida}):")
+        imprimir_linha_do_tempo_envio(historico_ida, "Linha do tempo completa (NÓS → CLIENTE):")
 
-    titulo_etapa(2, "Reclamação")
-    campo("Data de abertura", "claims/{id} → date_created", formatar_data(claim.get("date_created")))
-    campo("Tipo / Etapa", "claims/{id} → type / stage",
+    titulo_etapa(2, "Reclamação (cliente descobre o problema)")
+    campo("Data de abertura", "claims.date_created", formatar_data(claim.get("date_created")))
+    campo("Tipo / Etapa", "claims.type / stage",
           traduzir_tipo_e_etapa_claim(claim.get("type"), claim.get("stage")))
-    campo("Motivo da reclamação", "claims/{id} → reason_id", categorizar_motivo(claim.get("reason_id")))
-    campo("Data em que virou devolução", "claims/{id}/returns → date_created",
+    campo("Motivo", "claims.reason_id", categorizar_motivo(claim.get("reason_id")))
+    campo("Data em que virou devolução", "claims/returns",
           formatar_data(devolucao.get("date_created")))
 
-    titulo_etapa(3, "Devolução física")
-    campo("Data de postagem pelo cliente", "shipments/{id}/history (volta) → status=shipped",
+    titulo_etapa(3, "Devolução física e envio de volta (Histórico CLIENTE → NÓS)")
+    campo("Data de postagem pelo cliente", "shipments/history",
           formatar_data(data_postagem_cliente) if data_postagem_cliente else "ainda não despachado")
     nota_destino = f" — destino: {destino_chegada}" if destino_chegada else ""
-    campo("Data de chegada", "shipments/{id}/history (volta) → status=delivered",
+    campo("Data de chegada", "shipments/history",
           (formatar_data(data_chegada_nos) if data_chegada_nos else "ainda não chegou") + nota_destino)
+    console.print()
+    console.print(f"[dim]Diagnóstico: {len(envios_volta)} envio(s) de volta em devolucao['shipments'].[/dim]")
+    for shipment_id_volta, historico_volta in historicos_volta:
+        console.print(f"[dim]  Shipment {shipment_id_volta} — histórico bruto (todos os eventos, sem filtro):[/dim]")
+        for evento in historico_volta:
+            console.print(f"[dim]    {json.dumps(evento, ensure_ascii=False)}[/dim]")
+        console.print()
+        imprimir_linha_do_tempo_envio(historico_volta, "Linha do tempo completa (CLIENTE → NÓS):")
 
-    titulo_etapa(4, "Decisão")
-    console.print(f"  Ramo: [bold]{ramo}[/bold]")
-    campo("Status da devolução", "claims/{id}/returns → status",
+    titulo_etapa(4, "Recebimento e mediação/resolução")
+    campo("Ramo", None, ramo)
+    campo("Status da devolução", "claims/returns.status",
           traduzir_evento_envio(devolucao.get("status"), None) if devolucao.get("status") else "—")
-    campo("Resolução da reclamação", "claims/{id} → resolution",
+    campo("Resolução", "claims.resolution",
           traduzir_resolucao(claim.get("resolution")))
     if eh_mediacao:
         data_dispute = data_abertura_disputa(claim.get("id"))
-        campo("Data de abertura da mediação", "claims/{id}/messages → 1ª mensagem com stage=dispute",
+        campo("Data de abertura da mediação", "claims/messages",
               formatar_data(data_dispute) if data_dispute else "não encontrada nas mensagens",
               confirmado=bool(data_dispute))
     else:
-        campo("Data de abertura da mediação", "não se aplica — sem mediador nos players", "—")
-    campo("Data de encerramento", "claims/{id}/returns → date_closed",
+        campo("Data de abertura da mediação", None, "não se aplica — sem mediador nos players")
+    campo("Data de encerramento", "claims/returns.date_closed",
           formatar_data(devolucao.get("date_closed")) if devolucao.get("date_closed") else "ainda em aberto")
-    campo("Status do dinheiro", "claims/{id}/returns → status_money",
+    campo("Status do dinheiro", "claims/returns.status_money",
           devolucao.get("status_money") or "—", confirmado=False)
 
     # ----- Achado automático: ordem invertida -----
@@ -434,6 +441,7 @@ try:
         )
 
     console.print()
+    console.print("=" * 64)
     console.print("[dim]Fim.[/dim]")
 
 except (ErroAPI, ErroAutenticacaoAPI) as erro:
