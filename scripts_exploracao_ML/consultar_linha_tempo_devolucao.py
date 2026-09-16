@@ -17,6 +17,7 @@
 # So leitura. Nao grava nada no banco nem em arquivo -- so imprime na tela.
 
 import argparse
+import json
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -30,22 +31,21 @@ if str(_RAIZ_DO_PROJETO) not in sys.path:
 
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 
-# ==== CONFIGURA AQUI ANTES DE RODAR ====
-CONTA = "SV"  # "MB" ou "SV"
-# ========================================
-
-
-def ler_order_id():
+def ler_argumentos():
     parser = argparse.ArgumentParser(description="Consulta a linha do tempo de uma devolução do ML.")
     parser.add_argument(
         "--candidato", type=int, required=True,
         help="Número do pedido a consultar (obrigatório).",
     )
+    parser.add_argument(
+        "--empresa", type=str, required=True, choices=["MB", "SV"],
+        help="Conta a consultar: MB (Magazine) ou SV (Samvale) — obrigatório.",
+    )
     args = parser.parse_args()
-    return args.candidato
+    return args.candidato, args.empresa
 
 
-ORDER_ID = ler_order_id()
+ORDER_ID, CONTA = ler_argumentos()
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"
 NOME_LOG = "consultar_linha_tempo_devolucao"
@@ -130,6 +130,120 @@ def categorizar_motivo(reason_id):
     return f"{reason_id} ({categoria})"
 
 
+# Traduções de status/substatus de envio (handling -> ready_to_ship -> shipped
+# -> delivered) confirmadas empiricamente em 1 caso real (pedido
+# 2000017788033354/SV) -- ver, no vault, "Coleta Física da Devolução Acontece
+# Dentro de ready_to_ship, Não Quando o Status Vira shipped". Combinação
+# (status, substatus) fora desta lista aparece com o código bruto e a marca
+# de não confirmado, em vez de inventar um texto.
+TRADUCAO_EVENTO_ENVIO = {
+    ("handling", None): "Registrado, aguardando próxima etapa",
+    ("ready_to_ship", "ready_to_print"): "Etiqueta de envio liberada",
+    ("ready_to_ship", "printed"): "Etiqueta de envio impressa",
+    ("ready_to_ship", "on_route_to_pickup"): "Transportadora a caminho pra coleta",
+    ("ready_to_ship", "soon_to_pickup"): "Coleta prestes a acontecer",
+    ("ready_to_ship", "picking_up"): "Coletando o pacote",
+    ("ready_to_ship", "picked_up"): "Pacote coletado fisicamente",
+    ("ready_to_ship", "in_hub"): "Chegou no centro de distribuição",
+    ("shipped", None): "Despachado pro trajeto principal",
+    ("shipped", "first_visit"): "Primeira tentativa de entrega",
+    ("delivered", None): "Entregue",
+}
+
+
+def traduzir_evento_envio(status, substatus):
+    traducao = TRADUCAO_EVENTO_ENVIO.get((status, substatus))
+    rotulo_bruto = status + (f"/{substatus}" if substatus else "")
+    if traducao:
+        return f"{traducao} [dim]({rotulo_bruto})[/dim]"
+    return f"{rotulo_bruto} [dim](sem tradução confirmada ainda)[/dim]"
+
+
+def imprimir_linha_do_tempo_envio(historico, titulo):
+    console.print(f"  [bold]{titulo}[/bold]")
+    eventos_em_ordem = sorted(historico, key=lambda evento: evento.get("date") or "")
+    for evento in eventos_em_ordem:
+        console.print(
+            f"    {formatar_data(evento.get('date'))} — "
+            f"{traduzir_evento_envio(evento.get('status'), evento.get('substatus'))}"
+        )
+
+
+# Tradução literal dos valores de "type"/"stage" de reclamação pro português
+# -- não é uma afirmação sobre comportamento da API, só o nome traduzido.
+# "cancel_sale" tem comportamento próprio documentado (ver, no vault, "Tipo
+# cancel_sale Fecha Com Resolution Null E Inverte Complainant E Respondent").
+TRADUCAO_TIPO_CLAIM = {
+    "mediations": "Mediação",
+    "return": "Devolução",
+    "cancel_purchase": "Cancelamento da compra (pelo comprador)",
+    "cancel_sale": "Cancelamento da venda (pelo vendedor)",
+    "change": "Troca",
+    "fulfillment": "Fulfillment (armazenagem/logística do Mercado Livre)",
+}
+
+TRADUCAO_ETAPA_CLAIM = {
+    "claim": "Reclamação aberta",
+    "dispute": "Em mediação",
+}
+
+
+def traduzir_tipo_e_etapa_claim(tipo, etapa):
+    texto_tipo = TRADUCAO_TIPO_CLAIM.get(tipo, f"{tipo} (sem tradução confirmada ainda)")
+    texto_etapa = TRADUCAO_ETAPA_CLAIM.get(etapa, f"{etapa} (sem tradução confirmada ainda)")
+    return f"{texto_tipo} / {texto_etapa} [dim]({tipo} / {etapa})[/dim]"
+
+
+# * [FONTE] → vault: "Campo resolution.reason Determina Se A Reclamacao Tem
+#   Devolucao Fisica". item_returned/warehouse_decision/item_changed sempre
+#   tiveram devolução física nos casos testados; coverage_decision/no_bpp
+#   quase sempre não têm (coverage_decision já teve 1 exceção real, que é
+#   justamente o pedido usado neste script).
+TRADUCAO_RESOLUTION_REASON = {
+    "item_returned": "Item devolvido fisicamente",
+    "warehouse_decision": "Decisão tomada em centro de triagem do ML",
+    "item_changed": "Item trocado",
+    "coverage_decision": "Coberto pela política de proteção do ML (nem sempre exige devolução física)",
+    "no_bpp": "Sem cobertura de proteção ao comprador (nem sempre exige devolução física)",
+}
+
+# * [FONTE] → vault: "Mediador Nao Aparece Na Lista De Players De Uma
+#   Reclamacao" -- closed_by é o único campo confirmado que indica mediador.
+TRADUCAO_CLOSED_BY = {
+    "mediator": "Mediador do Mercado Livre",
+    "buyer": "Comprador",
+    "seller": "Vendedor",
+}
+
+# complainant/respondent são os papéis genéricos da reclamação -- qual lado
+# (comprador/vendedor) cada um representa MUDA conforme o "type" (ver, no
+# vault, "Tipo cancel_sale Fecha Com Resolution Null E Inverte Complainant E
+# Respondent"), por isso a tradução aqui é só do nome do papel, nunca assume
+# quem é quem.
+TRADUCAO_PAPEL = {
+    "complainant": "reclamante",
+    "respondent": "respondente",
+}
+
+
+def traduzir_resolucao(resolucao):
+    if not resolucao:
+        return "ainda não resolvida"
+    motivo_bruto = resolucao.get("reason")
+    motivo_texto = TRADUCAO_RESOLUTION_REASON.get(motivo_bruto, f"{motivo_bruto} (sem tradução confirmada ainda)")
+    closed_by_bruto = resolucao.get("closed_by")
+    closed_by_texto = TRADUCAO_CLOSED_BY.get(closed_by_bruto, f"{closed_by_bruto} (sem tradução confirmada ainda)")
+    beneficiados = [TRADUCAO_PAPEL.get(papel, papel) for papel in (resolucao.get("benefited") or [])]
+    texto_beneficiados = ", ".join(beneficiados) if beneficiados else "—"
+    cobertura = "com" if resolucao.get("applied_coverage") else "sem"
+    return (
+        f"{motivo_texto} — encerrada por {closed_by_texto}, "
+        f"em {formatar_data(resolucao.get('date_created'))}, "
+        f"beneficiando {texto_beneficiados}, {cobertura} cobertura aplicada "
+        f"[dim]{resolucao}[/dim]"
+    )
+
+
 def data_abertura_disputa(claim_id):
     # * [FONTE] → doc oficial "Gerenciar mensagem de uma reclamação": cada
     #   mensagem carrega o campo "stage" -- a primeira mensagem com
@@ -192,12 +306,12 @@ try:
         for c in claims_em_ordem_de_tentativa:
             c_detalhe = buscar_claim_detalhe(c["id"])
             titulo_etapa("—", f"Reclamação {c_detalhe.get('id')}")
-            campo("Tipo / Etapa", "claims/{id} → type / stage", f"{c_detalhe.get('type')} / {c_detalhe.get('stage')}")
+            campo("Tipo / Etapa", "claims/{id} → type / stage",
+                  traduzir_tipo_e_etapa_claim(c_detalhe.get("type"), c_detalhe.get("stage")))
             campo("Status", "claims/{id} → status", c_detalhe.get("status") or "—")
             campo("Motivo", "claims/{id} → reason_id", categorizar_motivo(c_detalhe.get("reason_id")))
             campo("Data de abertura", "claims/{id} → date_created", formatar_data(c_detalhe.get("date_created")))
-            resolucao = c_detalhe.get("resolution")
-            campo("Resolução", "claims/{id} → resolution", resolucao if resolucao else "ainda não resolvida / não informada")
+            campo("Resolução", "claims/{id} → resolution", traduzir_resolucao(c_detalhe.get("resolution")))
         sys.exit(0)
 
     # ----- Pedido -----
@@ -213,12 +327,15 @@ try:
 
     shipping_id_ida = (pedido.get("shipping") or {}).get("id")
     data_entrega_cliente = None
+    historico_ida = []
     if shipping_id_ida:
         historico_ida = buscar_historico_envio(shipping_id_ida)
         data_entrega_cliente = ultimo_evento_com_status(historico_ida, "delivered")
 
     # ----- Envio(s) de volta -----
     envios_volta = devolucao.get("shipments", [])
+    console.print()
+    console.print(f"[dim]Diagnóstico: {len(envios_volta)} envio(s) de volta em devolucao['shipments'].[/dim]")
     data_postagem_cliente = None
     data_chegada_nos = None
     destino_chegada = None
@@ -227,6 +344,10 @@ try:
         if not shipment_id_volta:
             continue
         historico_volta = buscar_historico_envio(shipment_id_volta)
+        console.print(f"[dim]  Shipment {shipment_id_volta} — histórico bruto (todos os eventos, sem filtro):[/dim]")
+        for evento in historico_volta:
+            console.print(f"[dim]    {json.dumps(evento, ensure_ascii=False)}[/dim]")
+        imprimir_linha_do_tempo_envio(historico_volta, f"Linha do tempo traduzida do envio de volta (shipment {shipment_id_volta}):")
         candidato_postagem = primeiro_evento_com_status(historico_volta, "shipped")
         candidato_chegada = ultimo_evento_com_status(historico_volta, "delivered")
         if candidato_postagem and (not data_postagem_cliente or candidato_postagem < data_postagem_cliente):
@@ -253,11 +374,14 @@ try:
     campo("Item comprado", "orders.order_items[0].item.title", titulo_item)
     campo("Data de entrega ao cliente", "shipments/{id}/history → status=delivered",
           formatar_data(data_entrega_cliente) if data_entrega_cliente else "não encontrado no histórico")
+    if historico_ida:
+        console.print()
+        imprimir_linha_do_tempo_envio(historico_ida, f"Linha do tempo do envio original (shipment {shipping_id_ida}):")
 
     titulo_etapa(2, "Reclamação")
     campo("Data de abertura", "claims/{id} → date_created", formatar_data(claim.get("date_created")))
     campo("Tipo / Etapa", "claims/{id} → type / stage",
-          f"{claim.get('type')} / {claim.get('stage')}")
+          traduzir_tipo_e_etapa_claim(claim.get("type"), claim.get("stage")))
     campo("Motivo da reclamação", "claims/{id} → reason_id", categorizar_motivo(claim.get("reason_id")))
     campo("Data em que virou devolução", "claims/{id}/returns → date_created",
           formatar_data(devolucao.get("date_created")))
@@ -272,10 +396,9 @@ try:
     titulo_etapa(4, "Decisão")
     console.print(f"  Ramo: [bold]{ramo}[/bold]")
     campo("Status da devolução", "claims/{id}/returns → status",
-          devolucao.get("status") or "—")
-    resolucao = claim.get("resolution")
+          traduzir_evento_envio(devolucao.get("status"), None) if devolucao.get("status") else "—")
     campo("Resolução da reclamação", "claims/{id} → resolution",
-          resolucao if resolucao else "ainda não resolvida")
+          traduzir_resolucao(claim.get("resolution")))
     if eh_mediacao:
         data_dispute = data_abertura_disputa(claim.get("id"))
         campo("Data de abertura da mediação", "claims/{id}/messages → 1ª mensagem com stage=dispute",
@@ -286,7 +409,7 @@ try:
     campo("Data de encerramento", "claims/{id}/returns → date_closed",
           formatar_data(devolucao.get("date_closed")) if devolucao.get("date_closed") else "ainda em aberto")
     campo("Status do dinheiro", "claims/{id}/returns → status_money",
-          devolucao.get("status_money") or "—")
+          devolucao.get("status_money") or "—", confirmado=False)
 
     # ----- Achado automático: ordem invertida -----
     if devolucao.get("date_closed") and data_chegada_nos:
