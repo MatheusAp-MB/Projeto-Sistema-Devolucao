@@ -16,6 +16,17 @@
 
 {% block cards %}
 
+<!-- Card: Consultar Pedido -->
+<div class="col-md-4">
+    <a href="{% url 'consultar_pedido_ml' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-magnifying-glass fa-2x mb-3"></i>
+            <h5>Consultar Pedido</h5>
+            <p>Compra, reclamação e mediação num só lugar</p>
+        </div>
+    </a>
+</div>
+
 <!-- Card: Nova Devolução -->
 <div class="col-md-4">
     <a href="{% url 'nova_devolucao' %}" class="text-decoration-none">
@@ -23,6 +34,17 @@
             <i class="fas fa-rotate-left fa-2x mb-3"></i>
             <h5>Nova Devolução</h5>
             <p>Registrar uma devolução e gerar o PDF</p>
+        </div>
+    </a>
+</div>
+
+<!-- Card: Devoluções -->
+<div class="col-md-4">
+    <a href="{% url 'devolucoes_pendentes' %}" class="text-decoration-none">
+        <div class="card-modulo">
+            <i class="fas fa-clipboard-list fa-2x mb-3"></i>
+            <h5>Devoluções</h5>
+            <p>Ver e conferir as devoluções registradas</p>
         </div>
     </a>
 </div>
@@ -38,17 +60,6 @@
     </a>
 </div>
 
-<!-- Card: Marcas e Grupos Fornecedores -->
-<div class="col-md-4">
-    <a href="{% url 'marcas_grupos' %}" class="text-decoration-none">
-        <div class="card-modulo">
-            <i class="fas fa-tags fa-2x mb-3"></i>
-            <h5>Marcas e Grupos</h5>
-            <p>Gerenciar marcas e grupos fornecedores</p>
-        </div>
-    </a>
-</div>
-
 <!-- Card: Peças -->
 <div class="col-md-4">
     <a href="{% url 'gaveta_pecas' %}" class="text-decoration-none">
@@ -60,13 +71,13 @@
     </a>
 </div>
 
-<!-- Card: Teste API Mercado Livre -->
+<!-- Card: Marcas e Grupos Fornecedores -->
 <div class="col-md-4">
-    <a href="{% url 'teste_conexao_ml' %}" class="text-decoration-none">
+    <a href="{% url 'marcas_grupos' %}" class="text-decoration-none">
         <div class="card-modulo">
-            <i class="fas fa-plug fa-2x mb-3"></i>
-            <h5>Teste API Mercado Livre</h5>
-            <p>Testar a conexão com a API do ML dentro do .exe</p>
+            <i class="fas fa-tags fa-2x mb-3"></i>
+            <h5>Marcas e Grupos</h5>
+            <p>Gerenciar marcas e grupos fornecedores</p>
         </div>
     </a>
 </div>

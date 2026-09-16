@@ -49,6 +49,14 @@ class Command(BaseCommand):
             "--add-data", "core/static;core/static",
             "--add-data", "integracao_mercado_livre/templates;integracao_mercado_livre/templates",
 
+            # [ATENÇÃO] → integracao_mercado_livre/static faltava aqui (só o
+            # templates estava). Sem isso, o CSS da tela Consultar Pedido
+            # (layout_consultar_pedido.css — resumo compacto + chat da
+            # mediação) simplesmente não existe dentro do .exe: funciona no
+            # runserver porque aí o Django lê direto do disco, mas no build
+            # empacotado só entra o que está listado aqui.
+            "--add-data", "integracao_mercado_livre/static;integracao_mercado_livre/static",
+
             # Imports dinâmicos que o PyInstaller não detecta analisando o
             # código (por isso precisam ser forçados manualmente): ícone de
             # bandeja (pystray); management commands do Django, necessários

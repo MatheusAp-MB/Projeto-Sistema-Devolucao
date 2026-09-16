@@ -29,6 +29,24 @@ mypy = ["mypy (>=1.14.0)"]
 tests = ["pytest", "pytest-asyncio"]
 
 [[package]]
+name = "bleach"
+version = "6.4.0"
+description = "An easy safelist-based HTML-sanitizing tool."
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "bleach-6.4.0-py3-none-any.whl", hash = "sha256:4b6b6a54fff2e69a3dde9d21cc6301220bee3c3cb792187d11403fd795031081"},
+    {file = "bleach-6.4.0.tar.gz", hash = "sha256:4202482733d85cedd04e59fcb2f89f4e4c7c385a78d3c3c23c30446843a37452"},
+]
+
+[package.dependencies]
+webencodings = "*"
+
+[package.extras]
+css = ["tinycss2 (>=1.1.0)"]
+
+[[package]]
 name = "certifi"
 version = "2026.7.22"
 description = "Python package for providing Mozilla's CA Bundle."
@@ -790,7 +808,23 @@ files = [
 docs = ["Sphinx (>=1.8.1)", "docutils", "pylons-sphinx-themes (>=1.0.9)"]
 testing = ["coverage (>=7.6.0)", "pytest", "pytest-cov"]
 
+[[package]]
+name = "webencodings"
+version = "0.6.1"
+description = "Character encoding aliases for legacy web content"
+optional = false
+python-versions = ">=3.10"
+groups = ["main"]
+files = [
+    {file = "webencodings-0.6.1-py3-none-any.whl", hash = "sha256:7fab6269c8bf237c657876b52058ccb182e861518d1c695c1a9aaa8c1c105d5b"},
+    {file = "webencodings-0.6.1.tar.gz", hash = "sha256:565f9ad031c702dae404e27a099e3e09186a3ab1b9520f06d215502b651fd910"},
+]
+
+[package.extras]
+doc = ["furo", "sphinx"]
+test = ["pytest", "ruff"]
+
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.16"
-content-hash = "03362800f11904096b7bf8a584eb1f07e8773be4e8f871829a321215816e6b81"
+content-hash = "9fb0112778b40f2cfd3688c00a664d7863770c856639326bba54cf971499a357"
