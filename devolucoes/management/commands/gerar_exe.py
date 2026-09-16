@@ -47,6 +47,7 @@ class Command(BaseCommand):
             "--add-data", "devolucoes/static;devolucoes/static",
             "--add-data", "core/templates;core/templates",
             "--add-data", "core/static;core/static",
+            "--add-data", "integracao_mercado_livre/templates;integracao_mercado_livre/templates",
 
             # Imports dinâmicos que o PyInstaller não detecta analisando o
             # código (por isso precisam ser forçados manualmente): ícone de

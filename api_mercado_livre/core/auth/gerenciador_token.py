@@ -21,6 +21,7 @@ Comportamento:
 """
 
 import os
+import sys
 import time
 import requests
 from pathlib import Path
@@ -29,8 +30,19 @@ from rich.console import Console
 
 console = Console()
 
-ENV_PATH = Path(__file__).resolve().parent.parent.parent.parent / ".env"
-PASTA_LOCK = Path(__file__).resolve().parent
+# Dentro do .exe empacotado (PyInstaller --onedir), api_mercado_livre é
+# compilado pro PYZ interno — __file__ aponta pra um caminho que parece
+# real mas não existe fisicamente em disco dentro de _internal/, então
+# tanto achar o .env quanto criar o lock de renovação por __file__
+# quebravam (FileNotFoundError). Mesmo padrão já usado em settings.py
+# deste projeto: caminho fixo a partir de sys.executable quando congelado.
+if getattr(sys, "frozen", False):
+    _PASTA_BASE = Path(sys.executable).resolve().parent
+else:
+    _PASTA_BASE = Path(__file__).resolve().parent.parent.parent.parent
+
+ENV_PATH = _PASTA_BASE / ".env"
+PASTA_LOCK = _PASTA_BASE
 
 TOKEN_URL = "https://api.mercadolibre.com/oauth/token"
 
