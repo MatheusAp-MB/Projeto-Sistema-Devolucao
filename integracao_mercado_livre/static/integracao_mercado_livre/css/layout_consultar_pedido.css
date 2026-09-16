@@ -1,0 +1,38 @@
+/* integracao_mercado_livre/static/integracao_mercado_livre/css/layout_consultar_pedido.css */
+
+.evento-linha {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    padding: 6px 0;
+    border-bottom: 1px solid #eef1f5;
+    font-size: 0.875rem;
+}
+
+.evento-linha:last-child {
+    border-bottom: none;
+}
+
+.evento-linha .evento-hora {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    color: #6c757d;
+    min-width: 90px;
+    flex-shrink: 0;
+}
+
+.evento-linha .evento-texto--codigo {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    color: #92400e;
+}
+
+.consultar-pedido-produto-foto {
+    width: 56px;
+    height: 56px;
+    border-radius: 8px;
+    background-color: #f1f3f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    flex-shrink: 0;
+}

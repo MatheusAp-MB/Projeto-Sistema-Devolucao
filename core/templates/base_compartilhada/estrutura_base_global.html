@@ -51,6 +51,11 @@
                     </div>
                 </a>
                 <nav class="sidebar-nav">
+                    <a href="{% url 'consultar_pedido_ml' %}"
+                       class="sidebar-item{% if pagina_ativa == 'consultar_pedido_ml' %} sidebar-item--ativo{% endif %}">
+                        <i class="fas fa-magnifying-glass"></i>
+                        <span>Consultar Pedido</span>
+                    </a>
                     <a href="{% url 'nova_devolucao' %}"
                        class="sidebar-item{% if pagina_ativa == 'nova_devolucao' %} sidebar-item--ativo{% endif %}">
                         <i class="fas fa-rotate-left"></i>

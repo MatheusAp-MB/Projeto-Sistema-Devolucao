@@ -1,0 +1,190 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Consultar Pedido — Sistema de Devoluções{% endblock %}
+{% block toolbar_titulo %}Consultar Pedido{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'integracao_mercado_livre/css/layout_consultar_pedido.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title">Consultar pedido</h5>
+        <p class="text-muted small mb-3">Digite o número do pedido assim que o pacote chegar — o sistema busca tudo sozinho na API.</p>
+        <form method="get" class="d-flex gap-2">
+            <input type="text" name="numero_pedido" class="form-control" placeholder="Número do pedido" value="{{ numero_pedido|default:'' }}">
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-magnifying-glass"></i> Buscar
+            </button>
+        </form>
+    </div>
+</div>
+
+{% if erro %}
+<div class="aviso-global aviso-global--error">
+    <i class="fas fa-exclamation-circle"></i>
+    {{ erro }}
+</div>
+{% endif %}
+
+{% if encontrado %}
+<div class="row g-3 mb-3">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-3 flex-wrap mb-3">
+                    <h5 class="mb-0">Pedido {{ numero_pedido }}</h5>
+                    {% if esta_encerrado %}
+                        <span class="badge bg-success-subtle text-success-emphasis rounded-pill px-3 py-2">
+                            <i class="fas fa-check"></i> Encerrado — {{ resolucao.texto }}
+                        </span>
+                    {% else %}
+                        <span class="badge bg-danger-subtle text-danger-emphasis rounded-pill px-3 py-2">
+                            <i class="fas fa-circle"></i> {{ tipo_etapa.texto }}
+                        </span>
+                    {% endif %}
+                </div>
+                <div class="d-flex flex-wrap gap-4 mb-3">
+                    <div class="fw-semibold">{{ nome_comprador }}</div>
+                    <div class="fw-semibold">{{ nickname_comprador }}</div>
+                    <div class="fw-semibold">Comprado em {{ data_compra }}</div>
+                </div>
+                <p class="text-uppercase text-muted small fw-bold mb-2">Abrir no Mercado Livre</p>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ url_ver_pedido }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-cart-shopping"></i> Ver pedido <i class="fas fa-arrow-up-right-from-square ms-1 small"></i>
+                    </a>
+                    <a href="{{ url_ver_reclamacao }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-message"></i> Ver reclamação <i class="fas fa-arrow-up-right-from-square ms-1 small"></i>
+                    </a>
+                    <a href="{{ url_ver_mediacao }}" target="_blank" rel="noopener" class="btn btn-outline-primary btn-sm">
+                        <i class="fas fa-scale-balanced"></i> Ver mediação <i class="fas fa-arrow-up-right-from-square ms-1 small"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-body">
+                <h6 class="text-uppercase text-muted small fw-bold mb-3"><i class="fas fa-box"></i> Produto comprado</h6>
+                <div class="d-flex gap-3">
+                    <div class="consultar-pedido-produto-foto"><i class="fas fa-box"></i></div>
+                    <div>
+                        <p class="mb-1 fw-semibold">{{ titulo_item }}</p>
+                        <p class="mb-1 text-muted small font-monospace">SKU {{ sku_item }}</p>
+                        <p class="mb-0 fw-semibold">{{ quantidade_item }} unidade{{ quantidade_item|pluralize }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<p class="text-uppercase text-muted small fw-bold mt-2 mb-2">Linha do tempo detalhada</p>
+
+<div class="accordion" id="acordeaoConsultarPedido">
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bloco1">
+                <span class="badge rounded-pill bg-primary me-2">1</span>
+                Compra e envio de ida (Histórico NÓS &rarr; CLIENTE)
+                <span class="text-muted small ms-2">{{ data_inicio_ida }} &rarr; {{ data_fim_ida }}</span>
+            </button>
+        </h2>
+        <div id="bloco1" class="accordion-collapse collapse" data-bs-parent="#acordeaoConsultarPedido">
+            <div class="accordion-body">
+                {% for evento in linha_tempo_ida %}
+                <div class="evento-linha">
+                    <span class="evento-hora">{{ evento.data }}</span>
+                    {% if evento.confirmado %}
+                        <span class="evento-texto">{{ evento.texto }}</span>
+                    {% else %}
+                        <span class="evento-texto evento-texto--codigo">{{ evento.bruto }}</span>
+                        <span class="badge bg-warning text-dark ms-auto">não confirmado</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bloco2">
+                <span class="badge rounded-pill bg-primary me-2">2</span>
+                Reclamação (cliente descobre o problema)
+                <span class="text-muted small ms-2">Aberta em {{ data_abertura_claim }}</span>
+            </button>
+        </h2>
+        <div id="bloco2" class="accordion-collapse collapse" data-bs-parent="#acordeaoConsultarPedido">
+            <div class="accordion-body">
+                <p><strong>Data de abertura:</strong> {{ data_abertura_claim }}</p>
+                <p><strong>Tipo / Etapa:</strong> {{ tipo_etapa.texto }}{% if not tipo_etapa.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
+                <p><strong>Motivo:</strong> {{ motivo.texto }}{% if not motivo.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
+                <p class="mb-0"><strong>Data em que virou devolução:</strong> {{ data_virou_devolucao }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#bloco3">
+                <span class="badge rounded-pill bg-primary me-2">3</span>
+                Devolução física e envio de volta (Histórico CLIENTE &rarr; NÓS)
+                <span class="text-muted small ms-2">
+                    {{ data_postagem_cliente|default:"ainda não despachado" }} &rarr; {{ data_chegada_nos|default:"ainda não chegou" }}
+                    {% if destino_chegada %} · destino: {{ destino_chegada }}{% endif %}
+                </span>
+            </button>
+        </h2>
+        <div id="bloco3" class="accordion-collapse collapse show" data-bs-parent="#acordeaoConsultarPedido">
+            <div class="accordion-body">
+                {% for envio in shipments_volta %}
+                <p class="text-muted small font-monospace">Envio de devolução nº {{ envio.shipment_id }}</p>
+                {% for evento in envio.linha_tempo %}
+                <div class="evento-linha">
+                    <span class="evento-hora">{{ evento.data }}</span>
+                    {% if evento.confirmado %}
+                        <span class="evento-texto">{{ evento.texto }}</span>
+                    {% else %}
+                        <span class="evento-texto evento-texto--codigo">{{ evento.bruto }}</span>
+                        <span class="badge bg-warning text-dark ms-auto">não confirmado</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+                {% empty %}
+                <p class="text-muted mb-0">Nenhum envio de volta encontrado ainda.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bloco4">
+                <span class="badge rounded-pill bg-primary me-2">4</span>
+                Recebimento e mediação/resolução
+                <span class="text-muted small ms-2">{% if data_encerramento %}Encerrado em {{ data_encerramento }}{% else %}Ainda em aberto{% endif %}</span>
+            </button>
+        </h2>
+        <div id="bloco4" class="accordion-collapse collapse" data-bs-parent="#acordeaoConsultarPedido">
+            <div class="accordion-body">
+                <p><strong>Ramo:</strong> {{ ramo }}</p>
+                {% if status_devolucao %}
+                <p><strong>Status da devolução:</strong> {{ status_devolucao.texto|default:status_devolucao.bruto }}{% if not status_devolucao.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
+                {% endif %}
+                <p><strong>Resolução:</strong> {{ resolucao.texto }}{% if not resolucao.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
+                {% if eh_mediacao %}
+                <p><strong>Data de abertura da mediação:</strong> {{ data_abertura_mediacao|default:"não encontrada nas mensagens" }}</p>
+                {% endif %}
+                <p><strong>Data de encerramento:</strong> {{ data_encerramento|default:"ainda em aberto" }}</p>
+                <p class="mb-0"><strong>Status do dinheiro:</strong> {{ status_dinheiro|default:"—" }} <span class="badge bg-warning text-dark">não confirmado</span></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
