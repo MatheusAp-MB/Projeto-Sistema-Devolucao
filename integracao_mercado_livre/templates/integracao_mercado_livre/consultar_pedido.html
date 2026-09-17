@@ -39,6 +39,11 @@
     </div>
 </div>
 
+<div id="aviso-campos-duplicados" class="aviso-global aviso-global--error d-none">
+    <i class="fas fa-exclamation-circle"></i>
+    Preencha só um dos campos — ID do Cliente OU Número da Venda, não os dois ao mesmo tempo.
+</div>
+
 {% if erro %}
 <div class="aviso-global aviso-global--error">
     <i class="fas fa-exclamation-circle"></i>
@@ -283,13 +288,22 @@
 
 {% block scripts %}
 <script>
-    document.getElementById('form-consultar-pedido').addEventListener('submit', function () {
+    document.getElementById('form-consultar-pedido').addEventListener('submit', function (event) {
+        var idCliente = document.getElementById('id_cliente').value.trim();
+        var numeroPedido = document.getElementById('numero_pedido').value.trim();
+        var avisoDuplicado = document.getElementById('aviso-campos-duplicados');
+
+        if (idCliente && numeroPedido) {
+            event.preventDefault();
+            avisoDuplicado.classList.remove('d-none');
+            return;
+        }
+        avisoDuplicado.classList.add('d-none');
+
         var botao = document.getElementById('botao-buscar-consultar-pedido');
         botao.disabled = true;
         botao.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Buscando...';
 
-        var idCliente = document.getElementById('id_cliente').value.trim();
-        var numeroPedido = document.getElementById('numero_pedido').value.trim();
         var referencia = idCliente || numeroPedido;
         var mensagem = document.getElementById('overlay-buscando-mensagem');
         if (referencia) {

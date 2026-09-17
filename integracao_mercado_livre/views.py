@@ -360,6 +360,10 @@ def view_consultar_pedido(request):
     if not numero_pedido and not id_cliente:
         return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
 
+    if numero_pedido and id_cliente:
+        contexto['erro'] = 'Preencha só um dos campos por vez — ID do Cliente OU Número da Venda, não os dois ao mesmo tempo.'
+        return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
+
     if conta is None:
         contexto['erro'] = f'Empresa ativa "{empresa}" não mapeada pra nenhuma conta MB/SV.'
         return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
