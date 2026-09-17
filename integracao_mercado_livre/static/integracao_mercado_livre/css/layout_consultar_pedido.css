@@ -201,3 +201,22 @@
 .grupo-pack .item-pedido-desambiguacao {
     border-style: solid;
 }
+
+/* Overlay de "buscando" — cobre a tela inteira enquanto o formulário
+   (GET, recarrega a página) está em trânsito, pra avisar quem está usando
+   que precisa esperar e não clicar de novo. */
+.overlay-buscando {
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.85);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.overlay-buscando-conteudo {
+    text-align: center;
+    color: var(--cor-primaria);
+    font-weight: 600;
+}
