@@ -4,7 +4,11 @@
 # campos que compoem a linha do tempo das 4 etapas do fluxo de devolucao
 # (Compra -> Reclamacao -> Devolucao fisica -> Decisao) e imprime CADA CAMPO
 # em 1 linha, sem JSON cru, sem tabela de itens, sem historico completo de
-# envio -- so o que interessa pra comparar candidatos.
+# envio -- so o que interessa pra comparar candidatos. Inclui tambem o
+# endereco completo das PONTAS de cada perna do envio (de onde saiu / pra
+# onde foi, tanto na ida NOS -> CLIENTE quanto na volta CLIENTE -> NOS) --
+# nao inclui endereco dos pontos intermediarios da rota, que a API nao
+# expoe em lugar nenhum (so rotulo de status com data/hora).
 #
 # Formato de cada linha:
 #   Rotulo (campo.da.api): valor real
@@ -102,6 +106,51 @@ def buscar_historico_envio(shipment_id):
         nome_log=NOME_LOG,
     )
     return resposta.json()
+
+
+# * [FONTE] → confirmado empiricamente (script investigar_enderecos_shipment.py,
+#   17/09/2026, contra o pedido real 2000018113512820): GET /shipments/{id}
+#   (recurso completo do envio, diferente de /shipments/{id}/history) traz
+#   sender_address e receiver_address -- endereço completo (rua, número,
+#   bairro, cidade, estado, CEP) de quem despacha e de quem recebe aquela
+#   perna específica do envio. Só dá o endereço das PONTAS -- de onde saiu e
+#   pra onde foi -- nunca dos pontos intermediários da rota (hub, agência de
+#   trânsito no meio do caminho não têm endereço em nenhum campo, só rótulo
+#   de status com data/hora).
+def buscar_shipment_completo(shipment_id):
+    resposta = chamar_api(
+        "GET", f"/shipments/{shipment_id}",
+        pasta_logs=PASTA_LOGS, conta=CONTA,
+        nome_log=NOME_LOG,
+    )
+    return resposta.json()
+
+
+def formatar_endereco(endereco):
+    if not endereco:
+        return "—"
+    partes = []
+    rua = endereco.get("street_name")
+    numero = endereco.get("street_number")
+    if rua:
+        partes.append(f"{rua}, {numero}" if numero else rua)
+    bairro = (endereco.get("neighborhood") or {}).get("name")
+    if bairro:
+        partes.append(bairro)
+    cidade = (endereco.get("city") or {}).get("name")
+    estado = (endereco.get("state") or {}).get("name")
+    if cidade:
+        partes.append(f"{cidade}/{estado}" if estado else cidade)
+    cep = endereco.get("zip_code")
+    if cep:
+        partes.append(f"CEP {cep}")
+    texto = " — ".join(partes) if partes else "—"
+
+    if "agency_address" in (endereco.get("types") or []):
+        agencia = endereco.get("agency") or {}
+        nome_agencia = agencia.get("description") or "Agência Mercado Livre"
+        texto += f"  [retirada em agência: {nome_agencia}]"
+    return texto
 
 
 def buscar_claim_detalhe(claim_id):
@@ -336,22 +385,31 @@ try:
     shipping_id_ida = (pedido.get("shipping") or {}).get("id")
     data_entrega_cliente = None
     historico_ida = []
+    shipment_ida_completo = None
     if shipping_id_ida:
         historico_ida = buscar_historico_envio(shipping_id_ida)
         data_entrega_cliente = ultimo_evento_com_status(historico_ida, "delivered")
+        try:
+            shipment_ida_completo = buscar_shipment_completo(shipping_id_ida)
+        except (ErroAPI, ErroAutenticacaoAPI):
+            shipment_ida_completo = None
 
     # ----- Envio(s) de volta -----
     envios_volta = devolucao.get("shipments", [])
     data_postagem_cliente = None
     data_chegada_nos = None
     destino_chegada = None
-    historicos_volta = []  # [(shipment_id, historico)] -- guardado pra imprimir no BLOCO 3, não aqui
+    historicos_volta = []  # [(shipment_id, historico, shipment_completo)] -- guardado pra imprimir no BLOCO 3, não aqui
     for envio in envios_volta:
         shipment_id_volta = envio.get("shipment_id")
         if not shipment_id_volta:
             continue
         historico_volta = buscar_historico_envio(shipment_id_volta)
-        historicos_volta.append((shipment_id_volta, historico_volta))
+        try:
+            shipment_volta_completo = buscar_shipment_completo(shipment_id_volta)
+        except (ErroAPI, ErroAutenticacaoAPI):
+            shipment_volta_completo = None
+        historicos_volta.append((shipment_id_volta, historico_volta, shipment_volta_completo))
         candidato_postagem = primeiro_evento_com_status(historico_volta, "shipped")
         candidato_chegada = ultimo_evento_com_status(historico_volta, "delivered")
         if candidato_postagem and (not data_postagem_cliente or candidato_postagem < data_postagem_cliente):
@@ -381,6 +439,11 @@ try:
     campo("SKU do item", "order_items[0].item.seller_sku", sku_item)
     campo("Data de entrega ao cliente", "shipments/history",
           formatar_data(data_entrega_cliente) if data_entrega_cliente else "não encontrado no histórico")
+    if shipment_ida_completo:
+        campo("De onde saiu (NÓS)", "shipments/{id}.sender_address",
+              formatar_endereco(shipment_ida_completo.get("sender_address")))
+        campo("Para onde foi (CLIENTE)", "shipments/{id}.receiver_address",
+              formatar_endereco(shipment_ida_completo.get("receiver_address")))
     if historico_ida:
         console.print()
         imprimir_linha_do_tempo_envio(historico_ida, "Linha do tempo completa (NÓS → CLIENTE):")
@@ -401,11 +464,16 @@ try:
           (formatar_data(data_chegada_nos) if data_chegada_nos else "ainda não chegou") + nota_destino)
     console.print()
     console.print(f"[dim]  Diagnóstico: {len(envios_volta)} envio(s) de volta em devolucao['shipments'].[/dim]")
-    for shipment_id_volta, historico_volta in historicos_volta:
+    for shipment_id_volta, historico_volta, shipment_volta_completo in historicos_volta:
         console.print(f"[dim]  Shipment {shipment_id_volta} — histórico bruto (todos os eventos, sem filtro):[/dim]")
         for evento in historico_volta:
             console.print(f"[dim]    {json.dumps(evento, ensure_ascii=False)}[/dim]")
         console.print()
+        if shipment_volta_completo:
+            campo("De onde saiu (CLIENTE)", "shipments/{id}.sender_address",
+                  formatar_endereco(shipment_volta_completo.get("sender_address")))
+            campo("Para onde chegou (NÓS)", "shipments/{id}.receiver_address",
+                  formatar_endereco(shipment_volta_completo.get("receiver_address")))
         imprimir_linha_do_tempo_envio(historico_volta, "Linha do tempo completa (CLIENTE → NÓS):")
 
     titulo_etapa(4, "Recebimento e mediação/resolução")
