@@ -1,15 +1,19 @@
 # scripts_exploracao_ML/investigar_shipment.py
 #
-# Objetivo ÚNICO: pegar o envio de ida (forward) da venda já confirmada
-# como devolução real, via GET /shipments/$SHIPPING_ID, pra confirmar
-# comum×FULL (campo logistic.mode/logistic.type) e ver a estrutura de
-# status/entrega. NENHUM outro endpoint é chamado além deste.
+# Objetivo ÚNICO: pegar um envio específico (forward OU de devolução),
+# via GET /shipments/$SHIPPING_ID, pra ver logistic.mode/logistic.type/
+# direction e a estrutura de status/entrega. NENHUM outro endpoint é
+# chamado além deste.
 #
 # Exige o header "x-format-new: true" — por isso a mudança no
 # chamar_api() pra aceitar headers_extra, aplicada antes deste script.
 #
 # Só leitura. Não toca no banco, não grava nada além do arquivo de saída.
+#
+# Uso:
+#   poetry run python scripts_exploracao_ML/investigar_shipment.py --empresa MB --shipping-id 47846576718
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -20,10 +24,24 @@ if str(_RAIZ_DO_PROJETO) not in sys.path:
 
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 
-# ==== CONFIGURA AQUI ANTES DE RODAR ====
-CONTA = "SV"
-SHIPPING_ID = <cole aqui o valor de "shipping.id" que vier no JSON do investigar_dados_da_venda.py>
-# ========================================
+
+def ler_argumentos():
+    parser = argparse.ArgumentParser(
+        description="Consulta GET /shipments/$SHIPPING_ID pra um envio específico.",
+    )
+    parser.add_argument(
+        "--empresa", type=str, required=True, choices=["MB", "SV"],
+        help="Conta a consultar: MB (Magazine) ou SV (Samvale) — obrigatório.",
+    )
+    parser.add_argument(
+        "--shipping-id", type=int, required=True, dest="shipping_id",
+        help="ID do envio (shipment_id) a investigar — obrigatório.",
+    )
+    args = parser.parse_args()
+    return args.empresa, args.shipping_id
+
+
+CONTA, SHIPPING_ID = ler_argumentos()
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"
 CAMINHO_SAIDA = Path(__file__).resolve().parent / f"investigacao_shipment_{SHIPPING_ID}.json"

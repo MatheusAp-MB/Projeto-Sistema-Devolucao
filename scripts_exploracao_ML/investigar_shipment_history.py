@@ -1,16 +1,20 @@
 # scripts_exploracao_ML/investigar_shipment_history.py
 #
-# Objetivo ÚNICO: pegar a linha do tempo completa de status/substatus do
-# mesmo envio já investigado (GET /shipments/$SHIPPING_ID/history), pra
-# confirmar a data exata de "Recebido pelo cliente" — o /shipments/$ID
-# comum só trouxe o status atual + last_updated, sem o histórico.
-# NENHUM outro endpoint é chamado além deste.
+# Objetivo ÚNICO: pegar a linha do tempo completa de status/substatus de
+# um envio específico (GET /shipments/$SHIPPING_ID/history) — o
+# /shipments/$ID comum só traz o status atual + last_updated, sem
+# histórico. NENHUM outro endpoint é chamado além deste.
 #
 # Reusa o mesmo headers_extra (x-format-new: true) já adicionado no
-# chamar_api() pro script anterior — nenhuma mudança de código nova aqui.
+# chamar_api() pro investigar_shipment.py — nenhuma mudança de código
+# nova aqui.
 #
 # Só leitura. Não toca no banco, não grava nada além do arquivo de saída.
+#
+# Uso:
+#   poetry run python scripts_exploracao_ML/investigar_shipment_history.py --empresa MB --shipping-id 47752794916
 
+import argparse
 import json
 import sys
 from pathlib import Path
@@ -21,18 +25,30 @@ if str(_RAIZ_DO_PROJETO) not in sys.path:
 
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 
-# ==== CONFIGURA AQUI ANTES DE RODAR ====
-CONTA = "MB"
-SHIPPING_ID = 47959728530   # o mesmo já usado em investigar_shipment.py
-# ========================================
+
+def ler_argumentos():
+    parser = argparse.ArgumentParser(
+        description="Consulta GET /shipments/$SHIPPING_ID/history pra um envio específico.",
+    )
+    parser.add_argument(
+        "--empresa", type=str, required=True, choices=["MB", "SV"],
+        help="Conta a consultar: MB (Magazine) ou SV (Samvale) — obrigatório.",
+    )
+    parser.add_argument(
+        "--shipping-id", type=int, required=True, dest="shipping_id",
+        help="ID do envio (shipment_id) a investigar — obrigatório.",
+    )
+    args = parser.parse_args()
+    return args.empresa, args.shipping_id
+
+
+CONTA, SHIPPING_ID = ler_argumentos()
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"
 CAMINHO_SAIDA = Path(__file__).resolve().parent / f"investigacao_shipment_history_{SHIPPING_ID}.json"
 
 
 try:
-    # Só pra poder ocultar seu próprio user_id no arquivo final, mesma
-    # lógica dos scripts anteriores.
     resposta_me = chamar_api(
         "GET", "/users/me",
         pasta_logs=PASTA_LOGS, conta=CONTA,

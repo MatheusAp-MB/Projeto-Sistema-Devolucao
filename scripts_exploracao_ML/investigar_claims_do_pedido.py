@@ -1,25 +1,21 @@
-# scripts_exploracao_ML/investigar_detalhe_devolucao.py
+# scripts_exploracao_ML/investigar_claims_do_pedido.py
 #
-# Objetivo ÚNICO: pegar o detalhe de UMA devolução específica, via
-# GET /post-purchase/v2/claims/$CLAIM_ID/returns, pra ver a estrutura real
-# dos campos (inclusive shipments[] com o "type": "return"/"return_from_triage").
-# NENHUM outro endpoint é chamado além deste.
-#
-# Não chama /orders, /shipments, /post-purchase/v1/claims/$ID (detalhe da
-# reclamação em si) nem nada além disso — isso fica pra depois.
+# Objetivo ÚNICO: buscar TODAS as reclamações/claims associadas a um
+# pedido específico, via GET /post-purchase/v1/claims/search?order_id=...
+# — pra descobrir se existe uma 2ª reclamação/claim (além da original)
+# criada depois que a Meli decide "product_destination: seller" na
+# triagem, e que poderia carregar o shipment "return_from_triage".
 #
 # Só leitura. Não toca no banco, não grava nada além do arquivo de saída.
 #
 # Uso:
-#   poetry run python scripts_exploracao_ML/investigar_detalhe_devolucao.py --empresa MB --claim-id 5564889989
+#   poetry run python scripts_exploracao_ML/investigar_claims_do_pedido.py --empresa MB --pedido 2000017749492836
 
 import argparse
 import json
 import sys
 from pathlib import Path
 
-# Permite rodar este script direto (python scripts_exploracao_ML/investigar_detalhe_devolucao.py),
-# de qualquer diretório, sem depender do CWD pra achar o pacote api_mercado_livre.
 _RAIZ_DO_PROJETO = Path(__file__).resolve().parent.parent
 if str(_RAIZ_DO_PROJETO) not in sys.path:
     sys.path.insert(0, str(_RAIZ_DO_PROJETO))
@@ -29,31 +25,32 @@ from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI
 
 def ler_argumentos():
     parser = argparse.ArgumentParser(
-        description="Consulta GET /post-purchase/v2/claims/$CLAIM_ID/returns pra um claim específico.",
+        description="Consulta GET /post-purchase/v1/claims/search?order_id=... pra um pedido específico.",
     )
     parser.add_argument(
         "--empresa", type=str, required=True, choices=["MB", "SV"],
         help="Conta a consultar: MB (Magazine) ou SV (Samvale) — obrigatório.",
     )
     parser.add_argument(
-        "--claim-id", type=int, required=True, dest="claim_id",
-        help="ID da reclamação (claim_id) associada à devolução — obrigatório.",
+        "--pedido", type=int, required=True,
+        help="ID do pedido (order_id) — busca TODAS as reclamações ligadas a ele.",
     )
     args = parser.parse_args()
-    return args.empresa, args.claim_id
+    return args.empresa, args.pedido
 
 
-CONTA, CLAIM_ID = ler_argumentos()
+CONTA, ORDER_ID = ler_argumentos()
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"
-CAMINHO_SAIDA = Path(__file__).resolve().parent / f"investigacao_devolucao_{CLAIM_ID}.json"
+CAMINHO_SAIDA = Path(__file__).resolve().parent / f"investigacao_claims_do_pedido_{ORDER_ID}.json"
 
 
 try:
     resposta = chamar_api(
-        "GET", f"/post-purchase/v2/claims/{CLAIM_ID}/returns",
+        "GET", "/post-purchase/v1/claims/search",
         pasta_logs=PASTA_LOGS, conta=CONTA,
-        nome_log="investigar_detalhe_devolucao",
+        params={"order_id": ORDER_ID},
+        nome_log="investigar_claims_do_pedido",
     )
 except (ErroAPI, ErroAutenticacaoAPI) as erro:
     print(f"Erro ao chamar a API: {erro}")
