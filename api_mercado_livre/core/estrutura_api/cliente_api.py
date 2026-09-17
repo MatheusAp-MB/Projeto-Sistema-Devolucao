@@ -7,7 +7,6 @@ Todo app deve chamar a API através de chamar_api(), nunca via requests direto.
 
 import re
 import time
-import random
 import json
 import logging
 from pathlib import Path
@@ -16,17 +15,24 @@ from rich.logging import RichHandler
 import requests
 
 from api_mercado_livre.core.auth.gerenciador_token import obter_token_valido
+from api_mercado_livre.core.estrutura_api.protecao import (
+    EspacadorChamadas, calcular_espera_backoff, INTERVALO_MINIMO_ENTRE_CHAMADAS_SEGUNDOS,
+)
 
 BASE_URL = "https://api.mercadolibre.com"
 
 TIMEOUT_CONEXAO_SEGUNDOS = 10
 TIMEOUT_LEITURA_SEGUNDOS = 30
-TETO_ESPERA_SEGUNDOS = 30
-MARGEM_RETRY_AFTER_SEGUNDOS = 2
 ESPERA_RETRY_206_SEGUNDOS = 2
 
 DADOS_SENSIVEIS = {"access_token", "refresh_token",
                    "client_secret", "password", "authorization"}
+
+# Instância única, compartilhada por todo o processo — garante que chamadas
+# vindas de pontos diferentes do código (ex: um loop que classifica vários
+# pedidos em sequência) respeitem o mesmo intervalo mínimo entre si, por
+# conta (MB e SV são independentes).
+_espacador = EspacadorChamadas(INTERVALO_MINIMO_ENTRE_CHAMADAS_SEGUNDOS)
 
 
 def _mascarar_endpoint(endpoint: str) -> str:
@@ -80,20 +86,7 @@ def _log_seguro(logger, mensagem: str, dados: dict = None):
         logger.info(mensagem)
 
 
-def _calcular_espera_backoff(tentativa: int, resposta) -> float:
-    """Usa Retry-After se a API informar; senão backoff exponencial + jitter, com teto de 30s."""
-    retry_after = resposta.headers.get("Retry-After")
-    if retry_after:
-        try:
-            return float(retry_after) + MARGEM_RETRY_AFTER_SEGUNDOS
-        except ValueError:
-            pass
-
-    espera_calculada = (2 ** tentativa) + random.uniform(0, 1)
-    return min(espera_calculada, TETO_ESPERA_SEGUNDOS)
-
-
-def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict = None, json_body: dict = None, max_tentativas: int = 5, nome_log: str = "api", headers_extra: dict = None):
+def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict = None, json_body: dict = None, max_tentativas: int = 5, nome_log: str = "api", headers_extra: dict = None, espacador_ativo: bool = True):
     """
     Ponto único de chamada à API do ML.
 
@@ -107,6 +100,10 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
                    exigido por /shipments desde 12/10/2025; {"X-Api-Version": "2"}, exigido por
                    certos recursos de /orders). Opcional, default None preserva 100% do
                    comportamento anterior pra quem não especificar.
+    espacador_ativo: se True (padrão), espera o intervalo mínimo entre chamadas (ver
+                   protecao.EspacadorChamadas) antes de cada tentativa — proteção proativa
+                   contra rajada, além do backoff reativo que já existia. Passar False só faz
+                   sentido pra um chamador que já tem seu próprio controle de espaçamento.
     """
     logger = _configurar_logger(pasta_logs, nome_log)
     url = f"{BASE_URL}{endpoint}"
@@ -119,6 +116,9 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
 
         _log_seguro(logger, f"Chamando {metodo} {_mascarar_endpoint(endpoint)}", {
                     "params": params, "headers_extra": headers_extra, "tentativa": tentativa + 1})
+
+        if espacador_ativo:
+            _espacador.aguardar(conta)
 
         try:
             resposta = requests.request(
@@ -145,6 +145,8 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
             headers = {"Authorization": f"Bearer {token}"}
             if headers_extra:
                 headers.update(headers_extra)
+            if espacador_ativo:
+                _espacador.aguardar(conta)
             resposta_retry = requests.request(
                 metodo, url, headers=headers, params=params, json=json_body,
                 timeout=(TIMEOUT_CONEXAO_SEGUNDOS, TIMEOUT_LEITURA_SEGUNDOS),
@@ -166,7 +168,7 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
             )
 
         if resposta.status_code == 429:
-            espera = _calcular_espera_backoff(tentativa, resposta)
+            espera = calcular_espera_backoff(tentativa, resposta)
             logger.warning(
                 f"429 em {_mascarar_endpoint(endpoint)}. Aguardando {espera:.1f}s (tentativa {tentativa + 1}/{max_tentativas})")
             time.sleep(espera)
