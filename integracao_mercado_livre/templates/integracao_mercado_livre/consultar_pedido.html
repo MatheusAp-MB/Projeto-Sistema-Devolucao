@@ -101,7 +101,10 @@
         </ul>
 
         <div class="d-flex justify-content-end mb-2">
-            <div class="filtro-ordenacao"><i class="fas fa-arrow-down-short-wide"></i> Ordenar por: mais recentes primeiro</div>
+            <button type="button" class="filtro-ordenacao" id="botao-ordenar" onclick="alternarOrdenacao()">
+                <i class="fas fa-arrow-down-short-wide" id="icone-ordenar"></i>
+                <span id="texto-ordenar">Ordenar por: mais recentes primeiro</span>
+            </button>
         </div>
 
         <div id="painel-status-sem-problema" class="lista-pedidos-desambiguacao {% if aba_padrao_status != 'sem-problema' %}d-none{% endif %}">
@@ -191,6 +194,12 @@
     <div class="card-body">
         <h5 class="card-title mb-1">Pedidos desse pacote</h5>
         <p class="text-muted small mb-3">Mais de 1 pedido encontrado — escolha o que bate com o que está na sua mão.</p>
+        <div class="d-flex justify-content-end mb-2">
+            <button type="button" class="filtro-ordenacao" id="botao-ordenar" onclick="alternarOrdenacao()">
+                <i class="fas fa-arrow-down-short-wide" id="icone-ordenar"></i>
+                <span id="texto-ordenar">Ordenar por: mais recentes primeiro</span>
+            </button>
+        </div>
         <div class="lista-pedidos-desambiguacao">
             {% for bloco in lista_pedidos %}
                 {% if bloco.pack_id %}
@@ -455,6 +464,39 @@
         });
         if (paineis[botaoClicado.dataset.aba]) {
             paineis[botaoClicado.dataset.aba].classList.remove('d-none');
+        }
+    }
+
+    // Ordenação é só reordenar o que já está na tela (todo pedido já chega
+    // com a data pronta) — não tem porquê recarregar a página e bater na
+    // API do ML de novo só pra inverter a ordem. Cada clique inverte tudo
+    // (as 3 abas e o miolo de cada Pack agrupado); inverter de novo volta
+    // pro estado original, então funciona como alternar (toggle) sem
+    // precisar guardar a lista em outro lugar.
+    var ordemDecrescente = true;
+
+    function inverterOrdemDosFilhos(container) {
+        Array.prototype.slice.call(container.children).reverse().forEach(function (filho) {
+            container.appendChild(filho);
+        });
+    }
+
+    function alternarOrdenacao() {
+        ordemDecrescente = !ordemDecrescente;
+
+        document.querySelectorAll('.lista-pedidos-desambiguacao').forEach(function (lista) {
+            inverterOrdemDosFilhos(lista);
+            lista.querySelectorAll('.grupo-pack-corpo').forEach(inverterOrdemDosFilhos);
+        });
+
+        var textoOrdenar = document.getElementById('texto-ordenar');
+        var iconeOrdenar = document.getElementById('icone-ordenar');
+        if (ordemDecrescente) {
+            textoOrdenar.textContent = 'Ordenar por: mais recentes primeiro';
+            iconeOrdenar.className = 'fas fa-arrow-down-short-wide';
+        } else {
+            textoOrdenar.textContent = 'Ordenar por: mais antigos primeiro';
+            iconeOrdenar.className = 'fas fa-arrow-up-short-wide';
         }
     }
 </script>
