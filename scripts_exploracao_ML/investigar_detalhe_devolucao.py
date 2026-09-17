@@ -25,8 +25,8 @@ if str(_RAIZ_DO_PROJETO) not in sys.path:
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
-CONTA = "MB"              # "MB" (Magazine) ou "SV" (Samvale)
-CLAIM_ID = 5576772421     # achado no investigar_claims_recentes.py (resolution.reason == item_returned)
+CONTA = "SV"              # "MB" (Magazine) ou "SV" (Samvale)
+CLAIM_ID = 5564889989     # mesmo claim do "Caso Real Com Mediacao" (Pedido 2000017788033354) — testar se shipments[] traz "return" e "return_from_triage"
 # ========================================
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"

@@ -21,8 +21,8 @@ if str(_RAIZ_DO_PROJETO) not in sys.path:
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
-CONTA = "MB"
-SHIPPING_ID = 47959728530   # "shipping.id" achado no investigar_dados_da_venda.py
+CONTA = "SV"
+SHIPPING_ID = <cole aqui o valor de "shipping.id" que vier no JSON do investigar_dados_da_venda.py>
 # ========================================
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"

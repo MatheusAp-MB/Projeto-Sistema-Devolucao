@@ -1,6 +1,6 @@
 # scripts_exploracao_ML/investigar_dados_da_venda.py
 #
-# Objetivo ÚNICO: pegar os dados da venda em si, via GET /orders/$ORDER_ID,
+# Obetivo ÚNICO: pegar os dados da venda em si, via GET /orders/$ORDER_ID,
 # pro pedido já confirmado como devolução real (achado com
 # investigar_detalhe_devolucao.py). Aqui que deve estar o que interessa
 # pro autocomplete: produto, data da venda, se é FULL, etc.
@@ -23,8 +23,8 @@ if str(_RAIZ_DO_PROJETO) not in sys.path:
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 
 # ==== CONFIGURA AQUI ANTES DE RODAR ====
-CONTA = "MB"                     # "MB" (Magazine) ou "SV" (Samvale)
-ORDER_ID = 2000018341680948      # achado no investigar_claims_recentes.py / confirmado no investigar_detalhe_devolucao.py
+CONTA = "SV"                     # "MB" (Magazine) ou "SV" (Samvale)
+ORDER_ID = 2000017788033354      # pedido já mapeado no "Caso Real Com Mediacao" — rodar de novo pra pegar pack_id e shipping.id
 # ========================================
 
 PASTA_LOGS = Path(__file__).resolve().parent / "logs"
