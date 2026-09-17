@@ -379,6 +379,7 @@ def view_consultar_pedido(request):
                 return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
             numero_pedido = pedidos_do_cliente[0]['numero_pedido']
             contexto['numero_pedido'] = numero_pedido
+            contexto['aviso_cliente_unico'] = True
 
         else:
             # ----- Busca por Número da Venda, com fallback pra Pack -----

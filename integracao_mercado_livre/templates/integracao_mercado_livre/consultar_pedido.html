@@ -50,6 +50,14 @@
 <div class="aviso-global aviso-global--warning">
     <i class="fas fa-triangle-exclamation"></i>
     Esse número ({{ aviso_pack.pack_id }}) é de um pacote, não de um pedido individual — encontramos {{ aviso_pack.total_pedidos }} pedido{{ aviso_pack.total_pedidos|pluralize }} dentro dele.
+    {% if aviso_pack.total_pedidos == 1 %}Encontramos apenas 1 pedido, então já te redirecionamos direto pra ele.{% endif %}
+</div>
+{% endif %}
+
+{% if aviso_cliente_unico %}
+<div class="aviso-global aviso-global--info">
+    <i class="fas fa-circle-info"></i>
+    Encontramos só 1 pedido pra esse cliente ({{ id_cliente }}) — te levamos direto pra ele.
 </div>
 {% endif %}
 
