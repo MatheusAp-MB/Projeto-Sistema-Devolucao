@@ -210,7 +210,10 @@ def _classificar_pedido_leve(numero_pedido, conta):
     sem buscar todos os detalhes que view_consultar_pedido busca pra 1
     pedido só — usado pra montar a lista de desambiguação (cliente ou pack
     com mais de 1 pedido), reaproveitando a mesma lógica de
-    reclamação->devolução que view_consultar_pedido já usa pra 1 pedido."""
+    reclamação->devolução que view_consultar_pedido já usa pra 1 pedido.
+    Também aproveita, de graça, o campo 'date_closed' que a resposta de
+    /returns já traz (mesmo campo usado como 'esta_encerrado' na tela de
+    detalhe de 1 pedido) — sem nenhuma chamada nova à API pra isso."""
     try:
         resposta_claims = chamar_api(
             "GET", "/post-purchase/v1/claims/search",
@@ -219,12 +222,12 @@ def _classificar_pedido_leve(numero_pedido, conta):
         )
     except (ErroAPI, ErroAutenticacaoAPI):
         codigo = 'sem_problema'
-        return {'codigo': codigo, 'texto': _TEXTO_CLASSIFICACAO[codigo]}
+        return {'codigo': codigo, 'texto': _TEXTO_CLASSIFICACAO[codigo], 'esta_encerrado': None}
 
     claims = resposta_claims.json().get("data", [])
     if not claims:
         codigo = 'sem_problema'
-        return {'codigo': codigo, 'texto': _TEXTO_CLASSIFICACAO[codigo]}
+        return {'codigo': codigo, 'texto': _TEXTO_CLASSIFICACAO[codigo], 'esta_encerrado': None}
 
     claims_em_ordem_de_tentativa = sorted(
         claims, key=lambda c: 0 if c.get("type") in ("return", "fulfillment") else 1
@@ -237,12 +240,17 @@ def _classificar_pedido_leve(numero_pedido, conta):
             )
         except (ErroAPI, ErroAutenticacaoAPI):
             continue
-        if resposta_devolucao.json():
+        dados_devolucao = resposta_devolucao.json()
+        if dados_devolucao:
             codigo = 'com_devolucao'
-            return {'codigo': codigo, 'texto': _TEXTO_CLASSIFICACAO[codigo]}
+            return {
+                'codigo': codigo,
+                'texto': _TEXTO_CLASSIFICACAO[codigo],
+                'esta_encerrado': bool(dados_devolucao.get('date_closed')),
+            }
 
     codigo = 'com_reclamacao'
-    return {'codigo': codigo, 'texto': _TEXTO_CLASSIFICACAO[codigo]}
+    return {'codigo': codigo, 'texto': _TEXTO_CLASSIFICACAO[codigo], 'esta_encerrado': None}
 
 
 def _listar_pedidos_do_cliente(buyer_id, conta):
@@ -380,6 +388,53 @@ def view_consultar_pedido(request):
             if len(pedidos_do_cliente) > 1:
                 contexto['lista_pedidos'] = _agrupar_e_ordenar_pedidos(pedidos_do_cliente)
                 contexto['veio_de'] = 'cliente'
+
+                # ----- Bloco do cliente: 1 chamada extra (não por pedido) -----
+                # Todo pedido dessa lista já veio filtrado por buyer=id_cliente, ou
+                # seja, é garantidamente do mesmo comprador — usamos QUALQUER 1 deles
+                # pra buscar o detalhe completo (/orders/{id} traz nome completo do
+                # comprador; /orders/search e /users/{id} não trazem, só nickname —
+                # ver validação em scripts_exploracao_ML/testar_fluxo_bloco_cliente.py).
+                try:
+                    pedido_para_identificar_cliente = pedidos_do_cliente[0]['numero_pedido']
+                    resposta_qualquer_pedido = chamar_api(
+                        "GET", f"/orders/{pedido_para_identificar_cliente}",
+                        pasta_logs=PASTA_LOGS_ML, conta=conta,
+                    )
+                    comprador_lista = resposta_qualquer_pedido.json().get("buyer") or {}
+                    nome_comprador_lista = f"{comprador_lista.get('first_name', '')} {comprador_lista.get('last_name', '')}".strip()
+                    contexto['nome_comprador'] = nome_comprador_lista or None
+                    contexto['nickname_comprador'] = comprador_lista.get('nickname')
+                    contexto['id_comprador'] = comprador_lista.get('id') or id_cliente
+                except (ErroAPI, ErroAutenticacaoAPI):
+                    # Bloco do cliente é só um complemento visual — se essa 1 chamada
+                    # falhar, a lista de pedidos continua funcionando normalmente, só
+                    # sem o nome do cliente no topo.
+                    contexto['nome_comprador'] = None
+                    contexto['nickname_comprador'] = None
+                    contexto['id_comprador'] = id_cliente
+
+                # ----- Abas por status: mesmo dado que já existe (classificacao.codigo),
+                # só reorganizado — dentro de cada aba, os pedidos continuam agrupados
+                # por pack e ordenados por data (mesma lógica de sempre). -----
+                pedidos_sem_problema = [p for p in pedidos_do_cliente if p['classificacao']['codigo'] == 'sem_problema']
+                pedidos_com_reclamacao = [p for p in pedidos_do_cliente if p['classificacao']['codigo'] == 'com_reclamacao']
+                pedidos_com_devolucao = [p for p in pedidos_do_cliente if p['classificacao']['codigo'] == 'com_devolucao']
+
+                contexto['contagem_sem_problema'] = len(pedidos_sem_problema)
+                contexto['contagem_com_reclamacao'] = len(pedidos_com_reclamacao)
+                contexto['contagem_com_devolucao'] = len(pedidos_com_devolucao)
+                contexto['lista_sem_problema'] = _agrupar_e_ordenar_pedidos(pedidos_sem_problema)
+                contexto['lista_com_reclamacao'] = _agrupar_e_ordenar_pedidos(pedidos_com_reclamacao)
+                contexto['lista_com_devolucao'] = _agrupar_e_ordenar_pedidos(pedidos_com_devolucao)
+
+                if contexto['contagem_com_devolucao']:
+                    contexto['aba_padrao_status'] = 'devolucao'
+                elif contexto['contagem_com_reclamacao']:
+                    contexto['aba_padrao_status'] = 'reclamacao'
+                else:
+                    contexto['aba_padrao_status'] = 'sem-problema'
+
                 return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
             numero_pedido = pedidos_do_cliente[0]['numero_pedido']
             contexto['numero_pedido'] = numero_pedido

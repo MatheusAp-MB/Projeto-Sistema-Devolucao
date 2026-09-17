@@ -150,11 +150,24 @@
     color: inherit;
 }
 
+.item-pedido-data-bloco {
+    min-width: 110px;
+}
+
+.data-compra-rotulo {
+    font-size: .63rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #6c757d;
+    display: block;
+    margin-bottom: 2px;
+}
+
 .item-pedido-data {
     font-family: "SFMono-Regular", Consolas, monospace;
-    font-size: .82rem;
-    color: #6c757d;
-    min-width: 92px;
+    font-size: .85rem;
+    color: #333;
+    font-weight: 600;
 }
 
 .item-pedido-info { flex: 1; min-width: 180px; }
@@ -165,6 +178,22 @@
     color: #6c757d;
     margin-top: 2px;
     display: block;
+}
+
+.pack-indicador {
+    font-size: .68rem;
+    color: var(--cor-primaria-clara);
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.item-pedido-tags {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
 }
 
 .selo {
@@ -178,29 +207,158 @@
 .selo--com_reclamacao  { background: #fef3c7; color: #92400e; }
 .selo--sem_problema    { background: #eceeef; color: #6c757d; }
 
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: .7rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+}
+.status-chip--encerrado  { background: #e6f4ea; color: var(--cor-positivo); }
+.status-chip--andamento  { background: #fef3c7; color: #92400e; }
+
 .item-pedido-ir { color: var(--cor-primaria-clara); }
 
+/* Agrupamento por Pack — árvore explícita: caixa com cabeçalho "PACK <id>"
+   e os pedidos daquele pack recuados dentro, conectados por uma linha
+   vertical (tronco) + um traço horizontal por pedido (galho). Só forma
+   grupo quando 2+ pedidos da mesma lista compartilham o pack_id — ver
+   _agrupar_e_ordenar_pedidos em views.py. */
 .grupo-pack {
-    border: 1.5px dashed var(--cor-primaria-clara);
-    border-radius: 8px;
-    padding: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    border: 2px solid var(--cor-primaria-clara);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #f4f9fd;
 }
 
 .grupo-pack-cabecalho {
-    font-size: .74rem;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    background: var(--cor-primaria-clara);
+    color: #fff;
+    font-size: .78rem;
     font-weight: 700;
-    color: var(--cor-primaria-clara);
-    text-transform: uppercase;
     letter-spacing: .02em;
-    padding: 0 4px;
+    padding: 10px 16px;
 }
 
-.grupo-pack .item-pedido-desambiguacao {
-    border-style: solid;
+.grupo-pack-cabecalho .grupo-pack-id {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-weight: 700;
 }
+
+.grupo-pack-cabecalho .grupo-pack-contagem {
+    margin-left: auto;
+    background: rgba(255, 255, 255, .22);
+    font-size: .68rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+}
+
+.grupo-pack-corpo {
+    margin: 14px 14px 14px 34px;
+    padding-left: 24px;
+    border-left: 2px solid var(--cor-primaria-clara);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.grupo-pack-corpo .item-pedido-desambiguacao {
+    position: relative;
+    background: #fff;
+}
+
+.grupo-pack-corpo .item-pedido-desambiguacao::before {
+    content: "";
+    position: absolute;
+    left: -24px;
+    top: 26px;
+    width: 20px;
+    height: 2px;
+    background: var(--cor-primaria-clara);
+}
+
+/* Bloco de identificação do cliente (busca por ID do Cliente, lista com
+   2+ pedidos) */
+.bloco-cliente {
+    border: 1px solid var(--cor-borda);
+    background: linear-gradient(180deg, #f7fafd, #ffffff);
+}
+
+.bloco-cliente-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--cor-primaria-clara);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.bloco-cliente-nome { font-size: 1.2rem; font-weight: 700; color: #20242a; }
+.bloco-cliente-meta {
+    font-size: .82rem;
+    color: #6c757d;
+    font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+/* Abas por status (Sem problema / Com reclamação / Com devolução) */
+.abas-status {
+    border-bottom: 2px solid var(--cor-borda);
+    gap: 0;
+}
+
+.abas-status .nav-link {
+    color: #6c757d;
+    font-weight: 600;
+    font-size: .9rem;
+    border: none;
+    border-bottom: 3px solid transparent;
+    border-radius: 0;
+    padding: 10px 4px;
+    margin-right: 28px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+}
+
+.abas-status .nav-link .contagem {
+    background: #eceeef;
+    color: #6c757d;
+    font-weight: 700;
+    font-size: .72rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+}
+
+.abas-status .nav-link.active { color: var(--cor-primaria); border-bottom-color: var(--cor-primaria-clara); }
+.abas-status .nav-link.active .contagem { background: var(--cor-primaria-clara); color: #fff; }
+
+.filtro-ordenacao {
+    font-size: .8rem;
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.estado-vazio-aba {
+    text-align: center;
+    padding: 40px 16px;
+    color: #6c757d;
+}
+.estado-vazio-aba i { font-size: 1.9rem; opacity: .35; margin-bottom: 12px; display: block; }
+.estado-vazio-aba p { font-size: .88rem; margin: 0; }
 
 /* Overlay de "buscando" — cobre a tela inteira enquanto o formulário
    (GET, recarrega a página) está em trânsito, pra avisar quem está usando

@@ -1,9 +1,22 @@
 <a class="item-pedido-desambiguacao" href="?numero_pedido={{ p.numero_pedido }}">
-    <span class="item-pedido-data">{{ p.data|default:"—" }}</span>
+    <div class="item-pedido-data-bloco">
+        <span class="data-compra-rotulo">Data da compra</span>
+        <span class="item-pedido-data">{{ p.data|default:"—" }}</span>
+    </div>
     <span class="item-pedido-info">
         <span class="item-pedido-titulo">{{ p.titulo_item }}</span>
         <span class="item-pedido-numero">Pedido {{ p.numero_pedido }}</span>
     </span>
-    <span class="selo selo--{{ p.classificacao.codigo }}">{{ p.classificacao.texto }}</span>
+    {% if mostrar_pack_lone and p.pack_id %}
+        <span class="pack-indicador"><i class="fas fa-box-open"></i> Pack {{ p.pack_id }}</span>
+    {% endif %}
+    <div class="item-pedido-tags">
+        <span class="selo selo--{{ p.classificacao.codigo }}">{{ p.classificacao.texto }}</span>
+        {% if p.classificacao.esta_encerrado %}
+            <span class="status-chip status-chip--encerrado"><i class="fas fa-check"></i> Encerrado</span>
+        {% elif p.classificacao.esta_encerrado is not None %}
+            <span class="status-chip status-chip--andamento"><i class="fas fa-clock"></i> Em andamento</span>
+        {% endif %}
+    </div>
     <span class="item-pedido-ir"><i class="fas fa-chevron-right"></i></span>
 </a>

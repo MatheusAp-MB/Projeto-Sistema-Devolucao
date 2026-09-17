@@ -67,30 +67,154 @@
 {% endif %}
 
 {% if lista_pedidos %}
+{% if veio_de == 'cliente' %}
+
+<div class="card mb-3 bloco-cliente">
+    <div class="card-body d-flex align-items-center gap-3">
+        <div class="bloco-cliente-avatar"><i class="fas fa-user"></i></div>
+        <div class="flex-grow-1">
+            {% if nome_comprador %}
+                <div class="bloco-cliente-nome">{{ nome_comprador }}</div>
+                <div class="bloco-cliente-meta">{{ nickname_comprador|default:"—" }} &middot; ID {{ id_comprador }}</div>
+            {% else %}
+                <div class="bloco-cliente-nome">Cliente {{ id_comprador }}</div>
+                <div class="bloco-cliente-meta">Não foi possível confirmar o nome completo agora</div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
 <div class="card mb-3">
     <div class="card-body">
-        <h5 class="card-title mb-1">
-            {% if veio_de == 'pack' %}Pedidos desse pacote{% else %}Pedidos desse cliente{% endif %}
-        </h5>
+        <p class="text-muted small mb-3">Mais de 1 pedido encontrado — escolha o que bate com o que está na sua mão.</p>
+
+        <ul class="nav abas-status mb-3">
+            <li class="nav-item">
+                <button type="button" class="nav-link {% if aba_padrao_status == 'sem-problema' %}active{% endif %}" data-aba="sem-problema" onclick="mostrarAbaStatus(this)">Sem problema <span class="contagem">{{ contagem_sem_problema }}</span></button>
+            </li>
+            <li class="nav-item">
+                <button type="button" class="nav-link {% if aba_padrao_status == 'reclamacao' %}active{% endif %}" data-aba="reclamacao" onclick="mostrarAbaStatus(this)">Com reclamação <span class="contagem">{{ contagem_com_reclamacao }}</span></button>
+            </li>
+            <li class="nav-item">
+                <button type="button" class="nav-link {% if aba_padrao_status == 'devolucao' %}active{% endif %}" data-aba="devolucao" onclick="mostrarAbaStatus(this)">Com devolução <span class="contagem">{{ contagem_com_devolucao }}</span></button>
+            </li>
+        </ul>
+
+        <div class="d-flex justify-content-end mb-2">
+            <div class="filtro-ordenacao"><i class="fas fa-arrow-down-short-wide"></i> Ordenar por: mais recentes primeiro</div>
+        </div>
+
+        <div id="painel-status-sem-problema" class="lista-pedidos-desambiguacao {% if aba_padrao_status != 'sem-problema' %}d-none{% endif %}">
+            {% for bloco in lista_sem_problema %}
+                {% if bloco.pack_id %}
+                <div class="grupo-pack">
+                    <div class="grupo-pack-cabecalho">
+                        <i class="fas fa-box"></i>
+                        <span>PACK <span class="grupo-pack-id">{{ bloco.pack_id }}</span></span>
+                        <span class="grupo-pack-contagem">{{ bloco.pedidos|length }} pedidos no mesmo pack</span>
+                    </div>
+                    <div class="grupo-pack-corpo">
+                        {% for p in bloco.pedidos %}
+                            {% include "integracao_mercado_livre/_item_pedido_desambiguacao.html" with p=p mostrar_pack_lone=False %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                    {% include "integracao_mercado_livre/_item_pedido_desambiguacao.html" with p=bloco.pedidos.0 mostrar_pack_lone=True %}
+                {% endif %}
+            {% empty %}
+                <div class="estado-vazio-aba">
+                    <i class="fas fa-circle-check"></i>
+                    <p>Nenhum pedido sem problema encontrado pra esse cliente.</p>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div id="painel-status-reclamacao" class="lista-pedidos-desambiguacao {% if aba_padrao_status != 'reclamacao' %}d-none{% endif %}">
+            {% for bloco in lista_com_reclamacao %}
+                {% if bloco.pack_id %}
+                <div class="grupo-pack">
+                    <div class="grupo-pack-cabecalho">
+                        <i class="fas fa-box"></i>
+                        <span>PACK <span class="grupo-pack-id">{{ bloco.pack_id }}</span></span>
+                        <span class="grupo-pack-contagem">{{ bloco.pedidos|length }} pedidos no mesmo pack</span>
+                    </div>
+                    <div class="grupo-pack-corpo">
+                        {% for p in bloco.pedidos %}
+                            {% include "integracao_mercado_livre/_item_pedido_desambiguacao.html" with p=p mostrar_pack_lone=False %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                    {% include "integracao_mercado_livre/_item_pedido_desambiguacao.html" with p=bloco.pedidos.0 mostrar_pack_lone=True %}
+                {% endif %}
+            {% empty %}
+                <div class="estado-vazio-aba">
+                    <i class="fas fa-comment-dots"></i>
+                    <p>Nenhum pedido com reclamação (sem devolução) encontrado pra esse cliente.</p>
+                </div>
+            {% endfor %}
+        </div>
+
+        <div id="painel-status-devolucao" class="lista-pedidos-desambiguacao {% if aba_padrao_status != 'devolucao' %}d-none{% endif %}">
+            {% for bloco in lista_com_devolucao %}
+                {% if bloco.pack_id %}
+                <div class="grupo-pack">
+                    <div class="grupo-pack-cabecalho">
+                        <i class="fas fa-box"></i>
+                        <span>PACK <span class="grupo-pack-id">{{ bloco.pack_id }}</span></span>
+                        <span class="grupo-pack-contagem">{{ bloco.pedidos|length }} pedidos no mesmo pack</span>
+                    </div>
+                    <div class="grupo-pack-corpo">
+                        {% for p in bloco.pedidos %}
+                            {% include "integracao_mercado_livre/_item_pedido_desambiguacao.html" with p=p mostrar_pack_lone=False %}
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                    {% include "integracao_mercado_livre/_item_pedido_desambiguacao.html" with p=bloco.pedidos.0 mostrar_pack_lone=True %}
+                {% endif %}
+            {% empty %}
+                <div class="estado-vazio-aba">
+                    <i class="fas fa-rotate-left"></i>
+                    <p>Nenhum pedido com devolução encontrado pra esse cliente.</p>
+                </div>
+            {% endfor %}
+        </div>
+
+    </div>
+</div>
+
+{% else %}
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h5 class="card-title mb-1">Pedidos desse pacote</h5>
         <p class="text-muted small mb-3">Mais de 1 pedido encontrado — escolha o que bate com o que está na sua mão.</p>
         <div class="lista-pedidos-desambiguacao">
             {% for bloco in lista_pedidos %}
                 {% if bloco.pack_id %}
                 <div class="grupo-pack">
                     <div class="grupo-pack-cabecalho">
-                        <i class="fas fa-box-open"></i> Compra em conjunto — Pack {{ bloco.pack_id }} ({{ bloco.pedidos|length }} pedidos)
+                        <i class="fas fa-box"></i>
+                        <span>PACK <span class="grupo-pack-id">{{ bloco.pack_id }}</span></span>
+                        <span class="grupo-pack-contagem">{{ bloco.pedidos|length }} pedidos no mesmo pack</span>
                     </div>
-                    {% for p in bloco.pedidos %}
-                        {% include "integracao_mercado_livre/_item_pedido_desambiguacao.html" with p=p %}
-                    {% endfor %}
+                    <div class="grupo-pack-corpo">
+                        {% for p in bloco.pedidos %}
+                            {% include "integracao_mercado_livre/_item_pedido_desambiguacao.html" with p=p mostrar_pack_lone=False %}
+                        {% endfor %}
+                    </div>
                 </div>
                 {% else %}
-                    {% include "integracao_mercado_livre/_item_pedido_desambiguacao.html" with p=bloco.pedidos.0 %}
+                    {% include "integracao_mercado_livre/_item_pedido_desambiguacao.html" with p=bloco.pedidos.0 mostrar_pack_lone=True %}
                 {% endif %}
             {% endfor %}
         </div>
     </div>
 </div>
+
+{% endif %}
 {% endif %}
 
 {% if encontrado %}
@@ -312,5 +436,26 @@
 
         document.getElementById('overlay-buscando').classList.remove('d-none');
     });
+
+    function mostrarAbaStatus(botaoClicado) {
+        document.querySelectorAll('.abas-status .nav-link').forEach(function (btn) {
+            btn.classList.remove('active');
+        });
+        botaoClicado.classList.add('active');
+
+        var paineis = {
+            'sem-problema': document.getElementById('painel-status-sem-problema'),
+            'reclamacao': document.getElementById('painel-status-reclamacao'),
+            'devolucao': document.getElementById('painel-status-devolucao'),
+        };
+        Object.keys(paineis).forEach(function (chave) {
+            if (paineis[chave]) {
+                paineis[chave].classList.add('d-none');
+            }
+        });
+        if (paineis[botaoClicado.dataset.aba]) {
+            paineis[botaoClicado.dataset.aba].classList.remove('d-none');
+        }
+    }
 </script>
 {% endblock %}
