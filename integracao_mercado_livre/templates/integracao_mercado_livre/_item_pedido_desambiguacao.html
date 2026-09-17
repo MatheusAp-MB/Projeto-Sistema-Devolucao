@@ -1,0 +1,9 @@
+<a class="item-pedido-desambiguacao" href="?numero_pedido={{ p.numero_pedido }}">
+    <span class="item-pedido-data">{{ p.data|default:"—" }}</span>
+    <span class="item-pedido-info">
+        <span class="item-pedido-titulo">{{ p.titulo_item }}</span>
+        <span class="item-pedido-numero">Pedido {{ p.numero_pedido }}</span>
+    </span>
+    <span class="selo selo--{{ p.classificacao.codigo }}">{{ p.classificacao.texto }}</span>
+    <span class="item-pedido-ir"><i class="fas fa-chevron-right"></i></span>
+</a>

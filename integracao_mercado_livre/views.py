@@ -191,26 +191,224 @@ def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_
     return resultado
 
 
+# ─── Consultar Pedido — busca por ID do Cliente ou Pack (novo) ──────────
+#
+# Ideia validada nos scripts de exploração desta investigação
+# (consultar_pedidos_por_cliente.py, investigar_pack.py, etc.):
+# buyer.id -> lista pedidos do cliente -> classifica cada um; e Número da
+# Venda -> tenta como Pedido, cai pra Pack em caso de erro.
+
+_TEXTO_CLASSIFICACAO = {
+    'sem_problema': 'Sem problema',
+    'com_reclamacao': 'Com reclamação',
+    'com_devolucao': 'Com devolução',
+}
+
+
+def _classificar_pedido_leve(numero_pedido, conta):
+    """Classifica um pedido em sem_problema / com_reclamacao / com_devolucao
+    sem buscar todos os detalhes que view_consultar_pedido busca pra 1
+    pedido só — usado pra montar a lista de desambiguação (cliente ou pack
+    com mais de 1 pedido), reaproveitando a mesma lógica de
+    reclamação->devolução que view_consultar_pedido já usa pra 1 pedido."""
+    try:
+        resposta_claims = chamar_api(
+            "GET", "/post-purchase/v1/claims/search",
+            pasta_logs=PASTA_LOGS_ML, conta=conta,
+            params={"order_id": numero_pedido},
+        )
+    except (ErroAPI, ErroAutenticacaoAPI):
+        codigo = 'sem_problema'
+        return {'codigo': codigo, 'texto': _TEXTO_CLASSIFICACAO[codigo]}
+
+    claims = resposta_claims.json().get("data", [])
+    if not claims:
+        codigo = 'sem_problema'
+        return {'codigo': codigo, 'texto': _TEXTO_CLASSIFICACAO[codigo]}
+
+    claims_em_ordem_de_tentativa = sorted(
+        claims, key=lambda c: 0 if c.get("type") in ("return", "fulfillment") else 1
+    )
+    for candidata in claims_em_ordem_de_tentativa:
+        try:
+            resposta_devolucao = chamar_api(
+                "GET", f"/post-purchase/v2/claims/{candidata['id']}/returns",
+                pasta_logs=PASTA_LOGS_ML, conta=conta,
+            )
+        except (ErroAPI, ErroAutenticacaoAPI):
+            continue
+        if resposta_devolucao.json():
+            codigo = 'com_devolucao'
+            return {'codigo': codigo, 'texto': _TEXTO_CLASSIFICACAO[codigo]}
+
+    codigo = 'com_reclamacao'
+    return {'codigo': codigo, 'texto': _TEXTO_CLASSIFICACAO[codigo]}
+
+
+def _listar_pedidos_do_cliente(buyer_id, conta):
+    """Busca todos os pedidos de um comprador (buyer.id do Mercado Livre)
+    nesta conta e classifica cada um — mesma lógica validada em
+    consultar_pedidos_por_cliente.py. Sem paginação ainda: só traz a 1ª
+    página de /orders/search (ponto de polimento futuro). Não ordena
+    aqui — quem ordena (pela data real, não pelo texto formatado) e
+    agrupa por pack é _agrupar_e_ordenar_pedidos."""
+    resposta_eu = chamar_api("GET", "/users/me", pasta_logs=PASTA_LOGS_ML, conta=conta)
+    seller_id = resposta_eu.json().get("id")
+
+    resposta_busca = chamar_api(
+        "GET", "/orders/search",
+        pasta_logs=PASTA_LOGS_ML, conta=conta,
+        params={"seller": seller_id, "buyer": buyer_id},
+    )
+    resultados = resposta_busca.json().get("results", [])
+
+    pedidos = []
+    for pedido in resultados:
+        item = (pedido.get("order_items") or [{}])[0]
+        pedidos.append({
+            'numero_pedido': pedido.get('id'),
+            'data': _formatar_data(pedido.get('date_created')),
+            'data_ordenacao': pedido.get('date_created') or '',
+            'titulo_item': (item.get('item') or {}).get('title', '—'),
+            'pack_id': pedido.get('pack_id'),
+            'classificacao': _classificar_pedido_leve(pedido.get('id'), conta),
+        })
+    return pedidos
+
+
+def _resolver_pack(numero, conta):
+    """Tenta resolver 'numero' como um Pack ID (carrinho de compra) quando
+    ele não bate como pedido individual — ver achados sobre números
+    impressos como 'Pedido' que na verdade eram Pack ID. Retorna a lista
+    de pedidos daquele pack (já classificados), ou None se também não
+    existir como pack. Não ordena aqui — ver _agrupar_e_ordenar_pedidos."""
+    try:
+        resposta_pack = chamar_api("GET", f"/packs/{numero}", pasta_logs=PASTA_LOGS_ML, conta=conta)
+    except ErroAPI as erro:
+        if str(erro).startswith("Erro 404 "):
+            return None
+        raise
+
+    pack = resposta_pack.json()
+    ids_dos_pedidos = [o.get('id') for o in pack.get('orders', []) if o.get('id')]
+
+    pedidos = []
+    for numero_pedido_do_pack in ids_dos_pedidos:
+        resposta_pedido = chamar_api(
+            "GET", f"/orders/{numero_pedido_do_pack}",
+            pasta_logs=PASTA_LOGS_ML, conta=conta,
+        )
+        pedido = resposta_pedido.json()
+        item = (pedido.get("order_items") or [{}])[0]
+        pedidos.append({
+            'numero_pedido': pedido.get('id'),
+            'data': _formatar_data(pedido.get('date_created')),
+            'data_ordenacao': pedido.get('date_created') or '',
+            'titulo_item': (item.get('item') or {}).get('title', '—'),
+            'pack_id': numero,
+            'classificacao': _classificar_pedido_leve(pedido.get('id'), conta),
+        })
+    return pedidos
+
+
+def _agrupar_e_ordenar_pedidos(pedidos):
+    """Agrupa visualmente os pedidos que compartilham o mesmo pack_id
+    (mesma compra em carrinho) — só forma grupo quando 2 ou mais pedidos
+    dessa lista têm o mesmo pack_id; pedido sozinho fica solto, mesmo
+    tendo pack_id (o parceiro dele não está nessa lista). Ordena pela
+    data real (data_ordenacao, formato ISO da API), não pelo texto já
+    formatado — ordenar pelo texto "dd/mm/aaaa" quebra cruzando mês/ano.
+    Retorna uma lista de blocos: {'pack_id': None ou o id, 'pedidos': [...]}."""
+    por_pack = {}
+    soltos = []
+    for p in pedidos:
+        pack_id = p.get('pack_id')
+        if pack_id:
+            por_pack.setdefault(pack_id, []).append(p)
+        else:
+            soltos.append(p)
+
+    blocos = []
+    for pack_id, itens in por_pack.items():
+        if len(itens) > 1:
+            blocos.append({'pack_id': pack_id, 'pedidos': itens})
+        else:
+            soltos.extend(itens)
+    blocos += [{'pack_id': None, 'pedidos': [p]} for p in soltos]
+
+    for bloco in blocos:
+        bloco['pedidos'].sort(key=lambda p: p.get('data_ordenacao') or '', reverse=True)
+
+    blocos.sort(key=lambda b: max(p.get('data_ordenacao') or '' for p in b['pedidos']), reverse=True)
+    return blocos
+
+
 def view_consultar_pedido(request):
     empresa = obter_empresa_ativa()
     conta = CONTA_POR_EMPRESA.get(empresa)
     numero_pedido = request.GET.get('numero_pedido', '').strip()
+    id_cliente = request.GET.get('id_cliente', '').strip()
 
     contexto = {
         'pagina_ativa': 'consultar_pedido_ml',
         'empresa': empresa,
         'conta': conta,
         'numero_pedido': numero_pedido,
+        'id_cliente': id_cliente,
     }
 
-    if not numero_pedido:
+    if not numero_pedido and not id_cliente:
         return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
 
     if conta is None:
         contexto['erro'] = f'Empresa ativa "{empresa}" não mapeada pra nenhuma conta MB/SV.'
         return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
 
+    pedido = None  # se já buscarmos o pedido lá embaixo (fluxo direto), evita buscar de novo
+
     try:
+        if id_cliente:
+            # ----- Busca por ID do Cliente -----
+            pedidos_do_cliente = _listar_pedidos_do_cliente(id_cliente, conta)
+            if not pedidos_do_cliente:
+                contexto['erro'] = 'Nenhum pedido encontrado pra esse ID de cliente.'
+                return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
+            if len(pedidos_do_cliente) > 1:
+                contexto['lista_pedidos'] = _agrupar_e_ordenar_pedidos(pedidos_do_cliente)
+                contexto['veio_de'] = 'cliente'
+                return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
+            numero_pedido = pedidos_do_cliente[0]['numero_pedido']
+            contexto['numero_pedido'] = numero_pedido
+
+        else:
+            # ----- Busca por Número da Venda, com fallback pra Pack -----
+            try:
+                resposta_pedido = chamar_api(
+                    "GET", f"/orders/{numero_pedido}",
+                    pasta_logs=PASTA_LOGS_ML, conta=conta,
+                )
+                pedido = resposta_pedido.json()
+            except ErroAPI as erro:
+                if not str(erro).startswith("Erro 404 "):
+                    raise
+                pedidos_do_pack = _resolver_pack(numero_pedido, conta)
+                if pedidos_do_pack is None:
+                    contexto['erro'] = f'Nenhum pedido nem pacote encontrado com o número {numero_pedido}.'
+                    return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
+                contexto['aviso_pack'] = {
+                    'pack_id': numero_pedido,
+                    'total_pedidos': len(pedidos_do_pack),
+                }
+                if len(pedidos_do_pack) > 1:
+                    contexto['lista_pedidos'] = _agrupar_e_ordenar_pedidos(pedidos_do_pack)
+                    contexto['veio_de'] = 'pack'
+                    return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
+                numero_pedido = pedidos_do_pack[0]['numero_pedido']
+                contexto['numero_pedido'] = numero_pedido
+                pedido = None  # só temos o resumo — o bloco "Pedido" abaixo busca o detalhe completo
+
+        # ----- A partir daqui, numero_pedido é garantidamente 1 pedido real -----
+
         # ----- Reclamação -----
         resposta_claims = chamar_api(
             "GET", "/post-purchase/v1/claims/search",
@@ -252,11 +450,12 @@ def view_consultar_pedido(request):
             return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
 
         # ----- Pedido -----
-        resposta_pedido = chamar_api(
-            "GET", f"/orders/{numero_pedido}",
-            pasta_logs=PASTA_LOGS_ML, conta=conta,
-        )
-        pedido = resposta_pedido.json()
+        if pedido is None:
+            resposta_pedido = chamar_api(
+                "GET", f"/orders/{numero_pedido}",
+                pasta_logs=PASTA_LOGS_ML, conta=conta,
+            )
+            pedido = resposta_pedido.json()
 
         comprador = pedido.get("buyer") or {}
         nome_comprador = f"{comprador.get('first_name', '')} {comprador.get('last_name', '')}".strip() or "—"
