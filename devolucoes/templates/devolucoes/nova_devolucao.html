@@ -132,6 +132,7 @@
                 <div class="nd-produto-busca-wrap">
                     <input type="text" id="nd_produto_busca" class="nd-produto-busca" autocomplete="off"
                            data-url-busca="{% url 'buscar_produtos_devolucao' %}"
+                           data-busca-sugerida="{{ busca_produto_sugerida|default:'' }}"
                            placeholder="Buscar por nome, SKU, cód. fabricante ou marca — ou bipar o código de barras">
                     <div id="nd_produto_resultados" class="nd-produto-resultados" hidden></div>
                 </div>

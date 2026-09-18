@@ -242,7 +242,7 @@
             {% endif %}
             <span class="flex-grow-1"></span>
             <div class="d-flex flex-wrap gap-1">
-                <a href="{% url 'nova_devolucao' %}?numero_pedido={{ numero_pedido|urlencode }}&nome_cliente={{ nome_comprador_input|urlencode }}&data_venda={{ data_venda_input|urlencode }}&data_recebimento_cliente={{ data_recebimento_cliente_input|urlencode }}&data_reclamacao_cliente={{ data_reclamacao_cliente_input|urlencode }}&data_recebimento_por_nos={{ data_recebimento_por_nos_input|urlencode }}&data_abertura_mediacao={{ data_abertura_mediacao_input|urlencode }}&data_finalizacao_mediacao={{ data_finalizacao_mediacao_input|urlencode }}&tipo_venda={{ tipo_venda_sugerido|urlencode }}" class="consultar-pedido-atalho consultar-pedido-atalho--principal">
+                <a href="{% url 'nova_devolucao' %}?numero_pedido={{ numero_pedido|urlencode }}&nome_cliente={{ nome_comprador_input|urlencode }}&data_venda={{ data_venda_input|urlencode }}&data_recebimento_cliente={{ data_recebimento_cliente_input|urlencode }}&data_reclamacao_cliente={{ data_reclamacao_cliente_input|urlencode }}&data_recebimento_por_nos={{ data_recebimento_por_nos_input|urlencode }}&data_abertura_mediacao={{ data_abertura_mediacao_input|urlencode }}&data_finalizacao_mediacao={{ data_finalizacao_mediacao_input|urlencode }}&tipo_venda={{ tipo_venda_sugerido|urlencode }}&produto_busca={{ sku_item_input|urlencode }}" target="_blank" rel="noopener" class="consultar-pedido-atalho consultar-pedido-atalho--principal">
                     <i class="fas fa-rotate-left"></i> Criar devolução
                 </a>
                 <a href="{{ url_ver_pedido }}" target="_blank" rel="noopener" class="consultar-pedido-atalho">

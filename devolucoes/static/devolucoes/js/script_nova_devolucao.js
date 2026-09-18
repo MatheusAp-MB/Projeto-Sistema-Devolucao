@@ -182,6 +182,20 @@
     document.addEventListener('click', function (evento) {
         if (!evento.target.closest('.nd-produto-busca-wrap')) esconderResultados();
     });
+
+    // ===== Sugestão automática vinda da ponte "Consultar Pedido" =====
+    // Quando a Nova Devolução abre a partir do botão "Criar devolução" da
+    // tela Consultar Pedido (ver busca_produto_sugerida no views.py), o
+    // campo já chega com o SKU do vendedor no ML anotado em
+    // data-busca-sugerida — dispara a mesma busca de sempre sozinha, do
+    // jeito que "Colar linha do ERP" já faz pro nome do produto: se o
+    // termo bater exato com um código de barras, seleciona sozinho;
+    // senão, já deixa os candidatos prontos pra 1 clique confirmar.
+    var buscaSugerida = buscaInput.getAttribute('data-busca-sugerida');
+    if (buscaSugerida && !buscaBloco.hidden) {
+        buscaInput.value = buscaSugerida;
+        buscaInput.dispatchEvent(new Event('input'));
+    }
 })();
 
 

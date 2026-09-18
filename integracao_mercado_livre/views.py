@@ -776,6 +776,11 @@ def view_consultar_pedido(request):
             'data_abertura_mediacao_input': _formatar_data_para_input(data_dispute),
             'data_finalizacao_mediacao_input': _formatar_data_para_input(devolucao.get('date_closed')),
             'tipo_venda_sugerido': tipo_venda_sugerido,
+            # SKU do vendedor no anúncio do ML — não é código de barras,
+            # mas alimenta a mesma busca de produto que já sabe achar por
+            # código de barras exato OU por nome/SKU/cód. fabricante/marca
+            # (ver produto_busca em nova_devolucao/script_nova_devolucao.js).
+            'sku_item_input': sku_item if sku_item != '—' else '',
         })
 
     except (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao) as erro:

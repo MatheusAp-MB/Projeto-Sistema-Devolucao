@@ -326,14 +326,17 @@ def _parse_reembolsado(valor):
     return None
 
 
-def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=None):
+def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=None, busca_produto_sugerida=''):
     """Monta o contexto da tela de Nova Devolução (Fase 0 + busca/
     seleção de produto) — usada tanto pro GET simples quanto pra
     re-exibir o formulário com o que a pessoa digitou quando a
     validação falha. 'devolucao' só vem preenchido quando é
     editar_devolucao reaproveitando este mesmo template — é o que o
     template usa pra virar "Editar devolução" (título, texto do botão)
-    em vez de "Nova devolução"."""
+    em vez de "Nova devolução". 'busca_produto_sugerida' só vem preenchido
+    quando chega da ponte Consultar Pedido → Nova Devolução (SKU do
+    vendedor no ML) — o template joga esse valor no campo de busca de
+    produto e a JS dispara a busca sozinha ao carregar a página."""
     if valores is None:
         valores = {
             'nome_plataforma': '', 'tipo_venda': '',
@@ -349,6 +352,7 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
         'valores': valores,
         'produto_selecionado': produto_selecionado,
         'devolucao': devolucao,
+        'busca_produto_sugerida': busca_produto_sugerida,
         'plataforma_choices': Devolucao.PLATAFORMA_CHOICES,
         'tipo_venda_choices': Devolucao.TIPO_VENDA_CHOICES,
         'pagina_ativa': 'nova_devolucao',
@@ -389,10 +393,16 @@ def nova_devolucao(request):
     O GET também aceita chegar com ?numero_pedido=... e companhia, vindo
     do botão "Criar devolução" da tela Consultar Pedido (ponte decidida
     no vault em 17/09 23:24) — nesse caso já chega com plataforma, pedido,
-    cliente e datas pré-preenchidos, e produto/NF/reembolsado/motivo da
-    reclamação continuam em branco pra confirmação manual (decisão de
-    Matheus, 18/09/2026: só auto-preenche o que vem direto e confiável da
-    API do ML). Se já existir uma devolução pra esse numero_pedido,
+    cliente e datas pré-preenchidos, e NF/reembolsado/motivo da reclamação
+    continuam em branco pra confirmação manual (decisão de Matheus,
+    18/09/2026: só auto-preenche o que vem direto e confiável da API do
+    ML). O produto não é selecionado sozinho, mas a busca já chega com o
+    SKU do vendedor no ML (?produto_busca=...) e a JS dispara a mesma
+    busca de sempre ao carregar a página — se bater exato com um código
+    de barras, seleciona igual o leitor de código de barras faria; senão,
+    já deixa a lista de candidatos pronta pra 1 clique (decisão de
+    Matheus, 18/09/2026, reaproveitando o mesmo mecanismo do "Colar linha
+    do ERP"). Se já existir uma devolução pra esse numero_pedido,
     redireciona pra editar_devolucao em vez de abrir o formulário vazio
     de novo — não cria duplicata."""
     if request.method == 'POST':
@@ -497,7 +507,11 @@ def nova_devolucao(request):
             'anotacao_mediacao': '',
             'motivo_reclamacao': '',
         }
-        return render(request, 'devolucoes/nova_devolucao.html', _contexto_nova_devolucao(valores))
+        produto_busca_sugerido = request.GET.get('produto_busca', '').strip()
+        return render(
+            request, 'devolucoes/nova_devolucao.html',
+            _contexto_nova_devolucao(valores, busca_produto_sugerida=produto_busca_sugerido),
+        )
 
     return render(request, 'devolucoes/nova_devolucao.html', _contexto_nova_devolucao())
 
