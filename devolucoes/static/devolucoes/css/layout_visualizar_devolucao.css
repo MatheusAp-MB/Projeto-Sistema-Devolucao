@@ -277,6 +277,7 @@
     border-radius: 10px;
     padding: 14px 18px;
     margin-top: 4px;
+    flex-wrap: wrap;
 }
 
 .vd-aviso-pasta i {
@@ -287,6 +288,8 @@
 .vd-aviso-pasta-txt {
     font-size: 13px;
     color: var(--cor-primaria);
+    flex: 1;
+    min-width: 240px;
 }
 
 .vd-aviso-pasta code {
@@ -298,6 +301,19 @@
     font-size: 12.5px;
     margin-top: 6px;
     color: #333;
+}
+
+.vd-btn--pasta {
+    background-color: var(--cor-primaria-clara);
+    border-color: var(--cor-primaria-clara);
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.vd-btn--pasta:hover {
+    background-color: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: #fff;
 }
 
 @media (max-width: 720px) {

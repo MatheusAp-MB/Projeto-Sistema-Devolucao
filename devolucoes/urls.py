@@ -1,7 +1,6 @@
 # devolucoes/urls.py
 
 from django.urls import path
-
 from . import views
 
 urlpatterns = [
@@ -13,7 +12,7 @@ urlpatterns = [
     path('devolucoes/<int:devolucao_id>/conferir/', views.conferir_devolucao, name='conferir_devolucao'),
     path('conferencia-peca/foto/<int:foto_id>/excluir/', views.excluir_foto_conferencia, name='excluir_foto_conferencia'),
     path('devolucoes/<int:devolucao_id>/visualizar/', views.visualizar_devolucao, name='visualizar_devolucao'),
-    path('devolucoes/<int:devolucao_id>/visualizar/', views.visualizar_devolucao, name='visualizar_devolucao'),
+    path('devolucoes/<int:devolucao_id>/abrir-pasta-conferencia/', views.abrir_pasta_conferencia, name='abrir_pasta_conferencia'),
     path('devolucoes/<int:devolucao_id>/relatorio/', views.imprimir_relatorio_devolucao, name='imprimir_relatorio_devolucao'),
     path('devolucoes/<int:devolucao_id>/etiqueta-termica/', views.imprimir_etiqueta_termica_devolucao, name='imprimir_etiqueta_termica_devolucao'),
     path('devolucoes/<int:devolucao_id>/etiqueta-termica/zpl/', views.gerar_etiqueta_termica_devolucao, name='gerar_etiqueta_termica_devolucao'),

@@ -192,6 +192,9 @@
                 Pra anexar essas fotos direto na mediação com a plataforma, elas já estão salvas nessa pasta do computador:
                 <code>Devoluções/Pedido_{{ devolucao.numero_pedido|slugify }}/Fotos da conferencia/</code>
             </div>
+            <a href="{% url 'abrir_pasta_conferencia' devolucao.id %}" class="vd-btn vd-btn--pasta">
+                <i class="fas fa-folder-open"></i> Abrir pasta no Explorer
+            </a>
         </div>
         {% endif %}
     </div>

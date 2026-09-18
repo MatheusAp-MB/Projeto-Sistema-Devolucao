@@ -15,13 +15,17 @@
 
 import json
 import re
+import subprocess
+from pathlib import Path
 
+from django.conf import settings
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.text import slugify
 
 from core.empresa import obter_alias_banco_ativo
 
@@ -808,6 +812,35 @@ def visualizar_devolucao(request, devolucao_id):
         'devolucao': devolucao,
         'pecas_conferidas': pecas_conferidas,
     })
+
+
+def abrir_pasta_conferencia(request, devolucao_id):
+    """Abre a pasta das fotos de conferência dessa devolução direto no
+    Explorer do Windows — só funciona porque o servidor Django roda no
+    mesmo computador de quem clica (é um app local, nunca um servidor
+    remoto/compartilhado — ver settings.DADOS_DIR), então disparar o
+    Explorer aqui abre na tela de quem clicou, nunca em outra máquina.
+
+    [ATENÇÃO] → específico de Windows de propósito (comando "explorer"),
+    já que é a única plataforma onde esse sistema roda de verdade (ver
+    gerar_exe.py).
+    """
+    devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+    pedido_slug = slugify(devolucao.numero_pedido) or str(devolucao.pk)
+
+    raiz_media = Path(settings.MEDIA_ROOT).resolve()
+    pasta = (raiz_media / f'Devoluções/Pedido_{pedido_slug}/Fotos da conferencia').resolve()
+
+    if raiz_media != pasta and raiz_media not in pasta.parents:
+        messages.error(request, 'Caminho de pasta inválido.')
+        return redirect('visualizar_devolucao', devolucao_id)
+
+    if not pasta.exists():
+        messages.warning(request, 'Essa devolução ainda não tem fotos de conferência salvas nessa pasta.')
+        return redirect('visualizar_devolucao', devolucao_id)
+
+    subprocess.Popen(['explorer', str(pasta)])
+    return redirect('visualizar_devolucao', devolucao_id)
 
 
 def produtos(request):
