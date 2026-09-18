@@ -107,11 +107,17 @@ def _buscar_shipment_completo(shipment_id, conta):
     cadastrais normais (não em agências) — ver a descoberta 'Mascaramento
     de Endereço no Shipment do ML...' no vault. Usado só pra mostrar
     origem/destino na linha do tempo e confirmar se bate com o endereço
-    oficial da conta (MB_ADDRESS_ID/SV_ADDRESS_ID no .env)."""
+    oficial da conta (MB_ADDRESS_ID/SV_ADDRESS_ID no .env).
+
+    IMPORTANTE: ao contrário de _buscar_historico_envio, esse endpoint
+    NÃO leva o header x-format-new — investigar_enderecos_shipment.py
+    (script já testado empiricamente com pedidos reais) chama
+    /shipments/{id} sem headers_extra nenhum. Mandar x-format-new aqui
+    muda o formato da resposta e faz sender_address/receiver_address
+    sumirem silenciosamente (sem erro, só sem endereço)."""
     resposta = chamar_api(
         "GET", f"/shipments/{shipment_id}",
         pasta_logs=PASTA_LOGS_ML, conta=conta,
-        headers_extra=HEADER_FORMATO_NOVO,
     )
     return resposta.json()
 
@@ -705,7 +711,6 @@ def view_consultar_pedido(request):
             'url_ver_reclamacao': f'https://www.mercadolivre.com.br/vendas/novo/mensagens/{numero_pedido}/reclamacao/{claim_id}',
             'url_ver_mediacao': f'https://www.mercadolivre.com.br/vendas/novo/mensagens/{numero_pedido}/mediacao/{claim_id}',
             'linha_tempo_ida': _montar_linha_do_tempo(historico_ida, endereco_origem_ida, endereco_destino_ida),
-            'destino_ida': _rotulo_confirmacao_endereco(endereco_destino_ida),
             'data_inicio_ida': _formatar_data(historico_ida_ordenado[0]['date']) if historico_ida_ordenado else None,
             'data_fim_ida': _formatar_data(historico_ida_ordenado[-1]['date']) if historico_ida_ordenado else None,
             'data_abertura_claim': _formatar_data(claim.get('date_created')),
