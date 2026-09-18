@@ -1,0 +1,146 @@
+<!--
+[RESUMO] → Tela que mostra o código ZPL pronto da etiqueta térmica
+(mini-relatório 10x15cm) de 1 devolução — Fase 8 do fluxo (ver vault).
+
+[ATENÇÃO] → Essa página NÃO imprime nada e NÃO gera PDF no servidor. Ela
+só mostra o texto ZPL (montado em views.py) dentro de um bloco pra
+copiar. O fluxo de verdade é manual, fora do sistema: copiar aqui, colar
+em https://labelary.com/viewer.html, conferir visualmente (10x15cm,
+8 dpmm), baixar o PDF que o Labelary gera, e imprimir esse PDF na Zebra —
+o mesmo caminho já usado hoje pra qualquer etiqueta térmica instável.
+
+Página standalone (não estende a base do app), no mesmo estilo visual do
+relatorio_devolucao_impressao.html — pensada pra abrir numa aba nova a
+partir do botão "Etiqueta térmica" em devolucoes_pendentes.html.
+-->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Etiqueta Térmica — Pedido {{ devolucao.numero_pedido }}</title>
+<style>
+    :root {
+        --navy: #1a3a5c;
+        --texto: #1c2733;
+        --muted: #545f6b;
+        --borda: #d7dce1;
+        --fundo-tint: #f4f7fa;
+        --amber: #9a5b0c;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+        color: var(--texto);
+        margin: 0;
+        padding: 24px;
+        background: #eef1f4;
+    }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
+
+    .barra-acoes { max-width: 850px; margin: 0 auto 12px auto; display: flex; justify-content: flex-end; gap: 10px; }
+    .btn-acao {
+        background: var(--navy); color: #fff; border: none;
+        padding: 10px 18px; border-radius: 6px;
+        font-size: 14px; font-weight: 600; cursor: pointer;
+        text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-acao:hover { background: #12293f; }
+    .btn-acao.secundario { background: #fff; color: var(--navy); border: 1px solid var(--navy); }
+    .btn-acao.secundario:hover { background: var(--fundo-tint); }
+
+    .folha { max-width: 850px; margin: 0 auto; background: #fff; padding: 16mm; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); border-radius: 10px; }
+
+    .cabecalho { border-bottom: 3px solid var(--navy); padding-bottom: 10px; margin-bottom: 14px; }
+    .cabecalho-empresa { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: var(--navy); margin: 0 0 4px 0; }
+    .cabecalho-titulo { font-size: 24px; font-weight: 700; margin: 0; }
+
+    .resumo { display: flex; gap: 24px; background: var(--fundo-tint); border: 1px solid var(--borda); border-radius: 10px; padding: 12px 16px; margin-bottom: 18px; }
+    .resumo-item { font-size: 12px; }
+    .resumo-rotulo { color: var(--muted); margin: 0 0 2px 0; }
+    .resumo-valor { font-weight: 700; margin: 0; }
+
+    .secao-titulo { font-size: 13px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--navy); border-bottom: 2px solid var(--borda); padding-bottom: 6px; margin: 0 0 10px 0; }
+
+    .instrucoes { margin: 0 0 20px 0; padding-left: 20px; font-size: 13px; }
+    .instrucoes li { margin-bottom: 6px; }
+    .instrucoes a { color: var(--navy); }
+
+    .bloco-zpl { position: relative; }
+    .zpl-texto {
+        background: #10202f; color: #d8e4ee; border-radius: 8px; padding: 16px;
+        font-size: 12px; line-height: 1.5; overflow-x: auto; white-space: pre;
+        margin: 0;
+    }
+    .feedback-copia {
+        font-size: 12px; color: #1f7a44; font-weight: 600; margin-top: 8px; height: 16px;
+    }
+
+    .rodape { margin-top: 20px; font-size: 10px; color: #a9b3bc; text-align: right; }
+
+    @media print {
+        body { background: #fff; padding: 0; }
+        .barra-acoes { display: none; }
+    }
+</style>
+</head>
+<body>
+
+    <div class="barra-acoes">
+        <a href="https://labelary.com/viewer.html" target="_blank" class="btn-acao secundario">Abrir Labelary</a>
+        <button type="button" class="btn-acao" id="btn-copiar">Copiar código ZPL</button>
+    </div>
+
+    <div class="folha">
+
+        <div class="cabecalho">
+            <p class="cabecalho-empresa">{{ empresa_ativa_nome }}</p>
+            <p class="cabecalho-titulo">Etiqueta Térmica — Identificação Provisória</p>
+        </div>
+
+        <div class="resumo">
+            <div class="resumo-item">
+                <p class="resumo-rotulo">Pedido</p>
+                <p class="resumo-valor mono">{{ devolucao.numero_pedido }}</p>
+            </div>
+            <div class="resumo-item">
+                <p class="resumo-rotulo">Cliente</p>
+                <p class="resumo-valor">{{ devolucao.nome_cliente }}</p>
+            </div>
+            <div class="resumo-item">
+                <p class="resumo-rotulo">Produto</p>
+                <p class="resumo-valor">{{ devolucao.produto.nome }}</p>
+            </div>
+        </div>
+
+        <p class="secao-titulo">Como usar</p>
+        <ol class="instrucoes">
+            <li>Clique em <strong>"Copiar código ZPL"</strong> acima.</li>
+            <li>Abra o <a href="https://labelary.com/viewer.html" target="_blank">Labelary</a> (10x15cm, 8 dpmm) e cole o código no editor.</li>
+            <li>Confira visualmente se a etiqueta renderizou certo.</li>
+            <li>Baixe o PDF gerado pelo Labelary e imprima normalmente na Zebra.</li>
+        </ol>
+
+        <p class="secao-titulo">Código ZPL</p>
+        <div class="bloco-zpl">
+            <pre class="zpl-texto mono" id="zpl-texto">{{ zpl }}</pre>
+        </div>
+        <p class="feedback-copia" id="feedback-copia"></p>
+
+        <p class="rodape">Gerado a partir da devolução — pedido {{ devolucao.numero_pedido }}</p>
+    </div>
+
+    <script>
+        document.getElementById('btn-copiar').addEventListener('click', function () {
+            var texto = document.getElementById('zpl-texto').textContent;
+            var feedback = document.getElementById('feedback-copia');
+            navigator.clipboard.writeText(texto).then(function () {
+                feedback.textContent = 'Copiado!';
+                setTimeout(function () { feedback.textContent = ''; }, 2000);
+            }).catch(function () {
+                feedback.textContent = 'Não foi possível copiar automaticamente — selecione o texto manualmente.';
+            });
+        });
+    </script>
+
+</body>
+</html>

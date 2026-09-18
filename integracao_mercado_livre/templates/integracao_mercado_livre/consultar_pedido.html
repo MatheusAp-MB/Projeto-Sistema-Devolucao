@@ -373,6 +373,8 @@
                         <strong>⚠️ Local de chegada não confere</strong> — não bate com o endereço oficial cadastrado. Pode indicar entrega numa transportadora ou ponto intermediário, não na empresa.
                     {% elif confirmacao_chegada.confirmacao == 'agencia' %}
                         <strong>📍 Chegou numa agência do Mercado Livre</strong>{% if confirmacao_chegada.rotulo_agencia %} — {{ confirmacao_chegada.rotulo_agencia }}{% endif %}.
+                    {% elif confirmacao_chegada.confirmacao == 'deposito_full' %}
+                        <strong>📦 Chegou no depósito do FULL</strong> — fluxo normal de pedido Full: a devolução vai pro centro de distribuição do próprio Mercado Livre, não direto pra empresa.
                     {% endif %}
                 </div>
                 {% endif %}

@@ -151,8 +151,11 @@ def _resumir_endereco_para_exibicao(endereco, conta):
     """Resume um sender_address/receiver_address pra exibir na linha do
     tempo: rua/número (mascarados ou não, como a API mandar), bairro/cidade
     (nunca mascarados) e, quando MB_ADDRESS_ID/SV_ADDRESS_ID estiver no
-    .env, confirma se bate com o cadastro oficial da conta ou é uma
-    agência do Mercado Livre."""
+    .env, confirma se bate com o cadastro oficial da conta, é uma agência
+    do Mercado Livre, ou é um depósito/centro de distribuição do Full
+    (types com 'warehouse' ou 'logistic_center_*' — nesse caso o endereço
+    nunca vai ter address_id próprio, porque não é um endereço cadastrado
+    da conta, é uma instalação do próprio Mercado Livre)."""
     if not endereco:
         return None
 
@@ -174,6 +177,8 @@ def _resumir_endereco_para_exibicao(endereco, conta):
     if 'agency_address' in tipos:
         confirmacao = 'agencia'
         rotulo_agencia = (endereco.get('agency') or {}).get('description')
+    elif 'warehouse' in tipos or any(tipo.startswith('logistic_center_') for tipo in tipos):
+        confirmacao = 'deposito_full'
     elif address_id_oficial and str(endereco.get('id')) == str(address_id_oficial):
         confirmacao = 'oficial'
     elif address_id_oficial:
@@ -200,6 +205,8 @@ def _rotulo_confirmacao_endereco(resumo_endereco):
     if confirmacao == 'agencia':
         rotulo = resumo_endereco.get('rotulo_agencia')
         return f'📍 agência — {rotulo}' if rotulo else '📍 agência do Mercado Livre'
+    if confirmacao == 'deposito_full':
+        return '📦 Depósito do FULL'
     if confirmacao == 'nao_bate':
         return '⚠️ não é o endereço oficial'
     return None

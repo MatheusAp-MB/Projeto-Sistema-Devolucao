@@ -14,12 +14,14 @@
 # Fornecedores (criar/editar/excluir cada um, direto na lista).
 
 import json
+import re
 
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 
 from .models import (
     Compatibilidade, ConferenciaPeca, Devolucao, FotoConferenciaPeca,
@@ -57,6 +59,201 @@ def imprimir_relatorio_devolucao(request, devolucao_id):
     return render(request, 'devolucoes/relatorio_devolucao_impressao.html', {
         'devolucao': devolucao,
         'pecas_conferidas': pecas_conferidas,
+    })
+
+
+def _sanitizar_texto_zpl(texto):
+    """Remove caracteres que têm significado especial em ZPL: ^ inicia um
+    comando (ex: ^FO, ^FD) e ~ inicia um comando de controle (ex: ~PS) — se
+    algum dado real (nome do cliente, nome do produto, código de barras
+    digitado manualmente) tiver um desses caracteres por acaso, ele
+    quebraria a leitura da etiqueta na impressora/Labelary sem avisar.
+    Troca por hífen em vez de apagar, pra não colar duas palavras."""
+    return (texto or '').replace('^', '-').replace('~', '-')
+
+
+def _preparar_codigo_barras_produto(codigo_barras):
+    """Decide como desenhar o código de barras do produto na etiqueta
+    térmica, a partir de Produto.codigo_barras — campo de texto livre, sem
+    validação de formato hoje, então não é garantido que seja sempre um
+    EAN-13/12 numérico "limpo".
+
+    Retorna (tipo, valor):
+    - ('ean', <12 dígitos>) quando dá pra desenhar como EAN-13 de verdade
+      (comando ^BE, que é o padrão visual de código de barras de varejo).
+      ^BE espera exatamente 12 dígitos de entrada — o 13º (dígito
+      verificador) é calculado sozinho pela impressora/Labelary. Se o
+      código cadastrado já tiver 13 dígitos, usamos só os 12 primeiros
+      (mesma correção que o próprio Labelary já faz sozinho quando recebe
+      13 dígitos — testado durante o desenho do layout com Matheus).
+    - ('code128', <texto sanitizado>) quando o valor não é um EAN numérico
+      "limpo" (tem letra, tamanho diferente de 12/13...) — cai pro
+      Code128 (^BC), que aceita qualquer texto/alfanumérico, o mesmo tipo
+      de código já usado pro número do pedido.
+    - (None, None) quando não há codigo_barras cadastrado nesse produto —
+      a etiqueta sai sem nenhum código de barras nesse campo.
+    """
+    if not codigo_barras:
+        return None, None
+    apenas_digitos = re.sub(r'\D', '', codigo_barras)
+    if len(apenas_digitos) == 13:
+        return 'ean', apenas_digitos[:12]
+    if len(apenas_digitos) == 12:
+        return 'ean', apenas_digitos
+    return 'code128', _sanitizar_texto_zpl(codigo_barras)
+
+
+def _montar_zpl_etiqueta_termica_devolucao(devolucao):
+    """Monta o texto ZPL da etiqueta térmica 10x15cm (mini-relatório) de 1
+    devolução — layout desenhado e aprovado por Matheus testando no
+    Labelary (https://labelary.com/viewer.html) em 17-18/09/2026 (ver nota
+    "Relato Completo do Fluxo Real..." no vault, seção "Layout final da
+    etiqueta térmica (ZPL)").
+
+    [ATENÇÃO] → Isso NÃO imprime nada sozinho e NÃO gera PDF no servidor.
+    Gera só o TEXTO ZPL — igual ao que já vem pronto do ERP/Mercado Livre
+    em outras situações — pra colar no Labelary, conferir visualmente e
+    baixar o PDF de lá, que é o que de fato vai pra impressora Zebra
+    (mesmo fluxo manual já usado hoje pra qualquer etiqueta térmica
+    instável).
+
+    Densidade assumida: 8 dpmm / 203 dpi (impressora Zebra do Matheus,
+    testado e confirmado no Labelary) — label 10x15cm = 800x1200 dots.
+    """
+    produto = devolucao.produto
+
+    numero_pedido = _sanitizar_texto_zpl(devolucao.numero_pedido)
+    numero_nota_fiscal = _sanitizar_texto_zpl(devolucao.numero_nota_fiscal)
+    nome_cliente = _sanitizar_texto_zpl(devolucao.nome_cliente)
+    plataforma = _sanitizar_texto_zpl(
+        f'{devolucao.nome_plataforma} - {devolucao.get_tipo_venda_display()}'
+    )
+    nome_produto = _sanitizar_texto_zpl(produto.nome)
+    sku = _sanitizar_texto_zpl(produto.sku) if produto.sku else '-'
+    gerado_em = timezone.localtime().strftime('%d/%m/%Y %H:%M')
+
+    tipo_codigo_produto, valor_codigo_produto = _preparar_codigo_barras_produto(
+        produto.codigo_barras
+    )
+
+    if tipo_codigo_produto == 'ean':
+        bloco_codigo_produto = (
+            '^CF0,20\n'
+            '^FO40,875^FDEAN^FS\n'
+            '^FO40,900^BY3\n'
+            '^BEN,70,Y,N\n'
+            f'^FD{valor_codigo_produto}^FS'
+        )
+    elif tipo_codigo_produto == 'code128':
+        bloco_codigo_produto = (
+            '^CF0,20\n'
+            '^FO40,875^FDCODIGO DE BARRAS^FS\n'
+            '^FO40,900^BY2\n'
+            '^BCN,70,N,N,N,A\n'
+            f'^FD{valor_codigo_produto}^FS'
+        )
+    else:
+        bloco_codigo_produto = (
+            '^CF0,20\n'
+            '^FO40,875^FDEAN^FS\n'
+            '^CF0,26\n'
+            '^FO40,900^FD(produto sem codigo de barras cadastrado)^FS'
+        )
+
+    return f'''^XA
+^CI28
+
+^FX ===== Cabecalho =====
+^CF0,32
+^FO40,40^FB720,2,0,C,0^FDDEVOLUCAO - IDENTIFICACAO PROVISORIA\\&^FS
+^FO40,105^GB720,3,3^FS
+
+^FX ===== Bloco: Pedido & Cliente =====
+^CF0,20
+^FO40,135^FDPEDIDO^FS
+^CF0,36
+^FO40,160^FD{numero_pedido}^FS
+
+^FX --- codigo de barras do pedido, ao lado do numero ---
+^FO430,130^BY2
+^BCN,70,N,N,N,A
+^FD{numero_pedido}^FS
+
+^CF0,20
+^FO40,225^FDNF^FS
+^CF0,36
+^FO40,250^FD{numero_nota_fiscal}^FS
+
+^CF0,20
+^FO40,310^FDCLIENTE^FS
+^CF0,30
+^FO40,335^FB720,2,0,L,0^FD{nome_cliente}\\&^FS
+
+^FO40,395^GB720,3,3^FS
+
+^FX ===== Bloco: Plataforma =====
+^CF0,20
+^FO40,420^FDPLATAFORMA^FS
+^CF0,32
+^FO40,445^FD{plataforma}^FS
+
+^FO40,500^GB720,3,3^FS
+
+^FX ===== Bloco: Datas =====
+^CF0,20
+^FO40,525^FDDATAS^FS
+^CF0,26
+^FO40,552^FDVenda: {devolucao.data_venda.strftime('%d/%m/%Y')}^FS
+^FO40,594^FDRecebido pelo cliente: {devolucao.data_recebimento_cliente.strftime('%d/%m/%Y')}^FS
+^FO40,636^FDReclamacao aberta: {devolucao.data_reclamacao_cliente.strftime('%d/%m/%Y')}^FS
+^FO40,678^FDRecebido por nos: {devolucao.data_recebimento_por_nos.strftime('%d/%m/%Y')}^FS
+
+^FO40,735^GB720,3,3^FS
+
+^FX ===== Bloco: Produto (com codigo de barras dentro do bloco) =====
+^CF0,20
+^FO40,760^FDPRODUTO^FS
+^CF0,30
+^FO40,785^FB720,2,0,L,0^FD{nome_produto}\\&^FS
+
+{bloco_codigo_produto}
+
+^CF0,20
+^FO430,875^FDSKU^FS
+^CF0,32
+^FO430,900^FD{sku}^FS
+
+^FO40,1020^GB720,3,3^FS
+
+^FX ===== Rodape =====
+^CF0,18
+^FO40,1045^FDGerado em {gerado_em}^FS
+
+^XZ
+'''
+
+
+def gerar_etiqueta_termica_devolucao(request, devolucao_id):
+    """Tela que gera o texto ZPL da etiqueta térmica (mini-relatório) de 1
+    devolução — Fase 8 do fluxo (ver vault).
+
+    [ATENÇÃO] → Não imprime nem gera PDF sozinha (ver docstring de
+    _montar_zpl_etiqueta_termica_devolucao). A página só mostra o código
+    ZPL pronto num bloco de texto com botão "Copiar" — quem usa cola esse
+    código no Labelary (https://labelary.com/viewer.html), confere
+    visualmente, baixa o PDF de lá e imprime na Zebra normalmente, igual
+    já é feito hoje pra qualquer etiqueta térmica instável.
+
+    Mesma disponibilidade do botão "Imprimir relatório": só aparece em
+    devolucoes_pendentes.html quando destino_produto já está preenchido,
+    mas pode ser aberta a qualquer momento."""
+    devolucao = get_object_or_404(
+        Devolucao.objects.select_related('produto'), pk=devolucao_id,
+    )
+    zpl = _montar_zpl_etiqueta_termica_devolucao(devolucao)
+    return render(request, 'devolucoes/etiqueta_termica_devolucao.html', {
+        'devolucao': devolucao,
+        'zpl': zpl,
     })
 
 
