@@ -615,24 +615,58 @@ def buscar_produtos_devolucao(request):
 
 
 def devolucoes_pendentes(request):
-    """Listagem de TODAS as devoluções — nome ficou de antes da
-    conferência existir, quando só listava as pendentes; hoje continua
-    trazendo as já conferidas também, com acesso a editar a conferência
-    (em caso de erro ao gravar) e a editar/excluir a devolução em si.
-    destino_produto vazio é o sinal de 'ainda não conferida' (ver
-    comentário em Devolucao.destino_produto no model — mesma filosofia
-    de estado derivado usada em ConferenciaPeca.situacao, sem duplicar
-    num campo de status à parte) — é o que o template usa pra decidir
-    entre mostrar 'Continuar conferência' ou 'Editar conferência'."""
+    """Listagem de TODAS as devoluções, organizada em 5 abas que seguem
+    o fluxo real do produto (decisão de Matheus, 18/09/2026):
+    Aguardando Conferência → Conferidos → Mediações Abertas →
+    Mediações Encerradas → Impressos. 'Impressos' é sempre o destino
+    final, tanto de quem nunca precisou de mediação (Conferido →
+    Impresso direto) quanto de quem precisou (→ Mediação Aberta →
+    Mediação Encerrada → Impresso) — não existe caminho de volta, o
+    relatório só é marcado como impresso quando o processo já foi
+    realmente finalizado. A aba de cada devolução é calculada por
+    Devolucao.status_fluxo (ver o model pra regra completa), nunca
+    guardada num campo à parte — mesma filosofia de destino_produto/
+    ConferenciaPeca.situacao já usada no resto do sistema. A busca e o
+    filtro de reembolso (dentro de Mediações Encerradas/Impressos) são
+    100% client-side (script_devolucoes_pendentes.js) — o Django já
+    manda as 5 listas prontas de uma vez, sem endpoint novo pra buscar."""
     lista = (
         Devolucao.objects.select_related('produto__marca')
         .order_by('-criado_em')
     )
+
+    grupos = {status_valor: [] for status_valor, _ in Devolucao.STATUS_CHOICES}
+    for devolucao in lista:
+        grupos[devolucao.status_fluxo].append(devolucao)
+
     contexto = {
-        'devolucoes': lista,
+        'aguardando_conferencia': grupos[Devolucao.STATUS_AGUARDANDO_CONFERENCIA],
+        'conferidos': grupos[Devolucao.STATUS_CONFERIDO],
+        'mediacoes_abertas': grupos[Devolucao.STATUS_MEDIACAO_ABERTA],
+        'mediacoes_encerradas': grupos[Devolucao.STATUS_MEDIACAO_ENCERRADA],
+        'impressos': grupos[Devolucao.STATUS_IMPRESSO],
+        'total_devolucoes': len(lista),
         'pagina_ativa': 'devolucoes_pendentes',
     }
     return render(request, 'devolucoes/devolucoes_pendentes.html', contexto)
+
+
+def marcar_devolucao_impressa(request, devolucao_id):
+    """Confirma manualmente que o relatório de 1 devolução já saiu
+    impresso de verdade — de propósito NÃO é marcado sozinho quando a
+    Ana abre imprimir_relatorio_devolucao, porque às vezes a impressão
+    sai errada (papel torto, impressora travou) e ela precisa repetir
+    sem que o sistema já tivesse dado como concluído (decisão de
+    Matheus, 18/09/2026). Sempre POST, sem tela própria — mesmo padrão
+    de excluir_devolucao."""
+    devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+
+    if request.method == 'POST':
+        devolucao.relatorio_impresso_em = timezone.now()
+        devolucao.save(update_fields=['relatorio_impresso_em'])
+        messages.success(request, f'Devolução do pedido {devolucao.numero_pedido} marcada como impressa.')
+
+    return redirect('devolucoes_pendentes')
 
 
 def _pecas_para_conferencia(devolucao):

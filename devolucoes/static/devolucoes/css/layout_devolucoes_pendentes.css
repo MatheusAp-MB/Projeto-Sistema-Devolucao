@@ -103,14 +103,39 @@
     white-space: nowrap;
 }
 
-.dp-badge--pendente {
+.dp-badge--aguardando {
     background: #fef3c7;
     color: #92400e;
 }
 
-.dp-badge--conferida {
+.dp-badge--conferido {
+    background: #e7f0fa;
+    color: var(--cor-primaria-clara);
+}
+
+.dp-badge--mediacao-aberta {
+    background: #fde8e8;
+    color: var(--cor-negativo);
+}
+
+.dp-badge--mediacao-encerrada {
+    background: #eceef1;
+    color: var(--cor-texto-muted);
+}
+
+.dp-badge--impresso {
     background: #e6f4ea;
     color: var(--cor-positivo);
+}
+
+.dp-badge--reembolsado {
+    background: #e6f4ea;
+    color: var(--cor-positivo);
+}
+
+.dp-badge--nao-reembolsado {
+    background: #fde8e8;
+    color: var(--cor-negativo);
 }
 
 .dp-item-linha {
@@ -136,6 +161,152 @@
     text-align: center;
 }
 
+.dp-vazio-busca {
+    display: none;
+    font-size: 13px;
+    color: var(--cor-texto-muted);
+    text-align: center;
+    padding: 24px 0;
+}
+
+/* ===== busca ===== */
+
+.dp-campo-busca {
+    position: relative;
+    margin-bottom: 2px;
+}
+
+.dp-campo-busca i {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--cor-texto-muted);
+    font-size: 13.5px;
+}
+
+.dp-campo-busca input {
+    width: 100%;
+    padding: 10px 14px 10px 38px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-family: inherit;
+    background-color: var(--cor-fundo-pagina);
+}
+
+.dp-campo-busca input:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
+    background-color: var(--cor-fundo-card);
+}
+
+/* ===== abas do fluxo ===== */
+
+.dp-abas-nav {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--cor-borda);
+    margin-top: 16px;
+    flex-wrap: wrap;
+}
+
+.dp-aba-btn {
+    background: none;
+    border: none;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--cor-texto-muted);
+    cursor: pointer;
+    border-bottom: 2.5px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: inherit;
+    white-space: nowrap;
+}
+
+.dp-aba-btn:hover {
+    color: #333;
+}
+
+.dp-aba-btn--ativa {
+    color: var(--cor-primaria);
+    border-bottom-color: var(--cor-primaria-clara);
+}
+
+.dp-aba-contagem {
+    background-color: #eceef1;
+    color: var(--cor-texto-muted);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 20px;
+}
+
+.dp-aba-btn--ativa .dp-aba-contagem {
+    background-color: var(--cor-primaria-clara);
+    color: var(--cor-texto-claro);
+}
+
+.dp-nota-outras-abas {
+    display: none;
+    font-size: 12px;
+    color: var(--cor-texto-muted);
+    padding: 8px 2px 0 2px;
+}
+
+.dp-nota-outras-abas a {
+    color: var(--cor-primaria-clara);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.dp-nota-outras-abas a:hover {
+    text-decoration: underline;
+}
+
+/* ===== filtro de reembolso (Mediações Encerradas / Impressos) ===== */
+
+.dp-filtro-secundario {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0 4px 0;
+    font-size: 12.5px;
+    color: var(--cor-texto-muted);
+    flex-wrap: wrap;
+}
+
+.dp-chip-filtro {
+    border: 1px solid var(--cor-borda);
+    background-color: var(--cor-fundo-card);
+    color: #444;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.dp-chip-filtro--ativa {
+    background-color: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+}
+
+/* ===== abas — mostra só a ativa ===== */
+
+.dp-tab-panel {
+    display: none;
+}
+
+.dp-tab-panel--ativa {
+    display: block;
+}
+
 /* ===== ações por devolução ===== */
 
 .dp-item-acoes {
@@ -145,7 +316,7 @@
     margin-left: auto;
 }
 
-.dp-form-excluir {
+.dp-form-inline {
     display: contents;
 }
 
@@ -186,6 +357,18 @@
     border-color: var(--cor-negativo);
     color: var(--cor-negativo);
     background-color: #fde8e8;
+}
+
+.dp-btn--confirmar {
+    background-color: #e6f4ea;
+    border-color: #bfe6cc;
+    color: var(--cor-positivo);
+}
+
+.dp-btn--confirmar:hover {
+    background-color: var(--cor-positivo);
+    border-color: var(--cor-positivo);
+    color: var(--cor-texto-claro);
 }
 
 @media (max-width: 720px) {

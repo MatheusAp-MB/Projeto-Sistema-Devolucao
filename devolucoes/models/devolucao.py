@@ -49,6 +49,26 @@ class Devolucao(models.Model):
         (PLATAFORMA_TIKTOK_SHOP, 'Tiktok Shop'),
     ]
 
+    # * [EXPLICAÇÃO] → aba calculada em status_fluxo (mais abaixo), na
+    #   ordem certa de prioridade — nunca guardada num campo à parte,
+    #   mesma filosofia de destino_produto/ConferenciaPeca.situacao.
+    #   Decisão de Matheus (18/09/2026): o fluxo real do produto é
+    #   Aguardando Conferência → Conferidos → (Mediação Aberta →
+    #   Mediação Encerrada, só quem precisa) → Impressos — sempre nessa
+    #   ordem, sem caminho de volta.
+    STATUS_AGUARDANDO_CONFERENCIA = 'aguardando_conferencia'
+    STATUS_CONFERIDO = 'conferido'
+    STATUS_MEDIACAO_ABERTA = 'mediacao_aberta'
+    STATUS_MEDIACAO_ENCERRADA = 'mediacao_encerrada'
+    STATUS_IMPRESSO = 'impresso'
+    STATUS_CHOICES = [
+        (STATUS_AGUARDANDO_CONFERENCIA, 'Aguardando Conferência'),
+        (STATUS_CONFERIDO, 'Conferidos'),
+        (STATUS_MEDIACAO_ABERTA, 'Mediações Abertas'),
+        (STATUS_MEDIACAO_ENCERRADA, 'Mediações Encerradas'),
+        (STATUS_IMPRESSO, 'Impressos'),
+    ]
+
     # ===== Sobre a plataforma (Fase 0, preenchido no PC) =====
     nome_plataforma = models.CharField('Plataforma', max_length=100, choices=PLATAFORMA_CHOICES)
     tipo_venda = models.CharField('Tipo de venda', max_length=10, choices=TIPO_VENDA_CHOICES)
@@ -97,6 +117,17 @@ class Devolucao(models.Model):
     # * [EXPLICAÇÃO] → o estado de cada peça (recebida/incompleta/não
     #   recebida) mora em ConferenciaPeca (relação 1-N), não aqui. 
 
+    # ===== Sobre a impressão do relatório (Fase 5/8) =====
+    relatorio_impresso_em = models.DateTimeField(
+        'Relatório impresso em', null=True, blank=True,
+        help_text=(
+            'Preenchido manualmente pela usuária ao confirmar que já '
+            'imprimiu de verdade — de propósito não marca sozinho ao abrir '
+            'a tela de impressão, porque às vezes a impressão sai errada e '
+            'precisa repetir (decisão de Matheus, 18/09/2026).'
+        ),
+    )
+
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -104,3 +135,34 @@ class Devolucao(models.Model):
 
     def __str__(self):
         return f'Devolução de {self.produto.nome} — pedido {self.numero_pedido}'
+
+    @property
+    def status_fluxo(self):
+        # * [EXPLICAÇÃO] → pergunta sempre pelo passo mais avançado
+        #   primeiro, e só desce pro passo anterior se não bateu —
+        #   "Impresso" é sempre o destino final, tanto de quem nunca
+        #   precisou de mediação (Conferido → Impresso direto) quanto de
+        #   quem precisou (→ Mediação Aberta → Mediação Encerrada →
+        #   Impresso). Não existe caminho de volta (decisão de Matheus,
+        #   18/09/2026): uma vez impresso, é porque foi realmente
+        #   finalizado.
+        if self.relatorio_impresso_em:
+            return self.STATUS_IMPRESSO
+        if self.data_finalizacao_mediacao:
+            return self.STATUS_MEDIACAO_ENCERRADA
+        if self.data_abertura_mediacao:
+            return self.STATUS_MEDIACAO_ABERTA
+        if self.destino_produto:
+            return self.STATUS_CONFERIDO
+        return self.STATUS_AGUARDANDO_CONFERENCIA
+
+    @property
+    def status_fluxo_display(self):
+        return dict(self.STATUS_CHOICES)[self.status_fluxo]
+
+    @property
+    def reembolsado_filtro(self):
+        # * [EXPLICAÇÃO] → decisão de Matheus (18/09/2026): vazio conta
+        #   como "não reembolsado" no filtro das abas Mediações Encerradas
+        #   e Impressos — não existe um 3º grupo "não se aplica" na tela.
+        return 'sim' if self.reembolsado else 'nao'
