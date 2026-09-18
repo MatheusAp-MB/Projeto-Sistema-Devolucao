@@ -81,7 +81,24 @@ def _mover_arquivo(foto, alias, caminho_relativo_novo, aplicar):
     caminho_antigo_absoluto = _caminho_absoluto(caminho_antigo_relativo)
 
     if caminho_antigo_relativo == caminho_relativo_novo:
-        return {'situacao': 'pulada', 'de': caminho_antigo_relativo, 'para': caminho_relativo_novo}
+        # * [ATENÇÃO] → não basta o banco já achar que está no caminho
+        #   novo — se o arquivo não existir ali de verdade (ex: alguém
+        #   restaurou uma pasta de backup antiga por cima depois do banco
+        #   já ter sido atualizado num teste anterior), isso é um erro de
+        #   sincronia disco x banco, nunca pode ser relatado
+        #   silenciosamente como "já estava certa".
+        if caminho_antigo_absoluto.exists():
+            return {'situacao': 'pulada', 'de': caminho_antigo_relativo, 'para': caminho_relativo_novo}
+        return {
+            'situacao': 'erro',
+            'de': caminho_antigo_relativo,
+            'para': caminho_relativo_novo,
+            'motivo': (
+                'o banco já registra esse caminho, mas o arquivo não existe nele — '
+                'o disco está fora de sincronia com o banco (ex: uma pasta antiga foi '
+                'restaurada por cima depois de já ter reorganizado). Revise manualmente.'
+            ),
+        }
 
     if not caminho_antigo_absoluto.exists():
         return {
