@@ -233,9 +233,51 @@ def _montar_zpl_etiqueta_termica_devolucao(devolucao):
 '''
 
 
+FORMATO_JSBARCODE_PRODUTO = {'ean': 'EAN13', 'code128': 'CODE128'}
+
+
+def imprimir_etiqueta_termica_devolucao(request, devolucao_id):
+    """Tela PRINCIPAL de impressão da etiqueta térmica (mini-relatório
+    10x15cm) de 1 devolução — Fase 8 do fluxo (ver vault). É essa que o
+    botão "Etiqueta térmica" em devolucoes_pendentes.html abre.
+
+    [ATENÇÃO] → Igual a imprimir_relatorio_devolucao: isso NÃO gera PDF
+    no servidor. É uma página HTML normal com @page 10x15cm (@media
+    print) — a pessoa aperta Ctrl+P (ou o botão "Imprimir" da própria
+    página) e imprime direto na Zebra, que aparece como impressora comum
+    no Windows. Os códigos de barras (pedido + produto/EAN) são
+    desenhados no próprio navegador via JsBarcode (carregado por CDN no
+    template — https://github.com/lindell/JsBarcode, MIT, zero
+    dependências), sem gerar imagem no servidor e sem precisar de
+    nenhuma lib Python nova (não mexe no empacotamento em .exe).
+
+    Se a impressão direta der problema, a própria página tem um link
+    "Backup: código ZPL" que leva pra gerar_etiqueta_termica_devolucao —
+    o fluxo manual (copiar → colar no Labelary → baixar PDF → imprimir),
+    que continua existindo e testado, agora só como plano B.
+
+    Mesma disponibilidade do botão "Imprimir relatório": só aparece em
+    devolucoes_pendentes.html quando destino_produto já está preenchido,
+    mas pode ser aberta a qualquer momento."""
+    devolucao = get_object_or_404(
+        Devolucao.objects.select_related('produto'), pk=devolucao_id,
+    )
+    tipo_codigo_produto, valor_codigo_produto = _preparar_codigo_barras_produto(
+        devolucao.produto.codigo_barras
+    )
+    return render(request, 'devolucoes/etiqueta_termica_devolucao_impressao.html', {
+        'devolucao': devolucao,
+        'formato_codigo_produto': FORMATO_JSBARCODE_PRODUTO.get(tipo_codigo_produto),
+        'valor_codigo_produto': valor_codigo_produto,
+    })
+
+
 def gerar_etiqueta_termica_devolucao(request, devolucao_id):
-    """Tela que gera o texto ZPL da etiqueta térmica (mini-relatório) de 1
-    devolução — Fase 8 do fluxo (ver vault).
+    """Tela BACKUP que gera o texto ZPL da etiqueta térmica (mini-
+    relatório) de 1 devolução — Fase 8 do fluxo (ver vault). A tela
+    principal do dia a dia é imprimir_etiqueta_termica_devolucao (imprime
+    direto, sem esse passo manual) — essa aqui só entra em cena quando a
+    impressão direta falhar/ficar instável.
 
     [ATENÇÃO] → Não imprime nem gera PDF sozinha (ver docstring de
     _montar_zpl_etiqueta_termica_devolucao). A página só mostra o código
@@ -244,9 +286,9 @@ def gerar_etiqueta_termica_devolucao(request, devolucao_id):
     visualmente, baixa o PDF de lá e imprime na Zebra normalmente, igual
     já é feito hoje pra qualquer etiqueta térmica instável.
 
-    Mesma disponibilidade do botão "Imprimir relatório": só aparece em
-    devolucoes_pendentes.html quando destino_produto já está preenchido,
-    mas pode ser aberta a qualquer momento."""
+    Não é mais linkada direto do botão em devolucoes_pendentes.html — só
+    é alcançada a partir do link "Backup: código ZPL" dentro da tela
+    principal."""
     devolucao = get_object_or_404(
         Devolucao.objects.select_related('produto'), pk=devolucao_id,
     )

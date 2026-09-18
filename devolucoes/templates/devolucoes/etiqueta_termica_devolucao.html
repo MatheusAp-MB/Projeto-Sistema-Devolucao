@@ -1,17 +1,21 @@
 <!--
-[RESUMO] → Tela que mostra o código ZPL pronto da etiqueta térmica
-(mini-relatório 10x15cm) de 1 devolução — Fase 8 do fluxo (ver vault).
+[RESUMO] → Tela BACKUP que mostra o código ZPL pronto da etiqueta
+térmica (mini-relatório 10x15cm) de 1 devolução — Fase 8 do fluxo (ver
+vault). A tela PRINCIPAL do dia a dia é
+etiqueta_termica_devolucao_impressao.html (imprime direto, sem esse
+passo manual) — essa aqui só entra em cena quando a impressão direta
+falhar/ficar instável.
 
 [ATENÇÃO] → Essa página NÃO imprime nada e NÃO gera PDF no servidor. Ela
 só mostra o texto ZPL (montado em views.py) dentro de um bloco pra
-copiar. O fluxo de verdade é manual, fora do sistema: copiar aqui, colar
-em https://labelary.com/viewer.html, conferir visualmente (10x15cm,
+copiar. O fluxo manual é: copiar aqui, colar em
+https://labelary.com/viewer.html, conferir visualmente (10x15cm,
 8 dpmm), baixar o PDF que o Labelary gera, e imprimir esse PDF na Zebra —
 o mesmo caminho já usado hoje pra qualquer etiqueta térmica instável.
 
-Página standalone (não estende a base do app), no mesmo estilo visual do
-relatorio_devolucao_impressao.html — pensada pra abrir numa aba nova a
-partir do botão "Etiqueta térmica" em devolucoes_pendentes.html.
+Página standalone (não estende a base do app) — só é linkada a partir da
+tela principal (etiqueta_termica_devolucao_impressao.html), nunca
+diretamente do botão em devolucoes_pendentes.html.
 -->
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -86,6 +90,7 @@ partir do botão "Etiqueta térmica" em devolucoes_pendentes.html.
 <body>
 
     <div class="barra-acoes">
+        <a href="{% url 'imprimir_etiqueta_termica_devolucao' devolucao.id %}" class="btn-acao secundario">← Impressão direta (principal)</a>
         <a href="https://labelary.com/viewer.html" target="_blank" class="btn-acao secundario">Abrir Labelary</a>
         <button type="button" class="btn-acao" id="btn-copiar">Copiar código ZPL</button>
     </div>

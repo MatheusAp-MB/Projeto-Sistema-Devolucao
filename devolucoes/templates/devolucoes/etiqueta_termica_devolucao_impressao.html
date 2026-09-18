@@ -1,0 +1,196 @@
+<!--
+[RESUMO] → Tela PRINCIPAL de impressão da etiqueta térmica (mini-
+relatório 10x15cm) de 1 devolução — Fase 8 do fluxo (ver vault). É essa
+que o botão "Etiqueta térmica" em devolucoes_pendentes.html abre.
+
+[ATENÇÃO] → Igual ao relatorio_devolucao_impressao.html: isso NÃO gera
+PDF no servidor. É uma página HTML normal, com @page 10x15cm (@media
+print) — a pessoa aperta Ctrl+P (ou o botão "Imprimir" da própria
+página) e imprime direto na Zebra, que aparece como impressora comum no
+Windows (mesmo mecanismo do relatório A4, só que com o tamanho de folha
+diferente).
+
+Os códigos de barras (pedido + produto/EAN) são desenhados no próprio
+navegador via JsBarcode (https://github.com/lindell/JsBarcode, MIT,
+zero dependências) carregado por CDN — sem gerar imagem no servidor,
+sem lib Python nova, sem afetar o empacotamento do sistema em .exe
+(gerar_exe.py). Formato do código do produto (EAN13 ou CODE128) e o
+valor já vêm prontos de views.py (_preparar_codigo_barras_produto),
+mesma lógica de fallback já usada na versão ZPL (EAN-13 quando o
+codigo_barras tem 12/13 dígitos numéricos limpos, Code128 quando não,
+nada quando o produto não tem codigo_barras cadastrado).
+
+Se a impressão direta der problema, o link "Backup: código ZPL" no topo
+desta página leva pro fluxo manual (copiar → colar no Labelary → baixar
+PDF → imprimir), que continua existindo e testado.
+-->
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Etiqueta Térmica — Pedido {{ devolucao.numero_pedido }}</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.12.3/dist/JsBarcode.all.min.js"></script>
+<style>
+    :root {
+        --navy: #1a3a5c;
+        --texto: #1c2733;
+        --muted: #545f6b;
+        --borda: #d7dce1;
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+        color: var(--texto);
+        margin: 0;
+        padding: 24px;
+        background: #eef1f4;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
+
+    .barra-acoes { width: 10cm; margin: 0 auto 12px auto; display: flex; justify-content: space-between; gap: 10px; }
+    .btn-acao {
+        background: var(--navy); color: #fff; border: none;
+        padding: 8px 14px; border-radius: 6px;
+        font-size: 12px; font-weight: 600; cursor: pointer;
+        text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+        white-space: nowrap;
+    }
+    .btn-acao:hover { background: #12293f; }
+    .btn-acao.secundario { background: #fff; color: var(--navy); border: 1px solid var(--navy); }
+    .btn-acao.secundario:hover { background: #f4f7fa; }
+
+    .etiqueta {
+        width: 10cm;
+        height: 15cm;
+        background: #fff;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+        padding: 4mm;
+        display: flex;
+        flex-direction: column;
+        gap: 4mm;
+        overflow: hidden;
+    }
+
+    .cabecalho { text-align: center; font-size: 14px; font-weight: 800; letter-spacing: 0.5px; border-bottom: 2px solid var(--navy); padding-bottom: 2mm; }
+
+    .rotulo { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin: 0 0 1mm 0; }
+    .divisor { border: none; border-top: 1.5px solid var(--navy); margin: 0; }
+
+    .linha-pedido { display: flex; justify-content: space-between; align-items: flex-start; gap: 4mm; }
+    .pedido-valor { font-size: 19px; font-weight: 800; line-height: 1.1; }
+    .nf-valor { font-size: 17px; font-weight: 800; line-height: 1.1; }
+    .cliente-valor { font-size: 15px; font-weight: 700; line-height: 1.25; }
+    .plataforma-valor { font-size: 16px; font-weight: 700; }
+
+    .datas-linha { display: flex; justify-content: space-between; font-size: 12px; margin: 1mm 0; }
+    .datas-linha span:last-child { font-weight: 700; }
+
+    .produto-nome { font-size: 15px; font-weight: 700; line-height: 1.25; }
+
+    .linha-produto-codigo { display: flex; justify-content: space-between; align-items: center; gap: 4mm; }
+    .sku-bloco { text-align: right; flex-shrink: 0; }
+    .sku-valor { font-size: 15px; font-weight: 800; }
+
+    .rodape { font-size: 9px; color: #a9b3bc; text-align: right; }
+
+    @media print {
+        body { background: #fff; padding: 0; display: block; }
+        .barra-acoes { display: none; }
+        .etiqueta { box-shadow: none; }
+        @page { size: 10cm 15cm; margin: 0; }
+    }
+</style>
+</head>
+<body>
+
+    <div class="barra-acoes">
+        <a href="{% url 'gerar_etiqueta_termica_devolucao' devolucao.id %}" target="_blank" class="btn-acao secundario">Backup: código ZPL</a>
+        <button type="button" class="btn-acao" onclick="window.print()">Imprimir</button>
+    </div>
+
+    <div class="etiqueta">
+
+        <div class="cabecalho">DEVOLUÇÃO — IDENTIFICAÇÃO PROVISÓRIA</div>
+
+        <div class="linha-pedido">
+            <div>
+                <p class="rotulo">Pedido</p>
+                <p class="pedido-valor mono">{{ devolucao.numero_pedido }}</p>
+            </div>
+            <svg id="barcode-pedido"></svg>
+        </div>
+
+        <div>
+            <p class="rotulo">NF</p>
+            <p class="nf-valor mono">{{ devolucao.numero_nota_fiscal }}</p>
+        </div>
+
+        <div>
+            <p class="rotulo">Cliente</p>
+            <p class="cliente-valor">{{ devolucao.nome_cliente }}</p>
+        </div>
+
+        <hr class="divisor">
+
+        <div>
+            <p class="rotulo">Plataforma</p>
+            <p class="plataforma-valor">{{ devolucao.nome_plataforma }} — {{ devolucao.get_tipo_venda_display }}</p>
+        </div>
+
+        <hr class="divisor">
+
+        <div>
+            <p class="rotulo">Datas</p>
+            <div class="datas-linha"><span>Venda</span><span class="mono">{{ devolucao.data_venda|date:"d/m/Y" }}</span></div>
+            <div class="datas-linha"><span>Recebido pelo cliente</span><span class="mono">{{ devolucao.data_recebimento_cliente|date:"d/m/Y" }}</span></div>
+            <div class="datas-linha"><span>Reclamação aberta</span><span class="mono">{{ devolucao.data_reclamacao_cliente|date:"d/m/Y" }}</span></div>
+            <div class="datas-linha"><span>Recebido por nós</span><span class="mono">{{ devolucao.data_recebimento_por_nos|date:"d/m/Y" }}</span></div>
+        </div>
+
+        <hr class="divisor">
+
+        <div>
+            <p class="rotulo">Produto</p>
+            <p class="produto-nome">{{ devolucao.produto.nome }}</p>
+        </div>
+
+        <div class="linha-produto-codigo">
+            <svg id="barcode-produto"></svg>
+            <div class="sku-bloco">
+                <p class="rotulo">SKU</p>
+                <p class="sku-valor mono">{{ devolucao.produto.sku|default:"-" }}</p>
+            </div>
+        </div>
+
+        <hr class="divisor">
+
+        <p class="rodape">Gerado em {% now "d/m/Y H:i" %}</p>
+
+    </div>
+
+    <script>
+        JsBarcode("#barcode-pedido", "{{ devolucao.numero_pedido|escapejs }}", {
+            format: "CODE128",
+            displayValue: false,
+            margin: 2,
+            height: 52,
+            width: 1,
+        });
+
+        {% if formato_codigo_produto %}
+        JsBarcode("#barcode-produto", "{{ valor_codigo_produto|escapejs }}", {
+            format: "{{ formato_codigo_produto }}",
+            displayValue: true,
+            fontSize: 13,
+            margin: 4,
+            height: 46,
+            width: 1.3,
+        });
+        {% endif %}
+    </script>
+
+</body>
+</html>
