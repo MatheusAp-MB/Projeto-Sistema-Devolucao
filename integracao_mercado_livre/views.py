@@ -76,6 +76,23 @@ def _formatar_data(valor_iso):
     return instante.strftime("%d/%m/%Y %H:%M")
 
 
+def _formatar_data_para_input(valor_iso):
+    """Mesma conversão de fuso de _formatar_data, mas no formato que os
+    campos <input type="date"> do formulário de Nova Devolução esperam
+    (YYYY-MM-DD) — usado só pra montar o link 'Criar devolução' que sai
+    dessa tela auto-preenchendo o que der pra confiar (decisão de
+    Matheus, 18/09/2026: sem produto, sem reembolsado, sem motivo da
+    reclamação — só datas/cliente/pedido, que vêm direto da API)."""
+    if not valor_iso or not isinstance(valor_iso, str):
+        return ''
+    try:
+        instante = datetime.fromisoformat(valor_iso)
+    except ValueError:
+        return ''
+    instante = instante.astimezone(FUSO_HORARIO_EXIBICAO)
+    return instante.strftime("%Y-%m-%d")
+
+
 def _primeiro_evento_com_status(eventos, status_procurado):
     for evento in eventos:
         if evento.get("status") == status_procurado:
@@ -626,6 +643,13 @@ def view_consultar_pedido(request):
         quantidade_item = item.get("quantity") or 1
 
         shipping_id_ida = (pedido.get("shipping") or {}).get("id")
+        # * [EXPLICAÇÃO] → 'fulfillment' é o único logistic_type que
+        #   corresponde a venda FULL de verdade — usado só pra sugerir o
+        #   Tipo de venda no link "Criar devolução"; os valores
+        #   ('comum'/'full') têm que continuar batendo com
+        #   Devolucao.TIPO_VENDA_CHOICES.
+        logistic_type_pedido = (pedido.get("shipping") or {}).get("logistic_type")
+        tipo_venda_sugerido = 'full' if logistic_type_pedido == 'fulfillment' else 'comum'
         historico_ida = []
         endereco_origem_ida = None
         endereco_destino_ida = None
@@ -643,6 +667,7 @@ def view_consultar_pedido(request):
                     shipment_ida_completo.get('receiver_address'), conta,
                 )
         historico_ida_ordenado = sorted(historico_ida, key=lambda e: e.get('date') or '')
+        data_entrega_cliente = _ultimo_evento_com_status(historico_ida, "delivered") if historico_ida else None
 
         # ----- Envio(s) de volta -----
         envios_volta = devolucao.get("shipments", [])
@@ -689,6 +714,7 @@ def view_consultar_pedido(request):
         ramo = "Mediação" if eh_mediacao else "Devolução simples (sem mediação)"
 
         data_abertura_mediacao = None
+        data_dispute = None
         if eh_mediacao:
             data_dispute = _data_abertura_disputa(claim.get('id'), conta)
             data_abertura_mediacao = _formatar_data(data_dispute) if data_dispute else None
@@ -737,6 +763,19 @@ def view_consultar_pedido(request):
             'data_encerramento': _formatar_data(devolucao.get('date_closed')),
             'status_dinheiro': devolucao.get('status_money'),
             'mensagens_mediacao': mensagens_mediacao,
+            # ===== Só pro botão "Criar devolução" (ponte Consultar Pedido →
+            #   Nova Devolução, decisão do vault 17/09 23:24) — datas no
+            #   formato de <input type="date">, sem reembolsado/motivo/
+            #   produto: decisão de Matheus (18/09/2026) de deixar de fora
+            #   o que não dá pra confiar 100% vindo da API. =====
+            'nome_comprador_input': nome_comprador if nome_comprador != '—' else '',
+            'data_venda_input': _formatar_data_para_input(pedido.get('date_created')),
+            'data_recebimento_cliente_input': _formatar_data_para_input(data_entrega_cliente),
+            'data_reclamacao_cliente_input': _formatar_data_para_input(claim.get('date_created')),
+            'data_recebimento_por_nos_input': _formatar_data_para_input(data_chegada_nos),
+            'data_abertura_mediacao_input': _formatar_data_para_input(data_dispute),
+            'data_finalizacao_mediacao_input': _formatar_data_para_input(devolucao.get('date_closed')),
+            'tipo_venda_sugerido': tipo_venda_sugerido,
         })
 
     except (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao) as erro:

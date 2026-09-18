@@ -384,7 +384,17 @@ def nova_devolucao(request):
     buscar_produtos_devolucao). Ao salvar, cria a Devolucao no banco já
     com o produto definido — mas ainda sem destino_produto nem peças
     conferidas, porque essa 2ª parte é feita depois, pelo celular (ver
-    devolucoes_pendentes)."""
+    devolucoes_pendentes).
+
+    O GET também aceita chegar com ?numero_pedido=... e companhia, vindo
+    do botão "Criar devolução" da tela Consultar Pedido (ponte decidida
+    no vault em 17/09 23:24) — nesse caso já chega com plataforma, pedido,
+    cliente e datas pré-preenchidos, e produto/NF/reembolsado/motivo da
+    reclamação continuam em branco pra confirmação manual (decisão de
+    Matheus, 18/09/2026: só auto-preenche o que vem direto e confiável da
+    API do ML). Se já existir uma devolução pra esse numero_pedido,
+    redireciona pra editar_devolucao em vez de abrir o formulário vazio
+    de novo — não cria duplicata."""
     if request.method == 'POST':
         valores = {
             'nome_plataforma': request.POST.get('nome_plataforma', '').strip(),
@@ -463,6 +473,31 @@ def nova_devolucao(request):
             f'Devolução do pedido {devolucao.numero_pedido} criada — pendente de conferência das peças.',
         )
         return redirect('devolucoes_pendentes')
+
+    numero_pedido_ml = request.GET.get('numero_pedido', '').strip()
+    if numero_pedido_ml:
+        devolucao_existente = Devolucao.objects.filter(numero_pedido=numero_pedido_ml).first()
+        if devolucao_existente:
+            messages.info(request, f'Já existe uma devolução registrada pro pedido {numero_pedido_ml} — abrindo ela.')
+            return redirect('editar_devolucao', devolucao_id=devolucao_existente.id)
+
+        valores = {
+            'nome_plataforma': Devolucao.PLATAFORMA_MERCADO_LIVRE,
+            'tipo_venda': request.GET.get('tipo_venda', '').strip(),
+            'numero_pedido': numero_pedido_ml,
+            'numero_nota_fiscal': '',
+            'nome_cliente': request.GET.get('nome_cliente', '').strip(),
+            'data_venda': request.GET.get('data_venda', '').strip(),
+            'data_recebimento_cliente': request.GET.get('data_recebimento_cliente', '').strip(),
+            'data_reclamacao_cliente': request.GET.get('data_reclamacao_cliente', '').strip(),
+            'data_recebimento_por_nos': request.GET.get('data_recebimento_por_nos', '').strip(),
+            'data_abertura_mediacao': request.GET.get('data_abertura_mediacao', '').strip(),
+            'data_finalizacao_mediacao': request.GET.get('data_finalizacao_mediacao', '').strip(),
+            'reembolsado': '',
+            'anotacao_mediacao': '',
+            'motivo_reclamacao': '',
+        }
+        return render(request, 'devolucoes/nova_devolucao.html', _contexto_nova_devolucao(valores))
 
     return render(request, 'devolucoes/nova_devolucao.html', _contexto_nova_devolucao())
 
