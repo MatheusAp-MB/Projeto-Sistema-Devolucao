@@ -55,3 +55,10 @@ class FotoConferenciaPeca(models.Model):
 
     def __str__(self):
         return f'Foto de {self.conferencia}'
+
+    @property
+    def nome_arquivo(self):
+        """Só o nome do arquivo (sem o caminho de pastas) — usado na tela
+        de visualização da devolução, pra mostrar embaixo da miniatura sem
+        aparecer o caminho inteiro."""
+        return self.imagem.name.rsplit('/', 1)[-1]

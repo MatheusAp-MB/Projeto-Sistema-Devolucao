@@ -1,0 +1,311 @@
+/*
+* [RESUMO] → Layout da tela "Visualizar devolução" — só leitura, reúne
+* todos os dados da devolução/conferência num único lugar e mostra as
+* fotos de evidência da conferência já agrupadas por peça. Pensada pra
+* quem só precisa checar o que foi feito ou pegar as fotos pra mediação
+* com a plataforma (dor da Ana), sem precisar abrir a tela de edição da
+* conferência nem o relatório A4. Reaproveita os tokens de cor já
+* definidos em layout_global.css — sem inventar identidade visual nova.
+*/
+
+.vd-pagina {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    max-width: 980px;
+}
+
+.vd-cartao {
+    background-color: var(--cor-fundo-card);
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 20px 24px;
+}
+
+.vd-cartao-titulo {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--cor-texto-muted);
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+
+.vd-cabecalho {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.vd-titulo-pedido {
+    font-size: 20px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 6px;
+}
+
+.vd-meta-linha {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--cor-texto-muted);
+}
+
+.vd-meta-linha i {
+    margin-right: 4px;
+}
+
+.vd-acoes-topo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.vd-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border: 1px solid var(--cor-borda);
+    background-color: #fff;
+    color: #444;
+    white-space: nowrap;
+}
+
+.vd-btn:hover {
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria-clara);
+    text-decoration: none;
+}
+
+.vd-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 11px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.vd-badge--verde    { background: #e6f4ea; color: var(--cor-positivo); }
+.vd-badge--ambar    { background: #fef3c7; color: #92400e; }
+.vd-badge--vermelho { background: #fde8e8; color: var(--cor-negativo); }
+
+.vd-grade-dados {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px 20px;
+}
+
+.vd-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.vd-rotulo {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--cor-texto-muted);
+    font-weight: 700;
+}
+
+.vd-valor {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+}
+
+.vd-valor--vazio {
+    color: var(--cor-texto-muted);
+    font-weight: 400;
+    font-style: italic;
+}
+
+.vd-texto-bloco {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: #444;
+}
+
+.vd-produto-linha {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+}
+
+.vd-produto-foto {
+    width: 74px;
+    height: 74px;
+    border-radius: 10px;
+    background: var(--cor-fundo-pagina);
+    border: 1px solid var(--cor-borda);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cor-texto-muted);
+    font-size: 22px;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.vd-produto-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.vd-produto-nome {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    color: #333;
+}
+
+.vd-peca-bloco {
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+}
+
+.vd-peca-bloco:last-child {
+    margin-bottom: 0;
+}
+
+.vd-peca-cabecalho {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.vd-peca-nome {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.vd-peca-nome i {
+    color: var(--cor-texto-muted);
+}
+
+.vd-peca-qtd {
+    font-size: 12.5px;
+    color: var(--cor-texto-muted);
+    font-weight: 600;
+}
+
+.vd-peca-anotacao {
+    font-size: 13px;
+    color: #444;
+    margin: 4px 0 14px 0;
+    background: var(--cor-fundo-pagina);
+    border-left: 3px solid var(--cor-borda);
+    padding: 8px 12px;
+    border-radius: 0 6px 6px 0;
+}
+
+.vd-grade-fotos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+}
+
+.vd-foto-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    color: inherit;
+}
+
+.vd-foto-item:hover {
+    text-decoration: none;
+}
+
+.vd-foto-thumb {
+    aspect-ratio: 1 / 1;
+    background: var(--cor-fundo-pagina);
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.vd-foto-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.vd-foto-nome {
+    font-size: 10.5px;
+    color: var(--cor-texto-muted);
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vd-sem-fotos {
+    font-size: 13px;
+    color: var(--cor-texto-muted);
+    font-style: italic;
+}
+
+.vd-aviso-pasta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: #e0edf7;
+    border: 1px solid #b9d6ec;
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-top: 4px;
+}
+
+.vd-aviso-pasta i {
+    font-size: 20px;
+    color: var(--cor-primaria-clara);
+}
+
+.vd-aviso-pasta-txt {
+    font-size: 13px;
+    color: var(--cor-primaria);
+}
+
+.vd-aviso-pasta code {
+    display: block;
+    background: #fff;
+    border: 1px solid #b9d6ec;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    margin-top: 6px;
+    color: #333;
+}
+
+@media (max-width: 720px) {
+    .vd-grade-dados {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .vd-acoes-topo {
+        width: 100%;
+    }
+}

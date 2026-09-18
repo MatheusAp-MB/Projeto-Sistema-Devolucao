@@ -785,6 +785,31 @@ def excluir_foto_conferencia(request, foto_id):
     return redirect('conferir_devolucao', devolucao_id)
 
 
+def visualizar_devolucao(request, devolucao_id):
+    """Tela de consulta — só leitura, pensada pra quem só precisa checar o
+    que foi feito na conferência ou pegar as fotos de evidência pra
+    mediação com a plataforma (dor da Ana), sem precisar entrar na tela
+    de edição (conferir_devolucao) nem reabrir o relatório A4.
+
+    Mostra as fotos de FotoConferenciaPeca (evidência da conferência)
+    agrupadas por peça — nunca a foto de catálogo da Peca. Fotos de
+    reclamação do cliente (FotoReclamacaoCliente) ficam de fora de
+    propósito: não interessam pra mediação, só a de conferência.
+    """
+    devolucao = get_object_or_404(
+        Devolucao.objects.select_related('produto'), pk=devolucao_id,
+    )
+    pecas_conferidas = (
+        devolucao.pecas_conferidas
+        .select_related('peca')
+        .prefetch_related('fotos')
+    )
+    return render(request, 'devolucoes/visualizar_devolucao.html', {
+        'devolucao': devolucao,
+        'pecas_conferidas': pecas_conferidas,
+    })
+
+
 def produtos(request):
     """Lista todos os produtos agrupados por Marca/Grupo Fornecedor —
     marca sem grupo vira uma seção própria; marca com grupo fica dentro
