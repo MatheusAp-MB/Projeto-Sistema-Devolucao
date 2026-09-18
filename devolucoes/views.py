@@ -23,10 +23,13 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from core.empresa import obter_alias_banco_ativo
+
 from .models import (
     Compatibilidade, ConferenciaPeca, Devolucao, FotoConferenciaPeca,
     GrupoFornecedor, Marca, Peca, Produto,
 )
+from .reorganizacao_fotos import reorganizar_fotos_devolucao
 
 
 def imprimir_relatorio_devolucao(request, devolucao_id):
@@ -1688,3 +1691,26 @@ def excluir_grupo_fornecedor(request, grupo_id):
         messages.success(request, f'Grupo "{nome}" excluído.')
 
     return redirect('marcas_grupos')
+
+
+def manutencao_reorganizar_fotos(request):
+    """Tela de manutenção pontual — reorganiza no disco as fotos de
+    conferência e de reclamação do cliente que já existiam antes da
+    mudança de upload_to. De propósito sem link em nenhum menu: só
+    acessível digitando o endereço direto (ver urls.py).
+
+    Roda sempre em cima da empresa ativa (a mesma escolhida no badge
+    "trocar empresa" no topo da tela) — pra cobrir a outra empresa,
+    troca no badge e abre essa página de novo.
+
+    GET = simula (nada é alterado). POST = aplica de verdade.
+    """
+    alias = obter_alias_banco_ativo()
+    aplicar = request.method == 'POST'
+
+    resultado = reorganizar_fotos_devolucao(alias, aplicar=aplicar)
+
+    return render(request, 'devolucoes/manutencao_reorganizar_fotos.html', {
+        'resultado': resultado,
+        'aplicou': aplicar,
+    })

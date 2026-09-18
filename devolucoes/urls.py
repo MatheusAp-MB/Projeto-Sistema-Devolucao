@@ -45,4 +45,10 @@ urlpatterns = [
     path('marcas-grupos/grupo/cadastrar/', views.cadastrar_grupo_fornecedor_avulso, name='cadastrar_grupo_fornecedor_avulso'),
     path('marcas-grupos/grupo/<int:grupo_id>/editar/', views.editar_grupo_fornecedor, name='editar_grupo_fornecedor'),
     path('marcas-grupos/grupo/<int:grupo_id>/excluir/', views.excluir_grupo_fornecedor, name='excluir_grupo_fornecedor'),
+
+    # [ATENÇÃO] → ferramenta de manutenção pontual (reorganizar fotos que já
+    # existiam antes da mudança de upload_to) — de propósito SEM link em
+    # nenhuma tela/sidebar, só acessível digitando o endereço direto, pra não
+    # aparecer no dia a dia de quem usa o sistema.
+    path('manutencao/reorganizar-fotos/', views.manutencao_reorganizar_fotos, name='manutencao_reorganizar_fotos'),
 ]
