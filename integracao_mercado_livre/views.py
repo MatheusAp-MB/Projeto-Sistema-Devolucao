@@ -10,6 +10,7 @@
 # número do pedido.
 
 import json
+import os
 import bleach
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -99,18 +100,103 @@ def _buscar_historico_envio(shipment_id, conta):
     return resposta.json()
 
 
-def _montar_linha_do_tempo(historico):
+def _buscar_shipment_completo(shipment_id, conta):
+    """Recurso completo do shipment (/shipments/{id}) — diferente de
+    /shipments/{id}/history, esse traz sender_address/receiver_address.
+    O Mercado Livre mascara rua/número/CEP/nome/telefone em endereços
+    cadastrais normais (não em agências) — ver a descoberta 'Mascaramento
+    de Endereço no Shipment do ML...' no vault. Usado só pra mostrar
+    origem/destino na linha do tempo e confirmar se bate com o endereço
+    oficial da conta (MB_ADDRESS_ID/SV_ADDRESS_ID no .env)."""
+    resposta = chamar_api(
+        "GET", f"/shipments/{shipment_id}",
+        pasta_logs=PASTA_LOGS_ML, conta=conta,
+        headers_extra=HEADER_FORMATO_NOVO,
+    )
+    return resposta.json()
+
+
+def _montar_linha_do_tempo(historico, endereco_origem=None, endereco_destino=None):
+    """endereco_origem/endereco_destino (ver _resumir_endereco_para_exibicao)
+    só são anexados no evento de coleta física (substatus picked_up) e no
+    evento de entrega (status delivered) — são as 2 únicas pontas da rota
+    que a API de fato associa a um endereço; o meio do caminho não tem
+    essa informação em nenhum endpoint testado."""
     eventos_em_ordem = sorted(historico, key=lambda evento: evento.get("date") or "")
     linha_do_tempo = []
     for evento in eventos_em_ordem:
         traducao = traduzir_evento_envio(evento.get("status"), evento.get("substatus"))
+        endereco_do_evento = None
+        if evento.get("substatus") == "picked_up":
+            endereco_do_evento = endereco_origem
+        elif evento.get("status") == "delivered":
+            endereco_do_evento = endereco_destino
         linha_do_tempo.append({
             'data': _formatar_data(evento.get('date')),
             'texto': traducao['texto'],
             'bruto': traducao['bruto'],
             'confirmado': traducao['confirmado'],
+            'endereco': endereco_do_evento,
         })
     return linha_do_tempo
+
+
+def _resumir_endereco_para_exibicao(endereco, conta):
+    """Resume um sender_address/receiver_address pra exibir na linha do
+    tempo: rua/número (mascarados ou não, como a API mandar), bairro/cidade
+    (nunca mascarados) e, quando MB_ADDRESS_ID/SV_ADDRESS_ID estiver no
+    .env, confirma se bate com o cadastro oficial da conta ou é uma
+    agência do Mercado Livre."""
+    if not endereco:
+        return None
+
+    rua = endereco.get('street_name') or '—'
+    numero = endereco.get('street_number') or ''
+    mascarado = rua == 'XXXXXXX'
+    rua_numero = f'{rua}, nº {numero}' if numero else rua
+
+    bairro = (endereco.get('neighborhood') or {}).get('name') or '—'
+    cidade = (endereco.get('city') or {}).get('name') or '—'
+    uf = (endereco.get('state') or {}).get('id', '').replace('BR-', '') or '—'
+    cidade_bairro = f'{bairro}, {cidade}/{uf}'
+
+    tipos = endereco.get('types') or []
+    address_id_oficial = os.getenv(f'{conta}_ADDRESS_ID')
+
+    confirmacao = None
+    rotulo_agencia = None
+    if 'agency_address' in tipos:
+        confirmacao = 'agencia'
+        rotulo_agencia = (endereco.get('agency') or {}).get('description')
+    elif address_id_oficial and str(endereco.get('id')) == str(address_id_oficial):
+        confirmacao = 'oficial'
+    elif address_id_oficial:
+        confirmacao = 'nao_bate'
+
+    return {
+        'rua_numero': rua_numero,
+        'mascarado': mascarado,
+        'cidade_bairro': cidade_bairro,
+        'confirmacao': confirmacao,
+        'rotulo_agencia': rotulo_agencia,
+    }
+
+
+def _rotulo_confirmacao_endereco(resumo_endereco):
+    """Rótulo curto pro cabeçalho do bloco (ex: '· destino: ...'). None
+    quando não dá pra confirmar nada (endereço ausente, ou ADDRESS_ID da
+    conta ainda não configurado no .env)."""
+    if not resumo_endereco:
+        return None
+    confirmacao = resumo_endereco.get('confirmacao')
+    if confirmacao == 'oficial':
+        return '✅ endereço oficial confirmado'
+    if confirmacao == 'agencia':
+        rotulo = resumo_endereco.get('rotulo_agencia')
+        return f'📍 agência — {rotulo}' if rotulo else '📍 agência do Mercado Livre'
+    if confirmacao == 'nao_bate':
+        return '⚠️ não é o endereço oficial'
+    return None
 
 
 def _data_abertura_disputa(claim_id, conta):
@@ -528,8 +614,21 @@ def view_consultar_pedido(request):
 
         shipping_id_ida = (pedido.get("shipping") or {}).get("id")
         historico_ida = []
+        endereco_origem_ida = None
+        endereco_destino_ida = None
         if shipping_id_ida:
             historico_ida = _buscar_historico_envio(shipping_id_ida, conta)
+            try:
+                shipment_ida_completo = _buscar_shipment_completo(shipping_id_ida, conta)
+            except (ErroAPI, ErroAutenticacaoAPI):
+                shipment_ida_completo = None
+            if shipment_ida_completo:
+                endereco_origem_ida = _resumir_endereco_para_exibicao(
+                    shipment_ida_completo.get('sender_address'), conta,
+                )
+                endereco_destino_ida = _resumir_endereco_para_exibicao(
+                    shipment_ida_completo.get('receiver_address'), conta,
+                )
         historico_ida_ordenado = sorted(historico_ida, key=lambda e: e.get('date') or '')
 
         # ----- Envio(s) de volta -----
@@ -537,15 +636,30 @@ def view_consultar_pedido(request):
         historicos_volta = []
         data_postagem_cliente = None
         data_chegada_nos = None
-        destino_chegada = None
+        confirmacao_chegada_final = None
         for envio in envios_volta:
             shipment_id_volta = envio.get("shipment_id")
             if not shipment_id_volta:
                 continue
             historico_volta = _buscar_historico_envio(shipment_id_volta, conta)
+
+            try:
+                shipment_volta_completo = _buscar_shipment_completo(shipment_id_volta, conta)
+            except (ErroAPI, ErroAutenticacaoAPI):
+                shipment_volta_completo = None
+
+            endereco_origem_volta = endereco_destino_volta = None
+            if shipment_volta_completo:
+                endereco_origem_volta = _resumir_endereco_para_exibicao(
+                    shipment_volta_completo.get('sender_address'), conta,
+                )
+                endereco_destino_volta = _resumir_endereco_para_exibicao(
+                    shipment_volta_completo.get('receiver_address'), conta,
+                )
+
             historicos_volta.append({
                 'shipment_id': shipment_id_volta,
-                'linha_tempo': _montar_linha_do_tempo(historico_volta),
+                'linha_tempo': _montar_linha_do_tempo(historico_volta, endereco_origem_volta, endereco_destino_volta),
             })
             candidato_postagem = _primeiro_evento_com_status(historico_volta, "shipped")
             candidato_chegada = _ultimo_evento_com_status(historico_volta, "delivered")
@@ -553,7 +667,7 @@ def view_consultar_pedido(request):
                 data_postagem_cliente = candidato_postagem
             if candidato_chegada and (not data_chegada_nos or candidato_chegada > data_chegada_nos):
                 data_chegada_nos = candidato_chegada
-                destino_chegada = (envio.get("destination") or {}).get("name")
+                confirmacao_chegada_final = endereco_destino_volta
 
         # ----- Branch mediação -----
         players = claim.get("players", [])
@@ -590,7 +704,8 @@ def view_consultar_pedido(request):
             'url_ver_pedido': f'https://www.mercadolivre.com.br/vendas/{numero_pedido}/detalhe',
             'url_ver_reclamacao': f'https://www.mercadolivre.com.br/vendas/novo/mensagens/{numero_pedido}/reclamacao/{claim_id}',
             'url_ver_mediacao': f'https://www.mercadolivre.com.br/vendas/novo/mensagens/{numero_pedido}/mediacao/{claim_id}',
-            'linha_tempo_ida': _montar_linha_do_tempo(historico_ida),
+            'linha_tempo_ida': _montar_linha_do_tempo(historico_ida, endereco_origem_ida, endereco_destino_ida),
+            'destino_ida': _rotulo_confirmacao_endereco(endereco_destino_ida),
             'data_inicio_ida': _formatar_data(historico_ida_ordenado[0]['date']) if historico_ida_ordenado else None,
             'data_fim_ida': _formatar_data(historico_ida_ordenado[-1]['date']) if historico_ida_ordenado else None,
             'data_abertura_claim': _formatar_data(claim.get('date_created')),
@@ -600,7 +715,8 @@ def view_consultar_pedido(request):
             'shipments_volta': historicos_volta,
             'data_postagem_cliente': _formatar_data(data_postagem_cliente),
             'data_chegada_nos': _formatar_data(data_chegada_nos),
-            'destino_chegada': destino_chegada,
+            'destino_chegada': _rotulo_confirmacao_endereco(confirmacao_chegada_final),
+            'confirmacao_chegada': confirmacao_chegada_final,
             'ramo': ramo,
             'eh_mediacao': eh_mediacao,
             'status_devolucao': traduzir_evento_envio(devolucao.get("status"), None) if devolucao.get("status") else None,

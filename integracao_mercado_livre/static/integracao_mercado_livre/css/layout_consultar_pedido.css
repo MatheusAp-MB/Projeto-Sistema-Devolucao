@@ -388,3 +388,24 @@
     color: var(--cor-primaria);
     font-weight: 600;
 }
+
+/* Endereço de origem/destino na linha do tempo (Bloco 1 / Bloco 3) — só
+   aparece nos eventos de coleta física e entrega, únicos com endereço de
+   verdade na API. Ver descoberta "Mascaramento de Endereço no Shipment
+   do ML..." no vault. */
+.evento-endereco {
+    flex-shrink: 0;
+    max-width: 300px;
+    text-align: right;
+}
+
+.evento-endereco--mascarado {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    color: #92400e;
+    font-style: italic;
+}
+
+.evento-endereco--visivel {
+    font-weight: 600;
+    color: #1c2530;
+}

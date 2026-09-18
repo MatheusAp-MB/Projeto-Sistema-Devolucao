@@ -279,7 +279,10 @@
             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bloco1">
                 <span class="badge rounded-pill bg-primary me-2">1</span>
                 Compra e envio de ida (Histórico NÓS &rarr; CLIENTE)
-                <span class="text-muted small ms-2">{{ data_inicio_ida }} &rarr; {{ data_fim_ida }}</span>
+                <span class="text-muted small ms-2">
+                    {{ data_inicio_ida }} &rarr; {{ data_fim_ida }}
+                    {% if destino_ida %} · destino: {{ destino_ida }}{% endif %}
+                </span>
             </button>
         </h2>
         <div id="bloco1" class="accordion-collapse collapse" data-bs-parent="#acordeaoConsultarPedido">
@@ -287,11 +290,19 @@
                 {% for evento in linha_tempo_ida %}
                 <div class="evento-linha">
                     <span class="evento-hora">{{ evento.data }}</span>
-                    {% if evento.confirmado %}
-                        <span class="evento-texto">{{ evento.texto }}</span>
-                    {% else %}
-                        <span class="evento-texto evento-texto--codigo">{{ evento.bruto }}</span>
-                        <span class="badge bg-warning text-dark ms-auto">não confirmado</span>
+                    <span class="flex-grow-1">
+                        {% if evento.confirmado %}
+                            <span class="evento-texto">{{ evento.texto }}</span>
+                        {% else %}
+                            <span class="evento-texto evento-texto--codigo">{{ evento.bruto }}</span>
+                            <span class="badge bg-warning text-dark ms-2">não confirmado</span>
+                        {% endif %}
+                    </span>
+                    {% if evento.endereco %}
+                    <span class="evento-endereco small text-end">
+                        {% if evento.endereco.mascarado %}<span class="evento-endereco--mascarado">{{ evento.endereco.rua_numero }}</span>{% else %}<span class="evento-endereco--visivel">{{ evento.endereco.rua_numero }}</span>{% endif %}
+                        <span class="text-muted"> · {{ evento.endereco.cidade_bairro }}</span>
+                    </span>
                     {% endif %}
                 </div>
                 {% endfor %}
@@ -335,17 +346,37 @@
                 {% for evento in envio.linha_tempo %}
                 <div class="evento-linha">
                     <span class="evento-hora">{{ evento.data }}</span>
-                    {% if evento.confirmado %}
-                        <span class="evento-texto">{{ evento.texto }}</span>
-                    {% else %}
-                        <span class="evento-texto evento-texto--codigo">{{ evento.bruto }}</span>
-                        <span class="badge bg-warning text-dark ms-auto">não confirmado</span>
+                    <span class="flex-grow-1">
+                        {% if evento.confirmado %}
+                            <span class="evento-texto">{{ evento.texto }}</span>
+                        {% else %}
+                            <span class="evento-texto evento-texto--codigo">{{ evento.bruto }}</span>
+                            <span class="badge bg-warning text-dark ms-2">não confirmado</span>
+                        {% endif %}
+                    </span>
+                    {% if evento.endereco %}
+                    <span class="evento-endereco small text-end">
+                        {% if evento.endereco.mascarado %}<span class="evento-endereco--mascarado">{{ evento.endereco.rua_numero }}</span>{% else %}<span class="evento-endereco--visivel">{{ evento.endereco.rua_numero }}</span>{% endif %}
+                        <span class="text-muted"> · {{ evento.endereco.cidade_bairro }}</span>
+                    </span>
                     {% endif %}
                 </div>
                 {% endfor %}
                 {% empty %}
                 <p class="text-muted mb-0">Nenhum envio de volta encontrado ainda.</p>
                 {% endfor %}
+
+                {% if confirmacao_chegada.confirmacao %}
+                <div class="alert {% if confirmacao_chegada.confirmacao == 'oficial' %}alert-success{% elif confirmacao_chegada.confirmacao == 'nao_bate' %}alert-warning{% else %}alert-secondary{% endif %} mt-3 mb-0 py-2 px-3 small">
+                    {% if confirmacao_chegada.confirmacao == 'oficial' %}
+                        <strong>✅ Local de chegada confirmado</strong> — bate com o endereço oficial cadastrado no Mercado Livre, mesmo com rua/número protegidos pela API.
+                    {% elif confirmacao_chegada.confirmacao == 'nao_bate' %}
+                        <strong>⚠️ Local de chegada não confere</strong> — não bate com o endereço oficial cadastrado. Pode indicar entrega numa transportadora ou ponto intermediário, não na empresa.
+                    {% elif confirmacao_chegada.confirmacao == 'agencia' %}
+                        <strong>📍 Chegou numa agência do Mercado Livre</strong>{% if confirmacao_chegada.rotulo_agencia %} — {{ confirmacao_chegada.rotulo_agencia }}{% endif %}.
+                    {% endif %}
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
