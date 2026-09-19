@@ -40,13 +40,39 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
     }
     .mono { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace; }
 
-    .barra-acoes { max-width: 850px; margin: 0 auto 12px auto; display: flex; justify-content: flex-end; }
+    .barra-acoes {
+        max-width: 850px; margin: 0 auto 12px auto; display: flex; justify-content: space-between;
+        align-items: center; flex-wrap: wrap; gap: 10px;
+    }
+    .barra-esquerda { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .btn-imprimir {
         background: var(--navy); color: #fff; border: none;
         padding: 10px 18px; border-radius: 6px;
         font-size: 14px; font-weight: 600; cursor: pointer;
     }
     .btn-imprimir:hover { background: #12293f; }
+
+    .toggle-formato {
+        display: inline-flex; border: 1px solid var(--borda); border-radius: 8px; overflow: hidden;
+        background: #fff;
+    }
+    .toggle-formato button {
+        border: none; background: transparent; padding: 9px 16px; font-size: 13px; font-weight: 600;
+        color: var(--muted); cursor: pointer;
+    }
+    .toggle-formato button.ativo { background: var(--navy); color: #fff; }
+    .toggle-formato button:not(.ativo):hover { background: var(--fundo-tint); }
+
+    .btn-padrao {
+        border: 1px solid var(--borda); background: #fff; color: var(--navy);
+        padding: 9px 14px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+        display: inline-flex; align-items: center; gap: 6px;
+    }
+    .btn-padrao:hover { background: var(--fundo-tint); }
+    .btn-padrao.ja-e-padrao { color: #1f7a44; border-color: #bfe3cb; background: #f2faf5; cursor: default; }
+
+    .status-padrao { font-size: 11.5px; color: var(--muted); }
+    .status-padrao b { color: var(--navy); }
 
     .folha { max-width: 850px; margin: 0 auto; background: #fff; padding: 16mm; box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08); }
 
@@ -118,6 +144,43 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
     table.pecas tr { page-break-inside: avoid; break-inside: avoid; }
     table.pecas thead { display: table-header-group; }
 
+    /* ---- Formato alternativo "Cards" pra Estado das peças (19/09/2026) ----
+       Os 2 formatos (tabela e cards) convivem no mesmo HTML — nenhum
+       substitui o outro. Qual aparece é controlado pelo atributo
+       data-formato-pecas no <body>, trocado pelo toggle e lembrado no
+       navegador via localStorage (ver script no fim do arquivo). */
+    .pecas-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+    .peca-card {
+        border: 1px solid var(--borda);
+        border-radius: 8px;
+        padding: 10px 12px;
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    .peca-card-topo { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+    .peca-card-foto, .peca-card-foto-vazia { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+    .peca-card-foto-vazia { background: #e3e8ec; border: 1px solid var(--borda); }
+    .peca-card-info { min-width: 0; }
+    .peca-card-nome { font-size: 12px; font-weight: 700; margin: 0 0 5px 0; }
+    .peca-card-anotacao {
+        border: 1px dashed var(--borda);
+        border-radius: 6px;
+        padding: 6px 8px;
+        min-height: 30px;
+        font-size: 11px;
+        color: var(--muted);
+        font-style: italic;
+    }
+    .peca-card-anotacao.vazia { color: #c3cad1; font-style: normal; }
+
+    .pecas-cards { display: none; }
+    body[data-formato-pecas="cards"] .pecas-tabela { display: none; }
+    body[data-formato-pecas="cards"] .pecas-cards { display: grid; }
+
     .status { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 1px solid; }
     .status.ok { background: #e6f3ea; color: #1f7a44; border-color: #bfe3cb; }
     .status.warn { background: #fbf0df; color: #9a5b0c; border-color: #f0d9b5; }
@@ -154,17 +217,33 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
 
     @media print {
         body { background: #fff; padding: 0; }
-        .folha { box-shadow: none; max-width: none; padding: 12mm; }
+        .folha { box-shadow: none; max-width: none; padding: 4mm; }
         .barra-acoes { display: none; }
         * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-        @page { size: A4; margin: 12mm; }
+        @page { size: A4; margin: 8mm; }
     }
 </style>
 </head>
-<body>
+<body data-formato-pecas="tabela">
+<script>
+    (function () {
+        var salvo = localStorage.getItem('relatorioDevolucao_formatoPecas');
+        if (salvo === 'cards' || salvo === 'tabela') {
+            document.body.setAttribute('data-formato-pecas', salvo);
+        }
+    })();
+</script>
 
     <div class="barra-acoes">
-        <button class="btn-imprimir" onclick="window.print()">Imprimir / Salvar como PDF</button>
+        <div class="barra-esquerda">
+            <button class="btn-imprimir" onclick="window.print()">Imprimir / Salvar como PDF</button>
+            <div class="toggle-formato">
+                <button id="btn-formato-tabela" onclick="selecionarFormatoPecas('tabela')">Tabela</button>
+                <button id="btn-formato-cards" onclick="selecionarFormatoPecas('cards')">Cards</button>
+            </div>
+            <button class="btn-padrao" id="btn-definir-padrao" onclick="definirFormatoComoPadrao()">☆ Definir como padrão</button>
+        </div>
+        <div class="status-padrao">Padrão atual: <b id="texto-formato-padrao">Tabela</b></div>
     </div>
 
     <div class="folha">
@@ -275,7 +354,7 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
         <p class="secao-titulo">Estado das peças</p>
 
         {% if pecas_conferidas %}
-            <table class="pecas">
+            <table class="pecas pecas-tabela">
                 <thead>
                     <tr>
                         <th style="width:44%;">Peça</th>
@@ -312,6 +391,37 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
                     {% endfor %}
                 </tbody>
             </table>
+
+            <div class="pecas-grid pecas-cards">
+                {% for item in pecas_conferidas %}
+                    <div class="peca-card">
+                        <div class="peca-card-topo">
+                            {% if item.peca.imagem %}
+                                <img src="{{ item.peca.imagem.url }}" class="peca-card-foto">
+                            {% else %}
+                                <div class="peca-card-foto-vazia"></div>
+                            {% endif %}
+                            <div class="peca-card-info">
+                                <p class="peca-card-nome">{{ item.peca.nome_generico }}</p>
+                                {% if item.situacao == 'nao_recebida' %}
+                                    <span class="status bad">NÃO VEIO</span>
+                                {% elif item.situacao == 'incompleta' %}
+                                    <span class="status warn">FALTAM {{ item.deficit }}</span>
+                                {% elif item.anotacao %}
+                                    <span class="status warn">COM DEFEITO</span>
+                                {% else %}
+                                    <span class="status ok">OK</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if item.anotacao %}
+                            <div class="peca-card-anotacao">{{ item.anotacao }}</div>
+                        {% else %}
+                            <div class="peca-card-anotacao vazia">&nbsp;</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
         {% else %}
             <p class="vazio">Nenhuma peça conferida ainda.</p>
         {% endif %}
@@ -319,5 +429,36 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
         <p class="rodape">Relatório gerado em {% now "d/m/Y H:i" %} — Sistema de Relatório de Devoluções</p>
 
     </div>
+
+<script>
+    function atualizarControlesFormato(formatoAtual) {
+        var padrao = localStorage.getItem('relatorioDevolucao_formatoPecas') || 'tabela';
+        document.getElementById('btn-formato-tabela').classList.toggle('ativo', formatoAtual === 'tabela');
+        document.getElementById('btn-formato-cards').classList.toggle('ativo', formatoAtual === 'cards');
+        var btnPadrao = document.getElementById('btn-definir-padrao');
+        var textoPadrao = document.getElementById('texto-formato-padrao');
+        if (formatoAtual === padrao) {
+            btnPadrao.textContent = '✓ Este já é o padrão';
+            btnPadrao.classList.add('ja-e-padrao');
+        } else {
+            btnPadrao.textContent = '☆ Definir como padrão';
+            btnPadrao.classList.remove('ja-e-padrao');
+        }
+        textoPadrao.textContent = padrao === 'cards' ? 'Cards' : 'Tabela';
+    }
+
+    function selecionarFormatoPecas(formato) {
+        document.body.setAttribute('data-formato-pecas', formato);
+        atualizarControlesFormato(formato);
+    }
+
+    function definirFormatoComoPadrao() {
+        var formatoAtual = document.body.getAttribute('data-formato-pecas') || 'tabela';
+        localStorage.setItem('relatorioDevolucao_formatoPecas', formatoAtual);
+        atualizarControlesFormato(formatoAtual);
+    }
+
+    atualizarControlesFormato(document.body.getAttribute('data-formato-pecas') || 'tabela');
+</script>
 </body>
 </html>
