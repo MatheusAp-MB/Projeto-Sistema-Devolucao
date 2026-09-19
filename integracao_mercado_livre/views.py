@@ -641,6 +641,13 @@ def view_consultar_pedido(request):
         titulo_item = (item.get("item") or {}).get("title", "—")
         sku_item = (item.get("item") or {}).get("seller_sku") or "—"
         quantidade_item = item.get("quantity") or 1
+        # * [EXPLICAÇÃO] → unit_price é irmão de "item" dentro de
+        #   order_items, não fica aninhado dentro de item["item"] (igual
+        #   title/seller_sku) — confirmado na doc oficial do ML e testado
+        #   empiricamente com pedido real (2000018056884044: unit_price
+        #   366.0, gross_price 495.0 — já é o preço COM desconto
+        #   aplicado, que é o que Matheus confirmou usar em 19/09/2026).
+        preco_unitario_item = item.get("unit_price")
 
         shipping_id_ida = (pedido.get("shipping") or {}).get("id")
         # * [EXPLICAÇÃO] → 'fulfillment' é o único logistic_type que
@@ -781,6 +788,12 @@ def view_consultar_pedido(request):
             # código de barras exato OU por nome/SKU/cód. fabricante/marca
             # (ver produto_busca em nova_devolucao/script_nova_devolucao.js).
             'sku_item_input': sku_item if sku_item != '—' else '',
+            # Preço do produto (pedido de Ana, 19/09/2026) — formatado já
+            # com '.' (nunca deixa o Django localizar sozinho pro
+            # template), pro <input type=number> de nova_devolucao.html
+            # aceitar o value sem estranhar (ver nota em
+            # devolucoes/views.py::_valores_da_devolucao).
+            'preco_produto_input': f'{preco_unitario_item:.2f}' if preco_unitario_item is not None else '',
         })
 
     except (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao) as erro:

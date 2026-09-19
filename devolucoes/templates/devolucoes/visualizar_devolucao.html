@@ -94,6 +94,30 @@
                 {% endif %}
             </div>
             <div class="vd-campo">
+                <span class="vd-rotulo">Preço do produto</span>
+                {% if devolucao.preco_produto is not None %}
+                    <span class="vd-valor">R$ {{ devolucao.preco_produto|floatformat:2 }}</span>
+                {% else %}
+                    <span class="vd-valor vd-valor--vazio">não informado</span>
+                {% endif %}
+            </div>
+            <div class="vd-campo">
+                <span class="vd-rotulo">Valor reembolsado</span>
+                {% if devolucao.valor_reembolsado is not None %}
+                    <span class="vd-valor">R$ {{ devolucao.valor_reembolsado|floatformat:2 }}</span>
+                {% else %}
+                    <span class="vd-valor vd-valor--vazio">não informado</span>
+                {% endif %}
+            </div>
+            <div class="vd-campo">
+                <span class="vd-rotulo">Diferença (preço − reembolso)</span>
+                {% if devolucao.diferenca_reembolso is not None %}
+                    <span class="vd-valor">R$ {{ devolucao.diferenca_reembolso|floatformat:2 }}</span>
+                {% else %}
+                    <span class="vd-valor vd-valor--vazio">não calculado</span>
+                {% endif %}
+            </div>
+            <div class="vd-campo">
                 <span class="vd-rotulo">Tipo de venda</span>
                 <span class="vd-valor">{{ devolucao.get_tipo_venda_display }}</span>
             </div>

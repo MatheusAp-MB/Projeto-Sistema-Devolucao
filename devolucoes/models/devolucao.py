@@ -94,6 +94,24 @@ class Devolucao(models.Model):
     reembolsado = models.BooleanField('Reembolsado pela plataforma?', null=True, blank=True)
     anotacao_mediacao = models.TextField('Anotações sobre a mediação', blank=True)
 
+    # * [EXPLICAÇÃO] → 2 campos opcionais (pedido de Ana, via Matheus,
+    #   19/09/2026): hoje o valor reembolsado ia parar dentro de
+    #   anotacao_mediacao (texto livre) — isso não muda, essa anotação
+    #   continua existindo do jeito que é. Esses 2 campos são adicionais,
+    #   pra dar uma conta estruturada "preço do produto - valor
+    #   reembolsado" em vez de precisar ler o texto livre. preco_produto
+    #   não mora em Produto porque MB/SV são revendedores puros — o
+    #   preço muda por pedido (desconto, cupom, promoção), não é um
+    #   preço fixo do produto em si.
+    preco_produto = models.DecimalField(
+        'Preço do produto', max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Preço unitário pago pelo cliente (já com desconto) — vem da API do Mercado Livre pela tela Consultar Pedido, ou digitado manualmente.',
+    )
+    valor_reembolsado = models.DecimalField(
+        'Valor reembolsado', max_digits=10, decimal_places=2, null=True, blank=True,
+        help_text='Valor que a plataforma efetivamente reembolsou ao cliente na mediação — sempre digitado manualmente, não tem de onde puxar pela API.',
+    )
+
     # ===== Sobre a reclamação feita pelo cliente =====
     motivo_reclamacao = models.TextField('Motivo da reclamação do cliente')
     # * [EXPLICAÇÃO] → as imagens do cliente moram em FotoReclamacaoCliente
@@ -166,3 +184,14 @@ class Devolucao(models.Model):
         #   como "não reembolsado" no filtro das abas Mediações Encerradas
         #   e Impressos — não existe um 3º grupo "não se aplica" na tela.
         return 'sim' if self.reembolsado else 'nao'
+
+    @property
+    def diferenca_reembolso(self):
+        # * [EXPLICAÇÃO] → só calcula quando os 2 valores estão
+        #   preenchidos (pedido de Ana, 19/09/2026: "preço do produto -
+        #   valor reembolsado") — com qualquer um dos 2 em branco não
+        #   tem conta pra fazer, e "None" aqui vira "não calculado" nos
+        #   templates que exibem esse valor.
+        if self.preco_produto is None or self.valor_reembolsado is None:
+            return None
+        return self.preco_produto - self.valor_reembolsado

@@ -207,7 +207,7 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
             <p>{{ devolucao.motivo_reclamacao }}</p>
         </div>
 
-        {% if devolucao.reembolsado is not None or devolucao.data_abertura_mediacao or devolucao.data_finalizacao_mediacao or devolucao.anotacao_mediacao %}
+        {% if devolucao.reembolsado is not None or devolucao.data_abertura_mediacao or devolucao.data_finalizacao_mediacao or devolucao.anotacao_mediacao or devolucao.preco_produto is not None or devolucao.valor_reembolsado is not None %}
             <div class="mediacao">
                 <p class="bloco-rotulo">Mediação</p>
                 <div class="mediacao-linhas">
@@ -219,6 +219,15 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
                     {% endif %}
                     {% if devolucao.data_finalizacao_mediacao %}
                         <p class="campo-linha"><span class="campo-nome">Finalizada em</span><span class="campo-valor mono">{{ devolucao.data_finalizacao_mediacao|date:"d/m/Y" }}</span></p>
+                    {% endif %}
+                    {% if devolucao.preco_produto is not None %}
+                        <p class="campo-linha"><span class="campo-nome">Preço do produto</span><span class="campo-valor mono">R$ {{ devolucao.preco_produto|floatformat:2 }}</span></p>
+                    {% endif %}
+                    {% if devolucao.valor_reembolsado is not None %}
+                        <p class="campo-linha"><span class="campo-nome">Valor reembolsado</span><span class="campo-valor mono">R$ {{ devolucao.valor_reembolsado|floatformat:2 }}</span></p>
+                    {% endif %}
+                    {% if devolucao.diferenca_reembolso is not None %}
+                        <p class="campo-linha"><span class="campo-nome">Diferença (preço − reembolso)</span><span class="campo-valor mono">R$ {{ devolucao.diferenca_reembolso|floatformat:2 }}</span></p>
                     {% endif %}
                 </div>
                 {% if devolucao.anotacao_mediacao %}

@@ -16,6 +16,7 @@
 import json
 import re
 import subprocess
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from django.conf import settings
@@ -352,6 +353,24 @@ def _parse_reembolsado(valor):
     return None
 
 
+def _parse_decimal_opcional(valor):
+    """Converte um <input type=number step=0.01> (preco_produto,
+    valor_reembolsado) pro DecimalField null=True do model — string
+    vazia vira None, igual às datas de mediação em _parse_data_opcional.
+    O HTML5 sempre manda com '.' como separador decimal, não importa o
+    idioma do navegador (spec do WHATWG), então não precisa tratar
+    vírgula aqui. Um valor que não dá pra converter (alguém mexeu no
+    HTML na mão, por exemplo) também vira None em vez de quebrar a
+    página."""
+    valor = (valor or '').strip()
+    if not valor:
+        return None
+    try:
+        return Decimal(valor)
+    except InvalidOperation:
+        return None
+
+
 def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=None, busca_produto_sugerida=''):
     """Monta o contexto da tela de Nova Devolução (Fase 0 + busca/
     seleção de produto) — usada tanto pro GET simples quanto pra
@@ -367,10 +386,11 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
         valores = {
             'nome_plataforma': '', 'tipo_venda': '',
             'numero_pedido': '', 'numero_nota_fiscal': '', 'nome_cliente': '',
+            'preco_produto': '',
             'data_venda': '',
             'data_recebimento_cliente': '', 'data_reclamacao_cliente': '', 'data_recebimento_por_nos': '',
             'data_abertura_mediacao': '', 'data_finalizacao_mediacao': '',
-            'reembolsado': '', 'anotacao_mediacao': '',
+            'reembolsado': '', 'valor_reembolsado': '', 'anotacao_mediacao': '',
             'motivo_reclamacao': '',
         }
 
@@ -388,13 +408,21 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
 def _valores_da_devolucao(devolucao):
     """Serializa uma Devolucao já salva pro dict 'valores' que o
     template de Nova Devolução espera — usado só por editar_devolucao
-    (GET), pra pré-preencher o formulário com o que já está salvo."""
+    (GET), pra pré-preencher o formulário com o que já está salvo.
+
+    preco_produto/valor_reembolsado são formatados aqui como string
+    com '.' (f'{valor:.2f}'), NUNCA jogando o Decimal cru pro dict —
+    se fosse o Decimal cru, o Django localizaria ele sozinho pro
+    template (vírgula, "366,00") e o <input type=number> ignora
+    silenciosamente um value com vírgula (o HTML5 exige '.'), fazendo
+    o campo parecer vazio ao reabrir o formulário."""
     return {
         'nome_plataforma': devolucao.nome_plataforma,
         'tipo_venda': devolucao.tipo_venda,
         'numero_pedido': devolucao.numero_pedido,
         'numero_nota_fiscal': devolucao.numero_nota_fiscal,
         'nome_cliente': devolucao.nome_cliente,
+        'preco_produto': f'{devolucao.preco_produto:.2f}' if devolucao.preco_produto is not None else '',
         'data_venda': devolucao.data_venda.isoformat(),
         'data_recebimento_cliente': devolucao.data_recebimento_cliente.isoformat(),
         'data_reclamacao_cliente': devolucao.data_reclamacao_cliente.isoformat(),
@@ -402,6 +430,7 @@ def _valores_da_devolucao(devolucao):
         'data_abertura_mediacao': devolucao.data_abertura_mediacao.isoformat() if devolucao.data_abertura_mediacao else '',
         'data_finalizacao_mediacao': devolucao.data_finalizacao_mediacao.isoformat() if devolucao.data_finalizacao_mediacao else '',
         'reembolsado': 'sim' if devolucao.reembolsado is True else 'nao' if devolucao.reembolsado is False else '',
+        'valor_reembolsado': f'{devolucao.valor_reembolsado:.2f}' if devolucao.valor_reembolsado is not None else '',
         'anotacao_mediacao': devolucao.anotacao_mediacao,
         'motivo_reclamacao': devolucao.motivo_reclamacao,
     }
@@ -430,7 +459,18 @@ def nova_devolucao(request):
     Matheus, 18/09/2026, reaproveitando o mesmo mecanismo do "Colar linha
     do ERP"). Se já existir uma devolução pra esse numero_pedido,
     redireciona pra editar_devolucao em vez de abrir o formulário vazio
-    de novo — não cria duplicata."""
+    de novo — não cria duplicata.
+
+    A partir de 19/09/2026 (pedido de Ana, via Matheus) o preço do
+    produto (preco_produto) também vem preenchido por essa ponte — campo
+    unit_price do 1º item de order_items na API do ML, que já é o preço
+    unitário COM desconto aplicado (confirmado contra a documentação
+    oficial e testado empiricamente com um pedido real — ver
+    scripts_exploracao_ML/testar_preco_unitario_pedido.py). O
+    valor_reembolsado fica de fora dessa ponte de propósito: não existe
+    campo confiável pra isso na API do ML, então continua 100% manual.
+    Os 2 campos (preco_produto, valor_reembolsado) são opcionais — dá
+    pra salvar a devolução sem preencher nenhum dos 2."""
     if request.method == 'POST':
         valores = {
             'nome_plataforma': request.POST.get('nome_plataforma', '').strip(),
@@ -438,6 +478,7 @@ def nova_devolucao(request):
             'numero_pedido': request.POST.get('numero_pedido', '').strip(),
             'numero_nota_fiscal': request.POST.get('numero_nota_fiscal', '').strip(),
             'nome_cliente': request.POST.get('nome_cliente', '').strip(),
+            'preco_produto': request.POST.get('preco_produto', '').strip(),
             'data_venda': request.POST.get('data_venda', '').strip(),
             'data_recebimento_cliente': request.POST.get('data_recebimento_cliente', '').strip(),
             'data_reclamacao_cliente': request.POST.get('data_reclamacao_cliente', '').strip(),
@@ -445,6 +486,7 @@ def nova_devolucao(request):
             'data_abertura_mediacao': request.POST.get('data_abertura_mediacao', '').strip(),
             'data_finalizacao_mediacao': request.POST.get('data_finalizacao_mediacao', '').strip(),
             'reembolsado': request.POST.get('reembolsado', '').strip(),
+            'valor_reembolsado': request.POST.get('valor_reembolsado', '').strip(),
             'anotacao_mediacao': request.POST.get('anotacao_mediacao', '').strip(),
             'motivo_reclamacao': request.POST.get('motivo_reclamacao', '').strip(),
         }
@@ -494,6 +536,7 @@ def nova_devolucao(request):
             numero_pedido=valores['numero_pedido'],
             numero_nota_fiscal=valores['numero_nota_fiscal'],
             nome_cliente=valores['nome_cliente'],
+            preco_produto=_parse_decimal_opcional(valores['preco_produto']),
             data_venda=valores['data_venda'],
             data_recebimento_cliente=valores['data_recebimento_cliente'],
             data_reclamacao_cliente=valores['data_reclamacao_cliente'],
@@ -501,6 +544,7 @@ def nova_devolucao(request):
             data_abertura_mediacao=_parse_data_opcional(valores['data_abertura_mediacao']),
             data_finalizacao_mediacao=_parse_data_opcional(valores['data_finalizacao_mediacao']),
             reembolsado=_parse_reembolsado(valores['reembolsado']),
+            valor_reembolsado=_parse_decimal_opcional(valores['valor_reembolsado']),
             anotacao_mediacao=valores['anotacao_mediacao'],
             motivo_reclamacao=valores['motivo_reclamacao'],
         )
@@ -523,6 +567,7 @@ def nova_devolucao(request):
             'numero_pedido': numero_pedido_ml,
             'numero_nota_fiscal': '',
             'nome_cliente': request.GET.get('nome_cliente', '').strip(),
+            'preco_produto': request.GET.get('preco_produto', '').strip(),
             'data_venda': request.GET.get('data_venda', '').strip(),
             'data_recebimento_cliente': request.GET.get('data_recebimento_cliente', '').strip(),
             'data_reclamacao_cliente': request.GET.get('data_reclamacao_cliente', '').strip(),
@@ -530,6 +575,7 @@ def nova_devolucao(request):
             'data_abertura_mediacao': request.GET.get('data_abertura_mediacao', '').strip(),
             'data_finalizacao_mediacao': request.GET.get('data_finalizacao_mediacao', '').strip(),
             'reembolsado': '',
+            'valor_reembolsado': '',
             'anotacao_mediacao': '',
             'motivo_reclamacao': '',
         }
@@ -547,7 +593,11 @@ def editar_devolucao(request, devolucao_id):
     pedido, cliente, datas, mediação, reclamação do cliente, produto) —
     reaproveita o mesmo template e a mesma validação de nova_devolucao,
     só que atualiza a instância existente em vez de criar uma nova. Não
-    mexe na conferência de peças — isso é conferir_devolucao."""
+    mexe na conferência de peças — isso é conferir_devolucao.
+
+    preco_produto/valor_reembolsado seguem a mesma regra de
+    nova_devolucao — opcionais, sem puxar nada sozinho aqui (a ponte com
+    a API do ML só existe na criação, vinda da tela Consultar Pedido)."""
     devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
 
     if request.method == 'POST':
@@ -557,6 +607,7 @@ def editar_devolucao(request, devolucao_id):
             'numero_pedido': request.POST.get('numero_pedido', '').strip(),
             'numero_nota_fiscal': request.POST.get('numero_nota_fiscal', '').strip(),
             'nome_cliente': request.POST.get('nome_cliente', '').strip(),
+            'preco_produto': request.POST.get('preco_produto', '').strip(),
             'data_venda': request.POST.get('data_venda', '').strip(),
             'data_recebimento_cliente': request.POST.get('data_recebimento_cliente', '').strip(),
             'data_reclamacao_cliente': request.POST.get('data_reclamacao_cliente', '').strip(),
@@ -564,6 +615,7 @@ def editar_devolucao(request, devolucao_id):
             'data_abertura_mediacao': request.POST.get('data_abertura_mediacao', '').strip(),
             'data_finalizacao_mediacao': request.POST.get('data_finalizacao_mediacao', '').strip(),
             'reembolsado': request.POST.get('reembolsado', '').strip(),
+            'valor_reembolsado': request.POST.get('valor_reembolsado', '').strip(),
             'anotacao_mediacao': request.POST.get('anotacao_mediacao', '').strip(),
             'motivo_reclamacao': request.POST.get('motivo_reclamacao', '').strip(),
         }
@@ -612,6 +664,7 @@ def editar_devolucao(request, devolucao_id):
         devolucao.numero_pedido = valores['numero_pedido']
         devolucao.numero_nota_fiscal = valores['numero_nota_fiscal']
         devolucao.nome_cliente = valores['nome_cliente']
+        devolucao.preco_produto = _parse_decimal_opcional(valores['preco_produto'])
         devolucao.data_venda = valores['data_venda']
         devolucao.data_recebimento_cliente = valores['data_recebimento_cliente']
         devolucao.data_reclamacao_cliente = valores['data_reclamacao_cliente']
@@ -619,6 +672,7 @@ def editar_devolucao(request, devolucao_id):
         devolucao.data_abertura_mediacao = _parse_data_opcional(valores['data_abertura_mediacao'])
         devolucao.data_finalizacao_mediacao = _parse_data_opcional(valores['data_finalizacao_mediacao'])
         devolucao.reembolsado = _parse_reembolsado(valores['reembolsado'])
+        devolucao.valor_reembolsado = _parse_decimal_opcional(valores['valor_reembolsado'])
         devolucao.anotacao_mediacao = valores['anotacao_mediacao']
         devolucao.motivo_reclamacao = valores['motivo_reclamacao']
         devolucao.save()

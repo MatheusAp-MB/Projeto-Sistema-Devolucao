@@ -225,7 +225,7 @@
                             {{ devolucao.produto.nome }}
                             <span class="dp-badge dp-badge--mediacao-encerrada">Mediação encerrada</span>
                             {% if devolucao.reembolsado %}
-                                <span class="dp-badge dp-badge--reembolsado">Reembolsado</span>
+                                <span class="dp-badge dp-badge--reembolsado">Reembolsado{% if devolucao.valor_reembolsado is not None %} — R$ {{ devolucao.valor_reembolsado|floatformat:2 }}{% endif %}</span>
                             {% else %}
                                 <span class="dp-badge dp-badge--nao-reembolsado">Não reembolsado</span>
                             {% endif %}
@@ -300,7 +300,7 @@
                             <span>
                                 <i class="fas fa-print"></i> impressa em {{ devolucao.relatorio_impresso_em|date:"d/m/Y H:i" }}
                                 {% if devolucao.data_abertura_mediacao %}
-                                    · {% if devolucao.reembolsado %}reembolsado{% else %}não reembolsado{% endif %}
+                                    · {% if devolucao.reembolsado %}reembolsado{% if devolucao.valor_reembolsado is not None %} (R$ {{ devolucao.valor_reembolsado|floatformat:2 }}){% endif %}{% else %}não reembolsado{% endif %}
                                 {% else %}
                                     · sem mediação
                                 {% endif %}
