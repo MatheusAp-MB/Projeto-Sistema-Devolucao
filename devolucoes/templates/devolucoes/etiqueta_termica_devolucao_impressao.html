@@ -23,6 +23,26 @@ nada quando o produto não tem codigo_barras cadastrado).
 Se a impressão direta der problema, o link "Backup: código ZPL" no topo
 desta página leva pro fluxo manual (copiar → colar no Labelary → baixar
 PDF → imprimir), que continua existindo e testado.
+
+[ACHADO REAL, 19/09/2026] → a `.etiqueta` é uma caixa de altura FIXA
+(15cm) com overflow:hidden — ou seja, qualquer conteúdo que passe disso
+é cortado em silêncio, sem erro nenhum. Com o gap de 4mm entre os 12
+blocos (4,4cm só de espaçamento) mais o conteúdo em si, o layout já
+ficava no limite mesmo no melhor caso (nomes curtos) — qualquer nome de
+cliente/produto um pouco mais comprido (quebra de linha) empurrava o
+SKU e o código de barras do produto, que são os últimos blocos da
+pilha, pra fora da área visível. Corrigido reduzindo gap/margens e
+fonte do nome do produto (identificado pelo EAN, não precisa ser
+grande) — abre ~2cm de folga real.
+
+[NOVO, 19/09/2026] → aviso "EM MEDIAÇÃO" logo abaixo do cabeçalho,
+visível só quando a mediação está genuinamente aberta agora (tem data
+de abertura e ainda não tem data de encerramento) — pedido de Ana: os
+2 barracões são distantes, o produto só pode ir pro barracão 2 quando a
+mediação encerrar de vez, e a etiqueta térmica é o que evita misturar
+produto enquanto isso não acontece (por isso "IDENTIFICAÇÃO
+PROVISÓRIA" no título) — o aviso deixa isso visível na própria
+etiqueta, sem precisar abrir o sistema pra saber.
 -->
 <!DOCTYPE html>
 <html lang="pt-br">
@@ -71,25 +91,45 @@ PDF → imprimir), que continua existindo e testado.
         padding: 4mm;
         display: flex;
         flex-direction: column;
-        gap: 4mm;
+        gap: 2mm;
         overflow: hidden;
     }
 
-    .cabecalho { text-align: center; font-size: 14px; font-weight: 800; letter-spacing: 0.5px; border-bottom: 2px solid var(--navy); padding-bottom: 2mm; }
+    .cabecalho { text-align: center; font-size: 12px; font-weight: 800; letter-spacing: 0.5px; border-bottom: 2px solid var(--navy); padding-bottom: 1.5mm; }
+
+    .badge-mediacao {
+        background: #fff4e0;
+        border: 1.5px solid #b8770a;
+        color: #7a4f00;
+        border-radius: 3px;
+        padding: 1.5mm 2mm;
+        font-size: 12px;
+        font-weight: 800;
+        text-align: center;
+        letter-spacing: 0.2px;
+    }
 
     .rotulo { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin: 0 0 1mm 0; }
     .divisor { border: none; border-top: 1.5px solid var(--navy); margin: 0; }
 
     .linha-pedido { display: flex; justify-content: space-between; align-items: flex-start; gap: 4mm; }
-    .pedido-valor { font-size: 19px; font-weight: 800; line-height: 1.1; }
-    .nf-valor { font-size: 17px; font-weight: 800; line-height: 1.1; }
-    .cliente-valor { font-size: 15px; font-weight: 700; line-height: 1.25; }
-    .plataforma-valor { font-size: 16px; font-weight: 700; }
+    .pedido-valor { font-size: 18px; font-weight: 800; line-height: 1.1; }
+    .nf-valor { font-size: 16px; font-weight: 800; line-height: 1.1; }
+    .cliente-valor { font-size: 13px; font-weight: 700; line-height: 1.25; }
+    .plataforma-valor { font-size: 14px; font-weight: 700; }
 
-    .datas-linha { display: flex; justify-content: space-between; font-size: 12px; margin: 1mm 0; }
+    .datas-linha { display: flex; justify-content: space-between; font-size: 12px; margin: 0.5mm 0; }
     .datas-linha span:last-child { font-weight: 700; }
 
-    .produto-nome { font-size: 15px; font-weight: 700; line-height: 1.25; }
+    .produto-nome {
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.25;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
 
     .linha-produto-codigo { display: flex; justify-content: space-between; align-items: center; gap: 4mm; }
     .sku-bloco { text-align: right; flex-shrink: 0; }
@@ -115,6 +155,10 @@ PDF → imprimir), que continua existindo e testado.
     <div class="etiqueta">
 
         <div class="cabecalho">DEVOLUÇÃO — IDENTIFICAÇÃO PROVISÓRIA</div>
+
+        {% if devolucao.data_abertura_mediacao and not devolucao.data_finalizacao_mediacao %}
+        <div class="badge-mediacao">EM MEDIAÇÃO — aberta em {{ devolucao.data_abertura_mediacao|date:"d/m/Y" }}</div>
+        {% endif %}
 
         <div class="linha-pedido">
             <div>

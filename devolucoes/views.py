@@ -126,7 +126,17 @@ def _montar_zpl_etiqueta_termica_devolucao(devolucao):
 
     Densidade assumida: 8 dpmm / 203 dpi (impressora Zebra do Matheus,
     testado e confirmado no Labelary) — label 10x15cm = 800x1200 dots.
-    """
+
+    [NOVO, 19/09/2026] → quando a mediação está genuinamente aberta (tem
+    data de abertura e ainda não tem data de encerramento — mesma regra da
+    versão HTML/CSS e da aba "Mediações Abertas"), insere um bloco de
+    aviso "EM MEDIACAO" logo abaixo do cabeçalho e empurra todo o resto do
+    layout 70 dots pra baixo (variável 'deslocamento') — a versão original
+    tinha ~137 dots de folga antes do limite de 1200 (15cm), então isso
+    cabe com margem de sobra, sem precisar redesenhar o resto do zero.
+    IMPORTANTE: como isso não é validado automaticamente (só no Labelary,
+    manualmente, como sempre foi esse fluxo backup), reconferir lá antes
+    de confiar numa devolução com mediação aberta."""
     produto = devolucao.produto
 
     numero_pedido = _sanitizar_texto_zpl(devolucao.numero_pedido)
@@ -143,28 +153,43 @@ def _montar_zpl_etiqueta_termica_devolucao(devolucao):
         produto.codigo_barras
     )
 
+    em_mediacao = bool(
+        devolucao.data_abertura_mediacao and not devolucao.data_finalizacao_mediacao
+    )
+    deslocamento = 70 if em_mediacao else 0
+
+    if em_mediacao:
+        data_abertura_str = devolucao.data_abertura_mediacao.strftime('%d/%m/%Y')
+        bloco_mediacao = (
+            '^FO40,115^GB720,75,3^FS\n'
+            '^CF0,28\n'
+            f'^FO40,140^FB720,1,0,C,0^FDEM MEDIACAO - ABERTA EM {data_abertura_str}\\&^FS\n'
+        )
+    else:
+        bloco_mediacao = ''
+
     if tipo_codigo_produto == 'ean':
         bloco_codigo_produto = (
             '^CF0,20\n'
-            '^FO40,875^FDEAN^FS\n'
-            '^FO40,900^BY3\n'
+            f'^FO40,{875 + deslocamento}^FDEAN^FS\n'
+            f'^FO40,{900 + deslocamento}^BY3\n'
             '^BEN,70,Y,N\n'
             f'^FD{valor_codigo_produto}^FS'
         )
     elif tipo_codigo_produto == 'code128':
         bloco_codigo_produto = (
             '^CF0,20\n'
-            '^FO40,875^FDCODIGO DE BARRAS^FS\n'
-            '^FO40,900^BY2\n'
+            f'^FO40,{875 + deslocamento}^FDCODIGO DE BARRAS^FS\n'
+            f'^FO40,{900 + deslocamento}^BY2\n'
             '^BCN,70,N,N,N,A\n'
             f'^FD{valor_codigo_produto}^FS'
         )
     else:
         bloco_codigo_produto = (
             '^CF0,20\n'
-            '^FO40,875^FDEAN^FS\n'
+            f'^FO40,{875 + deslocamento}^FDEAN^FS\n'
             '^CF0,26\n'
-            '^FO40,900^FD(produto sem codigo de barras cadastrado)^FS'
+            f'^FO40,{900 + deslocamento}^FD(produto sem codigo de barras cadastrado)^FS'
         )
 
     return f'''^XA
@@ -175,66 +200,67 @@ def _montar_zpl_etiqueta_termica_devolucao(devolucao):
 ^FO40,40^FB720,2,0,C,0^FDDEVOLUCAO - IDENTIFICACAO PROVISORIA\\&^FS
 ^FO40,105^GB720,3,3^FS
 
+{bloco_mediacao}
 ^FX ===== Bloco: Pedido & Cliente =====
 ^CF0,20
-^FO40,135^FDPEDIDO^FS
+^FO40,{135 + deslocamento}^FDPEDIDO^FS
 ^CF0,36
-^FO40,160^FD{numero_pedido}^FS
+^FO40,{160 + deslocamento}^FD{numero_pedido}^FS
 
 ^FX --- codigo de barras do pedido, ao lado do numero ---
-^FO430,130^BY2
+^FO430,{130 + deslocamento}^BY2
 ^BCN,70,N,N,N,A
 ^FD{numero_pedido}^FS
 
 ^CF0,20
-^FO40,225^FDNF^FS
+^FO40,{225 + deslocamento}^FDNF^FS
 ^CF0,36
-^FO40,250^FD{numero_nota_fiscal}^FS
+^FO40,{250 + deslocamento}^FD{numero_nota_fiscal}^FS
 
 ^CF0,20
-^FO40,310^FDCLIENTE^FS
+^FO40,{310 + deslocamento}^FDCLIENTE^FS
 ^CF0,30
-^FO40,335^FB720,2,0,L,0^FD{nome_cliente}\\&^FS
+^FO40,{335 + deslocamento}^FB720,2,0,L,0^FD{nome_cliente}\\&^FS
 
-^FO40,395^GB720,3,3^FS
+^FO40,{395 + deslocamento}^GB720,3,3^FS
 
 ^FX ===== Bloco: Plataforma =====
 ^CF0,20
-^FO40,420^FDPLATAFORMA^FS
+^FO40,{420 + deslocamento}^FDPLATAFORMA^FS
 ^CF0,32
-^FO40,445^FD{plataforma}^FS
+^FO40,{445 + deslocamento}^FD{plataforma}^FS
 
-^FO40,500^GB720,3,3^FS
+^FO40,{500 + deslocamento}^GB720,3,3^FS
 
 ^FX ===== Bloco: Datas =====
 ^CF0,20
-^FO40,525^FDDATAS^FS
+^FO40,{525 + deslocamento}^FDDATAS^FS
 ^CF0,26
-^FO40,552^FDVenda: {devolucao.data_venda.strftime('%d/%m/%Y')}^FS
-^FO40,594^FDRecebido pelo cliente: {devolucao.data_recebimento_cliente.strftime('%d/%m/%Y')}^FS
-^FO40,636^FDReclamacao aberta: {devolucao.data_reclamacao_cliente.strftime('%d/%m/%Y')}^FS
-^FO40,678^FDRecebido por nos: {devolucao.data_recebimento_por_nos.strftime('%d/%m/%Y')}^FS
+^FO40,{552 + deslocamento}^FDVenda: {devolucao.data_venda.strftime('%d/%m/%Y')}^FS
+^FO40,{594 + deslocamento}^FDRecebido pelo cliente: {devolucao.data_recebimento_cliente.strftime('%d/%m/%Y')}^FS
+^FO40,{636 + deslocamento}^FDReclamacao aberta: {devolucao.data_reclamacao_cliente.strftime('%d/%m/%Y')}^FS
+^FO40,{678 + deslocamento}^FDRecebido por nos: {devolucao.data_recebimento_por_nos.strftime('%d/%m/%Y')}^FS
 
-^FO40,735^GB720,3,3^FS
+^FO40,{735 + deslocamento}^GB720,3,3^FS
 
 ^FX ===== Bloco: Produto (com codigo de barras dentro do bloco) =====
 ^CF0,20
-^FO40,760^FDPRODUTO^FS
-^CF0,30
-^FO40,785^FB720,2,0,L,0^FD{nome_produto}\\&^FS
+^FO40,{760 + deslocamento}^FDPRODUTO^FS
+^CF0,26
+^FO40,{785 + deslocamento}^FB720,2,0,L,0^FD{nome_produto}\\&^FS
 
 {bloco_codigo_produto}
 
 ^CF0,20
-^FO430,875^FDSKU^FS
+^FO430,{875 + deslocamento}^FDSKU^FS
 ^CF0,32
-^FO430,900^FD{sku}^FS
+^FO430,{900 + deslocamento}^FD{sku}^FS
 
-^FO40,1020^GB720,3,3^FS
+^FO40,{1020 + deslocamento}^GB720,3,3^FS
 
 ^FX ===== Rodape =====
 ^CF0,18
-^FO40,1045^FDGerado em {gerado_em}^FS
+^FO40,{1045 + deslocamento}^FDGerado em {gerado_em}^FS
 
 ^XZ
 '''
