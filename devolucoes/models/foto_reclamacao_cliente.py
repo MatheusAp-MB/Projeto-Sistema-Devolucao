@@ -31,3 +31,10 @@ class FotoReclamacaoCliente(models.Model):
 
     def __str__(self):
         return f'Foto de reclamação — {self.devolucao}'
+
+    @property
+    def nome_arquivo(self):
+        """Só o nome do arquivo (sem o caminho de pastas) — usado na tela
+        de visualização da devolução, mesmo padrão de FotoConferenciaPeca
+        e FotoObservacaoGeral."""
+        return self.imagem.name.rsplit('/', 1)[-1]

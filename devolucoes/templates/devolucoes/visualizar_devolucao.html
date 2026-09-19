@@ -127,6 +127,18 @@
     <div class="vd-cartao">
         <h2 class="vd-cartao-titulo">Motivo da reclamação do cliente</h2>
         <p class="vd-texto-bloco">{{ devolucao.motivo_reclamacao|linebreaksbr }}</p>
+        {% if fotos_reclamacao_cliente %}
+            <div class="vd-grade-fotos">
+                {% for foto in fotos_reclamacao_cliente %}
+                    <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item" title="{{ foto.nome_arquivo }}">
+                        <div class="vd-foto-thumb">
+                            <img src="{{ foto.imagem.url }}" alt="Foto do cliente">
+                        </div>
+                        <span class="vd-foto-nome">{{ foto.nome_arquivo }}</span>
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
     </div>
 
     {% if devolucao.anotacao_mediacao %}

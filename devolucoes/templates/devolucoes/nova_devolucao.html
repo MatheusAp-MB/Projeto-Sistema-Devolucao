@@ -6,10 +6,11 @@
 
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'devolucoes/css/layout_nova_devolucao.css' %}">
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_conferir_devolucao.css' %}">
 {% endblock %}
 
 {% block conteudo %}
-    <form method="post" class="nd-pagina" id="form_nova_devolucao">
+    <form method="post" enctype="multipart/form-data" class="nd-pagina" id="form_nova_devolucao">
         {% csrf_token %}
 
         <div class="nd-secao nd-colar-erp">
@@ -129,6 +130,38 @@
                 <label for="id_motivo_reclamacao">Motivo da reclamação *</label>
                 <textarea id="id_motivo_reclamacao" name="motivo_reclamacao" rows="3" required>{{ valores.motivo_reclamacao }}</textarea>
             </div>
+
+            <div class="nd-fotos-cliente">
+                <p class="nd-fotos-cliente-titulo">
+                    <i class="fas fa-camera"></i> Fotos do cliente
+                    <span class="nd-secao-opcional">(opcional — as que o cliente mandou pra plataforma, se tiver)</span>
+                </p>
+
+                <div class="cf-fotos">
+                    {% if fotos_reclamacao_cliente %}
+                        <div class="cf-fotos-grade">
+                            {% for foto in fotos_reclamacao_cliente %}
+                                <div class="cf-foto-item">
+                                    <img src="{{ foto.imagem.url }}" alt="Foto do cliente">
+                                    <button type="submit" class="cf-foto-excluir" title="Excluir foto"
+                                            formmethod="post" formaction="{% url 'excluir_foto_reclamacao_cliente' foto.id %}">
+                                        <i class="fas fa-xmark"></i>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <label class="cf-foto-botao" for="fotos_cliente">
+                        <i class="fas fa-camera"></i> Adicionar foto
+                    </label>
+                    <input type="file" name="fotos_cliente" id="fotos_cliente"
+                           accept="image/*" multiple
+                           class="cf-input-oculto" data-cf-fotos-input>
+
+                    <div class="cf-fotos-preview" data-cf-fotos-preview></div>
+                </div>
+            </div>
         </div>
 
         <div class="nd-secao">
@@ -172,4 +205,5 @@
 
 {% block scripts %}
 <script src="{% static 'devolucoes/js/script_nova_devolucao.js' %}"></script>
+<script src="{% static 'devolucoes/js/script_conferir_devolucao.js' %}"></script>
 {% endblock %}

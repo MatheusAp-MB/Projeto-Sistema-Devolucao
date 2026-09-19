@@ -32,7 +32,8 @@ from core.empresa import obter_alias_banco_ativo
 
 from .models import (
     Compatibilidade, ConferenciaPeca, Devolucao, FotoConferenciaPeca,
-    FotoObservacaoGeral, GrupoFornecedor, Marca, Peca, Produto,
+    FotoObservacaoGeral, FotoReclamacaoCliente, GrupoFornecedor, Marca, Peca,
+    Produto,
 )
 from .reorganizacao_fotos import reorganizar_fotos_devolucao
 
@@ -398,6 +399,7 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
         'valores': valores,
         'produto_selecionado': produto_selecionado,
         'devolucao': devolucao,
+        'fotos_reclamacao_cliente': devolucao.fotos_reclamacao_cliente.all() if devolucao else [],
         'busca_produto_sugerida': busca_produto_sugerida,
         'plataforma_choices': Devolucao.PLATAFORMA_CHOICES,
         'tipo_venda_choices': Devolucao.TIPO_VENDA_CHOICES,
@@ -548,6 +550,14 @@ def nova_devolucao(request):
             anotacao_mediacao=valores['anotacao_mediacao'],
             motivo_reclamacao=valores['motivo_reclamacao'],
         )
+
+        # * [EXPLICAÇÃO] → fotos que o CLIENTE mandou pra plataforma junto
+        #   da reclamação (opcional) — devolucao já existe nesse ponto
+        #   (acabou de ser criada acima), então já tem pk garantido pra
+        #   associar as fotos.
+        for foto in request.FILES.getlist('fotos_cliente'):
+            FotoReclamacaoCliente.objects.create(devolucao=devolucao, imagem=foto)
+
         messages.success(
             request,
             f'Devolução do pedido {devolucao.numero_pedido} criada — pendente de conferência das peças.',
@@ -676,6 +686,13 @@ def editar_devolucao(request, devolucao_id):
         devolucao.anotacao_mediacao = valores['anotacao_mediacao']
         devolucao.motivo_reclamacao = valores['motivo_reclamacao']
         devolucao.save()
+
+        # * [EXPLICAÇÃO] → fotos novas que o cliente mandou, anexadas
+        #   durante a edição — SOMA às que já existem, nunca substitui;
+        #   excluir uma foto existente é uma ação isolada (botão X de
+        #   cada foto, ver excluir_foto_reclamacao_cliente).
+        for foto in request.FILES.getlist('fotos_cliente'):
+            FotoReclamacaoCliente.objects.create(devolucao=devolucao, imagem=foto)
 
         messages.success(request, f'Devolução do pedido {devolucao.numero_pedido} atualizada.')
         return redirect('devolucoes_pendentes')
@@ -979,6 +996,24 @@ def excluir_foto_observacao_geral(request, foto_id):
     return redirect('conferir_devolucao', devolucao_id)
 
 
+def excluir_foto_reclamacao_cliente(request, foto_id):
+    """Exclui 1 foto que o CLIENTE mandou junto da reclamação — mesmo
+    padrão das duas exclusões de foto logo acima, só que pra
+    FotoReclamacaoCliente: ação isolada, POST-only. Diferente das outras
+    2, volta pra tela de Editar Devolução (não pra Conferência) — é lá
+    que essas fotos aparecem, dentro do bloco "Reclamação do cliente"."""
+    foto = get_object_or_404(
+        FotoReclamacaoCliente.objects.select_related('devolucao'), pk=foto_id,
+    )
+    devolucao_id = foto.devolucao_id
+
+    if request.method == 'POST':
+        foto.delete()
+        messages.success(request, 'Foto excluída.')
+
+    return redirect('editar_devolucao', devolucao_id)
+
+
 def visualizar_devolucao(request, devolucao_id):
     """Tela de consulta — só leitura, pensada pra quem só precisa checar o
     que foi feito na conferência ou pegar as fotos de evidência pra
@@ -986,11 +1021,14 @@ def visualizar_devolucao(request, devolucao_id):
     de edição (conferir_devolucao) nem reabrir o relatório A4.
 
     Mostra as fotos de FotoConferenciaPeca (evidência da conferência)
-    agrupadas por peça, e as fotos de FotoObservacaoGeral (estado geral
-    do produto, sem ser de peça nenhuma — ex: produto recebido já
-    montado) — nunca a foto de catálogo da Peca. Fotos de reclamação do
-    cliente (FotoReclamacaoCliente) ficam de fora de propósito: não
-    interessam pra mediação, só as que nós tiramos na conferência.
+    agrupadas por peça, as fotos de FotoObservacaoGeral (estado geral do
+    produto, sem ser de peça nenhuma — ex: produto recebido já montado)
+    e as fotos de FotoReclamacaoCliente (as que o CLIENTE mandou junto
+    da reclamação, anexadas em Nova/Editar Devolução) — nunca a foto de
+    catálogo da Peca. [ATENÇÃO] → decisão de Matheus, 19/09/2026: fotos
+    do cliente raramente vão ser usadas pra mediação, mas é melhor ter
+    aqui e não precisar do que precisar e não ter — por isso aparecem
+    aqui também, revertendo uma decisão anterior de deixar de fora.
     """
     devolucao = get_object_or_404(
         Devolucao.objects.select_related('produto'), pk=devolucao_id,
@@ -1004,6 +1042,7 @@ def visualizar_devolucao(request, devolucao_id):
         'devolucao': devolucao,
         'pecas_conferidas': pecas_conferidas,
         'fotos_observacao_geral': devolucao.fotos_observacao_geral.all(),
+        'fotos_reclamacao_cliente': devolucao.fotos_reclamacao_cliente.all(),
     })
 
 

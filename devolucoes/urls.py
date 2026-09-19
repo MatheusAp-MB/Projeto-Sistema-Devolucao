@@ -12,6 +12,7 @@ urlpatterns = [
     path('devolucoes/<int:devolucao_id>/conferir/', views.conferir_devolucao, name='conferir_devolucao'),
     path('conferencia-peca/foto/<int:foto_id>/excluir/', views.excluir_foto_conferencia, name='excluir_foto_conferencia'),
     path('observacao-geral/foto/<int:foto_id>/excluir/', views.excluir_foto_observacao_geral, name='excluir_foto_observacao_geral'),
+    path('reclamacao-cliente/foto/<int:foto_id>/excluir/', views.excluir_foto_reclamacao_cliente, name='excluir_foto_reclamacao_cliente'),
     path('devolucoes/<int:devolucao_id>/visualizar/', views.visualizar_devolucao, name='visualizar_devolucao'),
     path('devolucoes/<int:devolucao_id>/abrir-pasta-conferencia/', views.abrir_pasta_conferencia, name='abrir_pasta_conferencia'),
     path('devolucoes/<int:devolucao_id>/relatorio/', views.imprimir_relatorio_devolucao, name='imprimir_relatorio_devolucao'),

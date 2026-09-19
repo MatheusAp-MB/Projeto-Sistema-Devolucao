@@ -95,6 +95,20 @@
     resize: vertical;
 }
 
+.nd-fotos-cliente {
+    margin-top: 16px;
+}
+
+.nd-fotos-cliente-titulo {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #3a3a3a;
+}
+
 /* ===== Colar linha do ERP ===== */
 
 .nd-colar-erp {
