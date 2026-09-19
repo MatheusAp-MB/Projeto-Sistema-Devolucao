@@ -270,6 +270,10 @@
             <span class="text-muted font-monospace">SKU {{ sku_item }}</span>
             <span class="text-muted opacity-50">—</span>
             <span class="text-muted">{{ quantidade_item }} unidade{{ quantidade_item|pluralize }}</span>
+            {% if preco_produto_input %}
+                <span class="text-muted opacity-50">—</span>
+                <span class="text-muted">R$ {{ preco_produto_input|floatformat:2 }}</span>
+            {% endif %}
         </div>
     </div>
 </div>

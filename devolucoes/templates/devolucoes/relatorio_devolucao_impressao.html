@@ -105,7 +105,7 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
 
     table.pecas { width: 100%; border-collapse: collapse; }
     table.pecas th { text-align: left; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); padding: 0 12px 8px 0; border-bottom: 2px solid var(--navy); }
-    table.pecas td { font-size: 12px; padding: 10px 12px 10px 0; border-bottom: 1px solid var(--borda); vertical-align: middle; }
+    table.pecas td { font-size: 12px; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--borda); vertical-align: middle; }
     table.pecas td.nome { font-weight: 700; }
     .nome-linha { display: flex; align-items: center; gap: 8px; }
     table.pecas td.nota { color: var(--muted); font-style: italic; }
@@ -124,7 +124,33 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
     .status.bad { background: #fbe9e9; color: #a52f2f; border-color: #f0c2c2; }
 
     .vazio { font-size: 12px; color: var(--muted); }
-    .rodape { margin-top: 20px; font-size: 10px; color: #a9b3bc; text-align: right; }
+    .rodape { margin-top: 6px; font-size: 10px; color: #a9b3bc; text-align: right; }
+
+    /* Controle de quebra de página do relatório A4 (19/09/2026): evita que um
+       "bloco" (cabeçalho, faixa de dados, observação, mediação) seja cortado
+       ao meio numa quebra de página, e evita que o título "Estado das peças"
+       fique sozinho separado da tabela que ele anuncia. Combinado com o
+       espaçamento reduzido acima (rodapé + linhas da tabela), elimina o caso
+       mais comum de folha desperdiçada: relatório pequeno em que só o rodapé
+       sobrava sozinho numa 2ª página em branco. Não força tudo a caber numa
+       folha só — quando tem conteúdo de sobra de verdade (muitas peças,
+       textos longos), continua imprimindo em 2 folhas normalmente. */
+    .cabecalho,
+    .faixa,
+    .observacao,
+    .mediacao {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+    .secao-titulo {
+        break-after: avoid;
+        page-break-after: avoid;
+    }
+    .observacao p,
+    .mediacao-anotacao {
+        orphans: 3;
+        widows: 3;
+    }
 
     @media print {
         body { background: #fff; padding: 0; }
