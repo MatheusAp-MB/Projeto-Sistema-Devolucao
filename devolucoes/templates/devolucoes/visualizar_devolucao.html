@@ -136,10 +136,24 @@
     </div>
     {% endif %}
 
-    {% if devolucao.observacao_geral %}
+    {% if devolucao.observacao_geral or fotos_observacao_geral %}
     <div class="vd-cartao">
         <h2 class="vd-cartao-titulo">Observação geral do produto</h2>
-        <p class="vd-texto-bloco">{{ devolucao.observacao_geral|linebreaksbr }}</p>
+        {% if devolucao.observacao_geral %}
+            <p class="vd-texto-bloco">{{ devolucao.observacao_geral|linebreaksbr }}</p>
+        {% endif %}
+        {% if fotos_observacao_geral %}
+            <div class="vd-grade-fotos">
+                {% for foto in fotos_observacao_geral %}
+                    <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item" title="{{ foto.nome_arquivo }}">
+                        <div class="vd-foto-thumb">
+                            <img src="{{ foto.imagem.url }}" alt="Foto geral do produto">
+                        </div>
+                        <span class="vd-foto-nome">{{ foto.nome_arquivo }}</span>
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
     </div>
     {% endif %}
 

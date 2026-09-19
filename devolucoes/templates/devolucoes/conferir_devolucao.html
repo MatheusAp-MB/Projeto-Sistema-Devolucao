@@ -134,6 +134,31 @@
                 <label for="cf_observacao_geral">Observação geral do produto</label>
                 <textarea id="cf_observacao_geral" name="observacao_geral" rows="2"
                           placeholder='Algo que não é sobre nenhuma peça específica — ex: "veio outro produto no lugar".'>{{ devolucao.observacao_geral }}</textarea>
+
+                <div class="cf-fotos">
+                    {% if fotos_observacao_geral %}
+                        <div class="cf-fotos-grade">
+                            {% for foto in fotos_observacao_geral %}
+                                <div class="cf-foto-item">
+                                    <img src="{{ foto.imagem.url }}" alt="Foto geral do produto">
+                                    <button type="submit" class="cf-foto-excluir" title="Excluir foto"
+                                            formmethod="post" formaction="{% url 'excluir_foto_observacao_geral' foto.id %}">
+                                        <i class="fas fa-xmark"></i>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <label class="cf-foto-botao" for="fotos_geral">
+                        <i class="fas fa-camera"></i> Adicionar foto
+                    </label>
+                    <input type="file" name="fotos_geral" id="fotos_geral"
+                           accept="image/*" capture="environment" multiple
+                           class="cf-input-oculto" data-cf-fotos-input>
+
+                    <div class="cf-fotos-preview" data-cf-fotos-preview></div>
+                </div>
             </div>
         </div>
 

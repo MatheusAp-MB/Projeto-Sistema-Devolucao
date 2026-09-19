@@ -32,7 +32,7 @@ from core.empresa import obter_alias_banco_ativo
 
 from .models import (
     Compatibilidade, ConferenciaPeca, Devolucao, FotoConferenciaPeca,
-    GrupoFornecedor, Marca, Peca, Produto,
+    FotoObservacaoGeral, GrupoFornecedor, Marca, Peca, Produto,
 )
 from .reorganizacao_fotos import reorganizar_fotos_devolucao
 
@@ -864,6 +864,7 @@ def conferir_devolucao(request, devolucao_id):
             'ja_conferida': ja_conferida,
             'pecas': _pecas_para_conferencia(devolucao),
             'destino_choices': Devolucao.DESTINO_CHOICES,
+            'fotos_observacao_geral': devolucao.fotos_observacao_geral.all(),
             'pagina_ativa': 'devolucoes_pendentes',
         })
 
@@ -916,6 +917,14 @@ def conferir_devolucao(request, devolucao_id):
                 for foto in request.FILES.getlist(f'fotos_{peca_id}'):
                     FotoConferenciaPeca.objects.create(conferencia=conferencia, imagem=foto)
 
+            # * [EXPLICAÇÃO] → fotos do estado GERAL do produto (não são de
+            #   nenhuma peça específica) — complementa observacao_geral,
+            #   que antes só aceitava texto. devolucao já existe sempre
+            #   nessa tela (criada na Fase 0), então não tem o mesmo
+            #   problema de ordem que as fotos por peça têm.
+            for foto in request.FILES.getlist('fotos_geral'):
+                FotoObservacaoGeral.objects.create(devolucao=devolucao, imagem=foto)
+
             devolucao.destino_produto = destino_produto
             devolucao.observacao_geral = observacao_geral
             devolucao.save(update_fields=['destino_produto', 'observacao_geral'])
@@ -928,6 +937,7 @@ def conferir_devolucao(request, devolucao_id):
         'ja_conferida': ja_conferida,
         'pecas': _pecas_para_conferencia(devolucao),
         'destino_choices': Devolucao.DESTINO_CHOICES,
+        'fotos_observacao_geral': devolucao.fotos_observacao_geral.all(),
         'pagina_ativa': 'devolucoes_pendentes',
     }
     return render(request, 'devolucoes/conferir_devolucao.html', contexto)
@@ -952,6 +962,23 @@ def excluir_foto_conferencia(request, foto_id):
     return redirect('conferir_devolucao', devolucao_id)
 
 
+def excluir_foto_observacao_geral(request, foto_id):
+    """Exclui 1 foto do estado GERAL do produto (não é de peça nenhuma) —
+    mesmo padrão de excluir_foto_conferencia logo acima, só que pra
+    FotoObservacaoGeral: ação isolada, POST-only, sempre volta pra tela
+    de conferência da devolução dona da foto."""
+    foto = get_object_or_404(
+        FotoObservacaoGeral.objects.select_related('devolucao'), pk=foto_id,
+    )
+    devolucao_id = foto.devolucao_id
+
+    if request.method == 'POST':
+        foto.delete()
+        messages.success(request, 'Foto excluída.')
+
+    return redirect('conferir_devolucao', devolucao_id)
+
+
 def visualizar_devolucao(request, devolucao_id):
     """Tela de consulta — só leitura, pensada pra quem só precisa checar o
     que foi feito na conferência ou pegar as fotos de evidência pra
@@ -959,9 +986,11 @@ def visualizar_devolucao(request, devolucao_id):
     de edição (conferir_devolucao) nem reabrir o relatório A4.
 
     Mostra as fotos de FotoConferenciaPeca (evidência da conferência)
-    agrupadas por peça — nunca a foto de catálogo da Peca. Fotos de
-    reclamação do cliente (FotoReclamacaoCliente) ficam de fora de
-    propósito: não interessam pra mediação, só a de conferência.
+    agrupadas por peça, e as fotos de FotoObservacaoGeral (estado geral
+    do produto, sem ser de peça nenhuma — ex: produto recebido já
+    montado) — nunca a foto de catálogo da Peca. Fotos de reclamação do
+    cliente (FotoReclamacaoCliente) ficam de fora de propósito: não
+    interessam pra mediação, só as que nós tiramos na conferência.
     """
     devolucao = get_object_or_404(
         Devolucao.objects.select_related('produto'), pk=devolucao_id,
@@ -974,6 +1003,7 @@ def visualizar_devolucao(request, devolucao_id):
     return render(request, 'devolucoes/visualizar_devolucao.html', {
         'devolucao': devolucao,
         'pecas_conferidas': pecas_conferidas,
+        'fotos_observacao_geral': devolucao.fotos_observacao_geral.all(),
     })
 
 
