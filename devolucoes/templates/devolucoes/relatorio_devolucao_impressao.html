@@ -118,12 +118,9 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
     .data-valor { font-weight: 700; }
 
     .observacao { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--borda); border-left: 4px solid var(--navy); border-radius: 6px; padding: 10px 14px; margin-bottom: 16px; }
-    .observacao.interna { border-left-color: var(--amber); flex-direction: column; align-items: stretch; }
+    .observacao.interna { border-left-color: var(--amber); }
     .observacao p { margin: 0; font-size: 12px; }
     .observacao-cabecalho { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-    .observacao-topo { display: flex; gap: 12px; align-items: flex-start; }
-    .observacao-fotos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-    .observacao-foto { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; border: 1px solid var(--borda); flex-shrink: 0; }
     .tag-fonte {
         font-size: 8.5px; font-weight: 700; letter-spacing: 0.5px; padding: 2px 7px; border-radius: 999px;
         color: #fff; background: var(--navy);
@@ -344,24 +341,13 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
             </div>
         {% endif %}
 
-        {% if devolucao.observacao_geral or devolucao.fotos_observacao_geral.exists %}
+        {% if devolucao.observacao_geral %}
             <div class="observacao interna">
-                <div class="observacao-topo">
-                    <div class="observacao-cabecalho">
-                        <p class="bloco-rotulo" style="white-space:nowrap; margin:0;">Obs. geral</p>
-                        <span class="tag-fonte interna">INTERNO</span>
-                    </div>
-                    {% if devolucao.observacao_geral %}
-                        <p>{{ devolucao.observacao_geral }}</p>
-                    {% endif %}
+                <div class="observacao-cabecalho">
+                    <p class="bloco-rotulo" style="white-space:nowrap; margin:0;">Obs. geral</p>
+                    <span class="tag-fonte interna">INTERNO</span>
                 </div>
-                {% if devolucao.fotos_observacao_geral.exists %}
-                    <div class="observacao-fotos">
-                        {% for foto in devolucao.fotos_observacao_geral.all %}
-                            <img src="{{ foto.imagem.url }}" class="observacao-foto" alt="Foto geral do produto">
-                        {% endfor %}
-                    </div>
-                {% endif %}
+                <p>{{ devolucao.observacao_geral }}</p>
             </div>
         {% endif %}
 
