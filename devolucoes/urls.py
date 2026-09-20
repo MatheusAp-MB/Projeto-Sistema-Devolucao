@@ -24,6 +24,7 @@ urlpatterns = [
     path('mediacoes/adicionar/', views.adicionar_mediacao_avulsa, name='adicionar_mediacao_avulsa'),
     path('mediacoes/devolucao/<int:devolucao_id>/', views.mediacoes_ml, name='mediacoes_ml_devolucao'),
     path('mediacoes/avulsa/<int:avulsa_id>/', views.mediacoes_ml, name='mediacoes_ml_avulsa'),
+    path('mediacoes/encontrado/<str:claim_id>/', views.mediacoes_ml, name='mediacoes_ml_encontrado'),
     path('mediacoes/avulsa/<int:avulsa_id>/excluir/', views.excluir_mediacao_avulsa, name='excluir_mediacao_avulsa'),
     path('mediacoes/varredura/iniciar/', views.iniciar_varredura_mediacoes, name='iniciar_varredura_mediacoes'),
     path('mediacoes/varredura/atualizar-acompanhados/', views.iniciar_atualizacao_acompanhados, name='iniciar_atualizacao_acompanhados'),

@@ -43,7 +43,8 @@ from .reorganizacao_fotos import reorganizar_fotos_devolucao
 from .varredura_mediacoes import (
     atualizar_e_formatar_mensagens, buscar_nome_cliente_e_produto,
     categoria_slug, contagem_por_categoria, executar_atualizacao_acompanhados,
-    executar_varredura_completa, resolver_claim_por_numero_pedido,
+    executar_varredura_completa, formatar_mensagens_em_cache,
+    resolver_claim_por_numero_pedido,
 )
 
 
@@ -844,7 +845,7 @@ def _serializar_mediacao(obj, tipo):
     }
 
 
-def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
+def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
     """Painel de acompanhamento de mediações do Mercado Livre (dor da
     Ana: hoje ela acompanha cada mediação aberta numa aba fixada do
     Chrome, 1 por 1). Junta 2 fontes na mesma lista: Devolucao em
@@ -942,6 +943,7 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
 
     mediacao_selecionada = None
     tipo_selecionado = None
+    claim_previsualizado = None
     if devolucao_id:
         # * [EXPLICAÇÃO] → filtro de plataforma também aqui (não só na
         #   lista) — sem isso, dava pra abrir o detalhe de uma devolução
@@ -996,6 +998,31 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
                     mediacao_selecionada.mediacao_atualizada_em = timezone.now()
                     mediacao_selecionada.save(update_fields=['mediacao_atualizada_em'])
 
+    # * [EXPLICAÇÃO] → pré-visualização de "Encontrados pelo Sistema" --
+    #   diferente do bloco acima: NUNCA faz busca nova por padrão, só
+    #   formata cache_claim.mensagens (já pago pela varredura). Só faz 1
+    #   chamada nova se Ana clicar em "Atualizar" (?atualizar=1 na URL,
+    #   ação explícita dela). Decisão de Matheus, 20/09/2026 -- ela já
+    #   pagou pra buscar essas mensagens, reabrir não deveria custar de
+    #   novo. Sem mediacao_visualizada_em/resolução de claim_id aqui --
+    #   isso só existe pra Devolucao/MediacaoAvulsa de verdade, este
+    #   item ainda não virou nenhum dos dois.
+    if claim_id:
+        cache_claim = get_object_or_404(ClaimMercadoLivre, pk=claim_id)
+        claim_previsualizado = {
+            'claim_id': cache_claim.claim_id,
+            'numero_pedido': cache_claim.numero_pedido,
+            'nome_cliente': cache_claim.nome_cliente,
+            'nome_produto': cache_claim.nome_produto,
+            'categoria_slug': categoria_slug(cache_claim.dados_brutos.get('stage'), cache_claim.tem_devolucao_fisica),
+        }
+        conta = CONTA_POR_EMPRESA.get(obter_empresa_ativa())
+        if request.GET.get('atualizar') and conta:
+            mensagens_chat, sucesso = atualizar_e_formatar_mensagens(conta, cache_claim, cache_claim.nome_cliente)
+            mensagens_falhou = not sucesso
+        else:
+            mensagens_chat = formatar_mensagens_em_cache(cache_claim, cache_claim.nome_cliente, conta)
+
     # * [EXPLICAÇÃO] → qual aba abre selecionada — sem isso, clicar numa
     #   mediação Encerrada recarregava a página e voltava pra "Abertas"
     #   por padrão, com o item selecionado escondido na aba errada (bug
@@ -1010,6 +1037,7 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
         'contagem_acompanhamento': contagem_acompanhamento,
         'mediacao_selecionada': mediacao_selecionada,
         'tipo_selecionado': tipo_selecionado,
+        'claim_previsualizado': claim_previsualizado,
         'aba_ativa': aba_ativa,
         'mensagens_chat': mensagens_chat,
         'mensagens_falhou': mensagens_falhou,

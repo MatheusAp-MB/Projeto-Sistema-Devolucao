@@ -423,6 +423,34 @@ def _preparar_mensagem_html(texto):
     return limpo.replace("<a ", '<a target="_blank" rel="noopener" ')
 
 
+def _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta):
+    """Extraído de atualizar_e_formatar_mensagens -- só formatação
+    (papel/rótulo/iniciais/data/texto_html), sem nenhuma chamada de API.
+    Reaproveitado tanto por quem busca mensagens frescas quanto por quem
+    só formata o que já está em cache.mensagens (pré-visualização de
+    'Encontrados pelo Sistema', decisão de Matheus 20/09/2026)."""
+    iniciais_cliente = (nome_cliente or '').strip()[:1].upper() or 'CL'
+    mensagens_ordenadas = sorted(mensagens_brutas, key=lambda m: m.get('date_created') or '')
+
+    resultado = []
+    for m in mensagens_ordenadas:
+        sender = m.get('sender_role')
+        if sender == 'mediator':
+            papel, rotulo, iniciais = 'ml', 'Mercado Livre', 'ML'
+        elif cache.meu_papel is not None and sender == cache.meu_papel:
+            papel, rotulo, iniciais = 'voce', 'Você', conta
+        else:
+            papel, rotulo, iniciais = 'cliente', 'Cliente', iniciais_cliente
+        resultado.append({
+            'papel': papel,
+            'rotulo': rotulo,
+            'iniciais': iniciais,
+            'data': _formatar_data_mensagem(m.get('date_created')),
+            'texto_html': _preparar_mensagem_html(m.get('message')),
+        })
+    return resultado
+
+
 def atualizar_e_formatar_mensagens(conta, cache, nome_cliente):
     """Busca mensagens frescas da claim (1 chamada síncrona) e já devolve
     formatadas pra exibição (papel/rótulo/iniciais/data/texto_html). Em
@@ -443,23 +471,18 @@ def atualizar_e_formatar_mensagens(conta, cache, nome_cliente):
     if not mensagens_brutas:
         return ([] if sucesso else None), sucesso
 
-    iniciais_cliente = (nome_cliente or '').strip()[:1].upper() or 'CL'
-    mensagens_ordenadas = sorted(mensagens_brutas, key=lambda m: m.get('date_created') or '')
+    return _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta), sucesso
 
-    resultado = []
-    for m in mensagens_ordenadas:
-        sender = m.get('sender_role')
-        if sender == 'mediator':
-            papel, rotulo, iniciais = 'ml', 'Mercado Livre', 'ML'
-        elif cache.meu_papel is not None and sender == cache.meu_papel:
-            papel, rotulo, iniciais = 'voce', 'Você', conta
-        else:
-            papel, rotulo, iniciais = 'cliente', 'Cliente', iniciais_cliente
-        resultado.append({
-            'papel': papel,
-            'rotulo': rotulo,
-            'iniciais': iniciais,
-            'data': _formatar_data_mensagem(m.get('date_created')),
-            'texto_html': _preparar_mensagem_html(m.get('message')),
-        })
-    return resultado, sucesso
+
+def formatar_mensagens_em_cache(cache, nome_cliente, conta):
+    """Formata só o que já está salvo em cache.mensagens -- SEM nenhuma
+    chamada nova a API. Usado na pré-visualização de um item 'Encontrados
+    pelo Sistema' (decisão de Matheus, 20/09/2026): a varredura já pagou
+    por essas mensagens, abrir o mesmo claim de novo não deveria custar
+    outra chamada -- só quando Ana clicar em 'Atualizar' de propósito é
+    que atualizar_e_formatar_mensagens (acima) entra em ação. Devolve
+    sempre uma lista (nunca None) -- vazia quando não tem nada em cache
+    ainda."""
+    if not cache.mensagens:
+        return []
+    return _formatar_mensagens(cache.mensagens, cache, nome_cliente, conta)
