@@ -187,6 +187,44 @@
 
     <div class="vd-zona-bottom">
         <div class="vd-cartao">
+            <h2 class="vd-cartao-titulo">Resumo geral da conferência</h2>
+            {% if pecas_conferidas %}
+                <div class="vd-resumo-grid">
+                    {% for conferencia in pecas_conferidas %}
+                        <div class="vd-resumo-card">
+                            <div class="vd-resumo-card-topo">
+                                {% if conferencia.peca.imagem %}
+                                    <img class="vd-resumo-card-foto" src="{{ conferencia.peca.imagem.url }}" alt="">
+                                {% else %}
+                                    <div class="vd-resumo-card-foto-vazia"></div>
+                                {% endif %}
+                                <div>
+                                    <div class="vd-resumo-card-nome">{{ conferencia.peca.nome_generico }}</div>
+                                    {% if conferencia.situacao == 'nao_recebida' %}
+                                        <span class="vd-status-mini vd-status-mini--bad">NÃO VEIO</span>
+                                    {% elif conferencia.situacao == 'incompleta' %}
+                                        <span class="vd-status-mini vd-status-mini--warn">FALTAM {{ conferencia.deficit }}</span>
+                                    {% elif conferencia.anotacao %}
+                                        <span class="vd-status-mini vd-status-mini--warn">COM DEFEITO</span>
+                                    {% else %}
+                                        <span class="vd-status-mini vd-status-mini--ok">OK</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if conferencia.anotacao %}
+                                <div class="vd-resumo-card-anotacao">{{ conferencia.anotacao }}</div>
+                            {% else %}
+                                <div class="vd-resumo-card-anotacao vazia">&nbsp;</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="vd-sem-fotos">Nenhuma peça conferida ainda.</p>
+            {% endif %}
+        </div>
+
+        <div class="vd-cartao">
             <h2 class="vd-cartao-titulo">Evidência para a mediação</h2>
             <p class="vd-texto-bloco vd-texto-bloco--dica">Fotos de todas as peças com problema, já reunidas — selecione tudo e arraste direto pro chat de mediação da plataforma.</p>
 
@@ -250,43 +288,7 @@
             {% endif %}
         </div>
 
-        <div class="vd-cartao">
-            <h2 class="vd-cartao-titulo">Resumo geral da conferência</h2>
-            {% if pecas_conferidas %}
-                <div class="vd-resumo-grid">
-                    {% for conferencia in pecas_conferidas %}
-                        <div class="vd-resumo-card">
-                            <div class="vd-resumo-card-topo">
-                                {% if conferencia.peca.imagem %}
-                                    <img class="vd-resumo-card-foto" src="{{ conferencia.peca.imagem.url }}" alt="">
-                                {% else %}
-                                    <div class="vd-resumo-card-foto-vazia"></div>
-                                {% endif %}
-                                <div>
-                                    <div class="vd-resumo-card-nome">{{ conferencia.peca.nome_generico }}</div>
-                                    {% if conferencia.situacao == 'nao_recebida' %}
-                                        <span class="vd-status-mini vd-status-mini--bad">NÃO VEIO</span>
-                                    {% elif conferencia.situacao == 'incompleta' %}
-                                        <span class="vd-status-mini vd-status-mini--warn">FALTAM {{ conferencia.deficit }}</span>
-                                    {% elif conferencia.anotacao %}
-                                        <span class="vd-status-mini vd-status-mini--warn">COM DEFEITO</span>
-                                    {% else %}
-                                        <span class="vd-status-mini vd-status-mini--ok">OK</span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% if conferencia.anotacao %}
-                                <div class="vd-resumo-card-anotacao">{{ conferencia.anotacao }}</div>
-                            {% else %}
-                                <div class="vd-resumo-card-anotacao vazia">&nbsp;</div>
-                            {% endif %}
-                        </div>
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="vd-sem-fotos">Nenhuma peça conferida ainda.</p>
-            {% endif %}
-        </div>
+
     </div>
 
 </div>
