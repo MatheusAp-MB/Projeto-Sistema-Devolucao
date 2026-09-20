@@ -195,3 +195,26 @@ class Devolucao(models.Model):
         if self.preco_produto is None or self.valor_reembolsado is None:
             return None
         return self.preco_produto - self.valor_reembolsado
+
+    @property
+    def dias_ate_reclamacao(self):
+        # * [EXPLICAÇÃO] → quantos dias corridos entre o recebimento pelo
+        #   cliente e a reclamação/solicitação de devolução dele. Os 2
+        #   campos são obrigatórios no model, mas o "is None" fica de
+        #   guarda mesmo assim — mesma filosofia defensiva já usada em
+        #   diferenca_reembolso.
+        if self.data_recebimento_cliente is None or self.data_reclamacao_cliente is None:
+            return None
+        return (self.data_reclamacao_cliente - self.data_recebimento_cliente).days
+
+    @property
+    def reclamacao_dentro_do_prazo(self):
+        # * [EXPLICAÇÃO] → pedido de Matheus (19/09/2026): deixar visível
+        #   se o cliente reclamou dentro de 7 dias corridos a partir do
+        #   recebimento — usado pro badge "Dentro/Fora dos 7 dias" no
+        #   Visualizar. True/False, ou None quando não dá pra calcular
+        #   (ver dias_ate_reclamacao).
+        dias = self.dias_ate_reclamacao
+        if dias is None:
+            return None
+        return dias <= 7

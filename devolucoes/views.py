@@ -1029,6 +1029,17 @@ def visualizar_devolucao(request, devolucao_id):
     do cliente raramente vão ser usadas pra mediação, mas é melhor ter
     aqui e não precisar do que precisar e não ter — por isso aparecem
     aqui também, revertendo uma decisão anterior de deixar de fora.
+
+    [ATENÇÃO] → reorganização de 19/09/2026 (mockup aprovado às 22:11):
+    o template agora separa 2 blocos com o MESMO dado de pecas_conferidas
+    mas propósitos diferentes — "Evidência pra mediação" junta fotos de
+    TODAS as peças com problema num grid só, sem separar por peça
+    (mediação do Mercado Livre funciona como chat: anexa tudo de uma vez,
+    não precisa vincular foto a peça), e "Resumo geral da conferência"
+    mostra cada peça com seu próprio card (aí sim agrupado por peça,
+    reaproveitando o mesmo visual do Relatório A4). pecas_com_problema é
+    o pré-filtro (ver eh_evidencia_de_problema em ConferenciaPeca) que
+    alimenta só o 1º bloco.
     """
     devolucao = get_object_or_404(
         Devolucao.objects.select_related('produto'), pk=devolucao_id,
@@ -1038,9 +1049,18 @@ def visualizar_devolucao(request, devolucao_id):
         .select_related('peca')
         .prefetch_related('fotos')
     )
+    # * [EXPLICAÇÃO] → pré-filtra as peças com problema (não veio,
+    #   incompleta, ou completa mas com anotação) pra alimentar o bloco
+    #   "Evidência pra mediação" — evita repetir esse filtro 2x dentro do
+    #   template (fotos + lista de anotações) e deixa fácil detectar o
+    #   caso "sem evidência nenhuma" (mockup aprovado por Matheus,
+    #   19/09/2026 22:11). Iterar a queryset aqui já popula o cache
+    #   dela — o for do template reaproveita, sem consulta 2x.
+    pecas_com_problema = [c for c in pecas_conferidas if c.eh_evidencia_de_problema]
     return render(request, 'devolucoes/visualizar_devolucao.html', {
         'devolucao': devolucao,
         'pecas_conferidas': pecas_conferidas,
+        'pecas_com_problema': pecas_com_problema,
         'fotos_observacao_geral': devolucao.fotos_observacao_geral.all(),
         'fotos_reclamacao_cliente': devolucao.fotos_reclamacao_cliente.all(),
     })

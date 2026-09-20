@@ -15,114 +15,158 @@
 {% block conteudo %}
 <div class="vd-pagina">
 
-    <div class="vd-cartao">
-        <div class="vd-cabecalho">
-            <div>
-                <h1 class="vd-titulo-pedido">Pedido {{ devolucao.numero_pedido }}</h1>
-                <div class="vd-meta-linha">
-                    <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }}</span>
-                    <span><i class="fas fa-user"></i> {{ devolucao.nome_cliente }}</span>
-                    <span><i class="fas fa-receipt"></i> NF {{ devolucao.numero_nota_fiscal }}</span>
+    <div class="vd-topo-grid">
+        <div class="vd-cartao">
+            <div class="vd-cabecalho">
+                <div>
+                    <h1 class="vd-titulo-pedido">Pedido {{ devolucao.numero_pedido }}</h1>
+                    <div class="vd-meta-linha">
+                        <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }} — {{ devolucao.get_tipo_venda_display }}</span>
+                        <span><i class="fas fa-user"></i> {{ devolucao.nome_cliente }}</span>
+                        <span><i class="fas fa-receipt"></i> NF {{ devolucao.numero_nota_fiscal }}</span>
+                    </div>
+                </div>
+                <div class="vd-acoes-topo">
+                    {% if devolucao.destino_produto %}
+                        <span class="vd-badge vd-badge--verde">
+                            <i class="fas fa-check-circle"></i> Conferida — {{ devolucao.get_destino_produto_display }}
+                        </span>
+                    {% else %}
+                        <span class="vd-badge vd-badge--ambar">
+                            <i class="fas fa-clock"></i> Pendente de conferência
+                        </span>
+                    {% endif %}
+                    <a href="{% url 'conferir_devolucao' devolucao.id %}" class="vd-btn">
+                        <i class="fas fa-pen-to-square"></i> Editar conferência
+                    </a>
+                    <a href="{% url 'editar_devolucao' devolucao.id %}" class="vd-btn">
+                        <i class="fas fa-pen"></i> Editar devolução
+                    </a>
+                    <a href="{% url 'imprimir_relatorio_devolucao' devolucao.id %}" target="_blank" class="vd-btn">
+                        <i class="fas fa-print"></i> Relatório A4
+                    </a>
+                    <a href="{% url 'imprimir_etiqueta_termica_devolucao' devolucao.id %}" target="_blank" class="vd-btn">
+                        <i class="fas fa-tag"></i> Etiqueta térmica
+                    </a>
                 </div>
             </div>
-            <div class="vd-acoes-topo">
-                {% if devolucao.destino_produto %}
-                    <span class="vd-badge vd-badge--verde">
-                        <i class="fas fa-check-circle"></i> Conferida — {{ devolucao.get_destino_produto_display }}
-                    </span>
-                {% else %}
-                    <span class="vd-badge vd-badge--ambar">
-                        <i class="fas fa-clock"></i> Pendente de conferência
-                    </span>
-                {% endif %}
-                <a href="{% url 'conferir_devolucao' devolucao.id %}" class="vd-btn">
-                    <i class="fas fa-pen-to-square"></i> Editar conferência
-                </a>
-                <a href="{% url 'imprimir_relatorio_devolucao' devolucao.id %}" target="_blank" class="vd-btn">
-                    <i class="fas fa-print"></i> Relatório A4
-                </a>
-                <a href="{% url 'imprimir_etiqueta_termica_devolucao' devolucao.id %}" target="_blank" class="vd-btn">
-                    <i class="fas fa-tag"></i> Etiqueta térmica
-                </a>
+
+            <hr class="vd-divisor">
+            <h2 class="vd-cartao-titulo">Linha do tempo &amp; status</h2>
+
+            <div class="vd-subgrupo-titulo">Datas da venda</div>
+            <div class="vd-grade-dados vd-grade-dados--3col">
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Venda</span>
+                    <span class="vd-valor">{{ devolucao.data_venda|date:"d/m/Y" }}</span>
+                </div>
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Recebido pelo cliente</span>
+                    <span class="vd-valor">{{ devolucao.data_recebimento_cliente|date:"d/m/Y" }}</span>
+                </div>
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Reclamação aberta</span>
+                    <span class="vd-valor">{{ devolucao.data_reclamacao_cliente|date:"d/m/Y" }}</span>
+                    {% if devolucao.reclamacao_dentro_do_prazo is not None %}
+                        {% if devolucao.reclamacao_dentro_do_prazo %}
+                            <span class="vd-badge vd-badge-prazo vd-badge--verde">Dentro dos 7 dias{% if devolucao.dias_ate_reclamacao == 0 %} — reclamou no mesmo dia do recebimento{% elif devolucao.dias_ate_reclamacao == 1 %} — reclamou 1 dia depois{% else %} — reclamou {{ devolucao.dias_ate_reclamacao }} dias depois{% endif %}</span>
+                        {% else %}
+                            <span class="vd-badge vd-badge-prazo vd-badge--vermelho">Fora dos 7 dias — reclamou {{ devolucao.dias_ate_reclamacao }} dias depois</span>
+                        {% endif %}
+                    {% endif %}
+                </div>
             </div>
+
+            <div class="vd-subgrupo-titulo">Recebimento da devolução e mediação</div>
+            <div class="vd-grade-dados vd-grade-dados--3col">
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Recebido por nós</span>
+                    <span class="vd-valor">{{ devolucao.data_recebimento_por_nos|date:"d/m/Y" }}</span>
+                </div>
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Mediação aberta</span>
+                    {% if devolucao.data_abertura_mediacao %}
+                        <span class="vd-valor">{{ devolucao.data_abertura_mediacao|date:"d/m/Y" }}</span>
+                    {% else %}
+                        <span class="vd-valor vd-valor--vazio">não aberta</span>
+                    {% endif %}
+                </div>
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Mediação finalizada</span>
+                    {% if devolucao.data_finalizacao_mediacao %}
+                        <span class="vd-valor">{{ devolucao.data_finalizacao_mediacao|date:"d/m/Y" }}</span>
+                    {% else %}
+                        <span class="vd-valor vd-valor--vazio">ainda em aberto</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="vd-subgrupo-titulo">Reembolso</div>
+            <div class="vd-grade-dados vd-grade-dados--3col">
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Reembolsado</span>
+                    {% if devolucao.reembolsado is True %}
+                        <span class="vd-valor">Sim</span>
+                    {% elif devolucao.reembolsado is False %}
+                        <span class="vd-valor">Não</span>
+                    {% else %}
+                        <span class="vd-valor vd-valor--vazio">ainda não definido</span>
+                    {% endif %}
+                </div>
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Valor reembolsado</span>
+                    {% if devolucao.valor_reembolsado is not None %}
+                        <span class="vd-valor">R$ {{ devolucao.valor_reembolsado|floatformat:2 }}</span>
+                    {% else %}
+                        <span class="vd-valor vd-valor--vazio">não informado</span>
+                    {% endif %}
+                </div>
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Diferença (preço − reembolso)</span>
+                    {% if devolucao.diferenca_reembolso is not None %}
+                        <span class="vd-valor">R$ {{ devolucao.diferenca_reembolso|floatformat:2 }}</span>
+                    {% else %}
+                        <span class="vd-valor vd-valor--vazio">não calculado</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="vd-cartao vd-produto-mini">
+            <h2 class="vd-cartao-titulo">Produto</h2>
+            <div class="vd-produto-foto-mini">
+                {% if devolucao.produto.foto %}
+                    <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
+                {% else %}
+                    <i class="fas fa-box"></i>
+                {% endif %}
+            </div>
+            <div class="vd-produto-nome">{{ devolucao.produto.nome }}</div>
+            <div class="vd-produto-campo">
+                <span class="vd-rotulo">Código de barras</span>
+                <span class="vd-valor">{{ devolucao.produto.codigo_barras }}</span>
+            </div>
+            {% if devolucao.produto.sku %}
+                <div class="vd-produto-campo">
+                    <span class="vd-rotulo">SKU</span>
+                    <span class="vd-valor">{{ devolucao.produto.sku }}</span>
+                </div>
+            {% endif %}
+            {% if devolucao.preco_produto is not None %}
+                <div class="vd-produto-campo">
+                    <span class="vd-rotulo">Preço</span>
+                    <span class="vd-valor">R$ {{ devolucao.preco_produto|floatformat:2 }}</span>
+                </div>
+            {% endif %}
         </div>
     </div>
 
+    {% if devolucao.anotacao_mediacao %}
     <div class="vd-cartao">
-        <h2 class="vd-cartao-titulo">Linha do tempo &amp; status</h2>
-        <div class="vd-grade-dados">
-            <div class="vd-campo">
-                <span class="vd-rotulo">Venda</span>
-                <span class="vd-valor">{{ devolucao.data_venda|date:"d/m/Y" }}</span>
-            </div>
-            <div class="vd-campo">
-                <span class="vd-rotulo">Recebido pelo cliente</span>
-                <span class="vd-valor">{{ devolucao.data_recebimento_cliente|date:"d/m/Y" }}</span>
-            </div>
-            <div class="vd-campo">
-                <span class="vd-rotulo">Reclamação aberta</span>
-                <span class="vd-valor">{{ devolucao.data_reclamacao_cliente|date:"d/m/Y" }}</span>
-            </div>
-            <div class="vd-campo">
-                <span class="vd-rotulo">Recebido por nós</span>
-                <span class="vd-valor">{{ devolucao.data_recebimento_por_nos|date:"d/m/Y" }}</span>
-            </div>
-            <div class="vd-campo">
-                <span class="vd-rotulo">Mediação aberta</span>
-                {% if devolucao.data_abertura_mediacao %}
-                    <span class="vd-valor">{{ devolucao.data_abertura_mediacao|date:"d/m/Y" }}</span>
-                {% else %}
-                    <span class="vd-valor vd-valor--vazio">não aberta</span>
-                {% endif %}
-            </div>
-            <div class="vd-campo">
-                <span class="vd-rotulo">Mediação finalizada</span>
-                {% if devolucao.data_finalizacao_mediacao %}
-                    <span class="vd-valor">{{ devolucao.data_finalizacao_mediacao|date:"d/m/Y" }}</span>
-                {% else %}
-                    <span class="vd-valor vd-valor--vazio">ainda em aberto</span>
-                {% endif %}
-            </div>
-            <div class="vd-campo">
-                <span class="vd-rotulo">Reembolsado</span>
-                {% if devolucao.reembolsado is True %}
-                    <span class="vd-valor">Sim</span>
-                {% elif devolucao.reembolsado is False %}
-                    <span class="vd-valor">Não</span>
-                {% else %}
-                    <span class="vd-valor vd-valor--vazio">ainda não definido</span>
-                {% endif %}
-            </div>
-            <div class="vd-campo">
-                <span class="vd-rotulo">Preço do produto</span>
-                {% if devolucao.preco_produto is not None %}
-                    <span class="vd-valor">R$ {{ devolucao.preco_produto|floatformat:2 }}</span>
-                {% else %}
-                    <span class="vd-valor vd-valor--vazio">não informado</span>
-                {% endif %}
-            </div>
-            <div class="vd-campo">
-                <span class="vd-rotulo">Valor reembolsado</span>
-                {% if devolucao.valor_reembolsado is not None %}
-                    <span class="vd-valor">R$ {{ devolucao.valor_reembolsado|floatformat:2 }}</span>
-                {% else %}
-                    <span class="vd-valor vd-valor--vazio">não informado</span>
-                {% endif %}
-            </div>
-            <div class="vd-campo">
-                <span class="vd-rotulo">Diferença (preço − reembolso)</span>
-                {% if devolucao.diferenca_reembolso is not None %}
-                    <span class="vd-valor">R$ {{ devolucao.diferenca_reembolso|floatformat:2 }}</span>
-                {% else %}
-                    <span class="vd-valor vd-valor--vazio">não calculado</span>
-                {% endif %}
-            </div>
-            <div class="vd-campo">
-                <span class="vd-rotulo">Tipo de venda</span>
-                <span class="vd-valor">{{ devolucao.get_tipo_venda_display }}</span>
-            </div>
-        </div>
+        <h2 class="vd-cartao-titulo">Anotações da mediação</h2>
+        <p class="vd-texto-bloco">{{ devolucao.anotacao_mediacao|linebreaksbr }}</p>
     </div>
+    {% endif %}
 
     <div class="vd-cartao">
         <h2 class="vd-cartao-titulo">Motivo da reclamação do cliente</h2>
@@ -141,83 +185,14 @@
         {% endif %}
     </div>
 
-    {% if devolucao.anotacao_mediacao %}
-    <div class="vd-cartao">
-        <h2 class="vd-cartao-titulo">Anotações da mediação</h2>
-        <p class="vd-texto-bloco">{{ devolucao.anotacao_mediacao|linebreaksbr }}</p>
-    </div>
-    {% endif %}
+    <div class="vd-zona-bottom">
+        <div class="vd-cartao">
+            <h2 class="vd-cartao-titulo">Evidência para a mediação</h2>
+            <p class="vd-texto-bloco vd-texto-bloco--dica">Fotos de todas as peças com problema, já reunidas — selecione tudo e arraste direto pro chat de mediação da plataforma.</p>
 
-    {% if devolucao.observacao_geral or fotos_observacao_geral %}
-    <div class="vd-cartao">
-        <h2 class="vd-cartao-titulo">Observação geral do produto</h2>
-        {% if devolucao.observacao_geral %}
-            <p class="vd-texto-bloco">{{ devolucao.observacao_geral|linebreaksbr }}</p>
-        {% endif %}
-        {% if fotos_observacao_geral %}
-            <div class="vd-grade-fotos">
-                {% for foto in fotos_observacao_geral %}
-                    <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item" title="{{ foto.nome_arquivo }}">
-                        <div class="vd-foto-thumb">
-                            <img src="{{ foto.imagem.url }}" alt="Foto geral do produto">
-                        </div>
-                        <span class="vd-foto-nome">{{ foto.nome_arquivo }}</span>
-                    </a>
-                {% endfor %}
-            </div>
-        {% endif %}
-    </div>
-    {% endif %}
-
-    <div class="vd-cartao">
-        <h2 class="vd-cartao-titulo">Produto</h2>
-        <div class="vd-produto-linha">
-            <div class="vd-produto-foto">
-                {% if devolucao.produto.foto %}
-                    <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
-                {% else %}
-                    <i class="fas fa-box"></i>
-                {% endif %}
-            </div>
-            <div class="vd-produto-info">
-                <div class="vd-produto-nome">{{ devolucao.produto.nome }}</div>
-                <div class="vd-meta-linha">
-                    <span><i class="fas fa-barcode"></i> {{ devolucao.produto.codigo_barras }}</span>
-                    {% if devolucao.produto.sku %}
-                        <span><i class="fas fa-hashtag"></i> SKU {{ devolucao.produto.sku }}</span>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="vd-cartao">
-        <h2 class="vd-cartao-titulo">Peças conferidas &amp; fotos da conferência</h2>
-
-        {% for conferencia in pecas_conferidas %}
-            <div class="vd-peca-bloco">
-                <div class="vd-peca-cabecalho">
-                    <span class="vd-peca-nome">
-                        <i class="fas fa-puzzle-piece"></i> {{ conferencia.peca.nome_generico }}
-                    </span>
-                    <span class="vd-peca-qtd">
-                        Recebido {{ conferencia.quantidade_recebida }} de {{ conferencia.quantidade_esperada }}
-                    </span>
-                    {% if conferencia.situacao == 'completa' %}
-                        <span class="vd-badge vd-badge--verde">Completa</span>
-                    {% elif conferencia.situacao == 'incompleta' %}
-                        <span class="vd-badge vd-badge--ambar">Incompleta</span>
-                    {% else %}
-                        <span class="vd-badge vd-badge--vermelho">Não recebida</span>
-                    {% endif %}
-                </div>
-
-                {% if conferencia.anotacao %}
-                    <div class="vd-peca-anotacao">{{ conferencia.anotacao|linebreaksbr }}</div>
-                {% endif %}
-
-                {% if conferencia.fotos.all %}
-                    <div class="vd-grade-fotos">
+            {% if pecas_com_problema or fotos_observacao_geral or devolucao.observacao_geral %}
+                <div class="vd-grade-fotos">
+                    {% for conferencia in pecas_com_problema %}
                         {% for foto in conferencia.fotos.all %}
                             <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item" title="{{ foto.nome_arquivo }}">
                                 <div class="vd-foto-thumb">
@@ -226,27 +201,92 @@
                                 <span class="vd-foto-nome">{{ foto.nome_arquivo }}</span>
                             </a>
                         {% endfor %}
-                    </div>
-                {% else %}
-                    <p class="vd-sem-fotos"><i class="fas fa-box-open"></i> Sem fotos de conferência registradas pra essa peça.</p>
-                {% endif %}
-            </div>
-        {% empty %}
-            <p class="vd-sem-fotos">Nenhuma peça conferida ainda.</p>
-        {% endfor %}
+                    {% endfor %}
+                    {% for foto in fotos_observacao_geral %}
+                        <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item" title="{{ foto.nome_arquivo }}">
+                            <div class="vd-foto-thumb">
+                                <img src="{{ foto.imagem.url }}" alt="Foto geral do produto">
+                            </div>
+                            <span class="vd-foto-nome">{{ foto.nome_arquivo }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
 
-        {% if pecas_conferidas %}
-        <div class="vd-aviso-pasta">
-            <i class="fas fa-folder-open"></i>
-            <div class="vd-aviso-pasta-txt">
-                Pra anexar essas fotos direto na mediação com a plataforma, elas já estão salvas nessa pasta do computador:
-                <code>Devoluções/Pedido_{{ devolucao.numero_pedido|slugify }}/Fotos da conferencia/</code>
-            </div>
-            <a href="{% url 'abrir_pasta_conferencia' devolucao.id %}" class="vd-btn vd-btn--pasta">
-                <i class="fas fa-folder-open"></i> Abrir pasta no Explorer
-            </a>
+                <div class="vd-lista-anotacoes">
+                    {% for conferencia in pecas_com_problema %}
+                        <div class="vd-anotacao-item">
+                            <span class="vd-anotacao-peca">{{ conferencia.peca.nome_generico }}</span>
+                            <span class="vd-anotacao-texto">
+                                {% if conferencia.anotacao %}
+                                    {{ conferencia.anotacao }}
+                                {% elif conferencia.situacao == 'nao_recebida' %}
+                                    Não recebida.
+                                {% elif conferencia.situacao == 'incompleta' %}
+                                    Recebida {{ conferencia.quantidade_recebida }} de {{ conferencia.quantidade_esperada }}.
+                                {% endif %}
+                            </span>
+                        </div>
+                    {% endfor %}
+                    {% if devolucao.observacao_geral %}
+                        <div class="vd-anotacao-item">
+                            <span class="vd-anotacao-peca">Observação geral do produto</span>
+                            <span class="vd-anotacao-texto">{{ devolucao.observacao_geral }}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            {% else %}
+                <p class="vd-sem-fotos">Nenhuma peça com problema registrada nessa conferência.</p>
+            {% endif %}
+
+            {% if pecas_conferidas %}
+                <div class="vd-aviso-pasta vd-aviso-pasta--secundario">
+                    <i class="fas fa-folder-open"></i>
+                    <div class="vd-aviso-pasta-txt">
+                        Prefere usar os arquivos? As mesmas fotos também estão salvas em
+                        <code>Devoluções/Pedido_{{ devolucao.numero_pedido|slugify }}/Fotos da conferencia/</code>
+                    </div>
+                    <a href="{% url 'abrir_pasta_conferencia' devolucao.id %}" class="vd-btn">Abrir pasta no Explorer</a>
+                </div>
+            {% endif %}
         </div>
-        {% endif %}
+
+        <div class="vd-cartao">
+            <h2 class="vd-cartao-titulo">Resumo geral da conferência</h2>
+            {% if pecas_conferidas %}
+                <div class="vd-resumo-grid">
+                    {% for conferencia in pecas_conferidas %}
+                        <div class="vd-resumo-card">
+                            <div class="vd-resumo-card-topo">
+                                {% if conferencia.peca.imagem %}
+                                    <img class="vd-resumo-card-foto" src="{{ conferencia.peca.imagem.url }}" alt="">
+                                {% else %}
+                                    <div class="vd-resumo-card-foto-vazia"></div>
+                                {% endif %}
+                                <div>
+                                    <div class="vd-resumo-card-nome">{{ conferencia.peca.nome_generico }}</div>
+                                    {% if conferencia.situacao == 'nao_recebida' %}
+                                        <span class="vd-status-mini vd-status-mini--bad">NÃO VEIO</span>
+                                    {% elif conferencia.situacao == 'incompleta' %}
+                                        <span class="vd-status-mini vd-status-mini--warn">FALTAM {{ conferencia.deficit }}</span>
+                                    {% elif conferencia.anotacao %}
+                                        <span class="vd-status-mini vd-status-mini--warn">COM DEFEITO</span>
+                                    {% else %}
+                                        <span class="vd-status-mini vd-status-mini--ok">OK</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% if conferencia.anotacao %}
+                                <div class="vd-resumo-card-anotacao">{{ conferencia.anotacao }}</div>
+                            {% else %}
+                                <div class="vd-resumo-card-anotacao vazia">&nbsp;</div>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="vd-sem-fotos">Nenhuma peça conferida ainda.</p>
+            {% endif %}
+        </div>
     </div>
 
 </div>

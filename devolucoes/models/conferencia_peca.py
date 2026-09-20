@@ -44,3 +44,12 @@ class ConferenciaPeca(models.Model):
     @property
     def deficit(self):
         return max(0, self.quantidade_esperada - self.quantidade_recebida)
+
+    @property
+    def eh_evidencia_de_problema(self):
+        # * [EXPLICAÇÃO] → decide se essa peça entra no bloco "Evidência
+        #   pra mediação" do Visualizar — mesmo critério que já define os
+        #   badges do Relatório A4 (COM DEFEITO/FALTAM N/NÃO VEIO vs OK):
+        #   não veio, veio incompleta, ou veio completa mas com alguma
+        #   anotação de defeito registrada.
+        return self.situacao != 'completa' or bool(self.anotacao)
