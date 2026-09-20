@@ -11,6 +11,8 @@
 # 20/09/2026) — porta as funções de busca pra cá porque
 # scripts_exploracao_ML/ é pasta de exploração, não código de produção.
 
+import bleach
+
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -21,6 +23,10 @@ from core.empresa import definir_empresa_ativa
 from integracao_mercado_livre.views import CONTA_POR_EMPRESA, PASTA_LOGS_ML
 
 from .models import ClaimMercadoLivre, Devolucao, StatusVarreduraMediacoes
+
+FUSO_HORARIO_EXIBICAO_MSG = ZoneInfo("America/Sao_Paulo")
+TAGS_PERMITIDAS_MENSAGEM = ["p", "br", "strong", "b", "em", "i", "a"]
+ATRIBUTOS_PERMITIDOS_MENSAGEM = {"a": ["href"]}
 
 MESES_ATRAS = 6
 LIMITE_POR_PAGINA = 100
@@ -286,3 +292,87 @@ def executar_atualizacao_acompanhados(empresa):
         _concluir_varredura(itens_nao_confirmados)
     except Exception as erro:
         _falhar_varredura(str(erro))
+
+
+# ==== refresh individual de 1 chat -- síncrono, dentro da própria
+# requisição de abrir a tela (decisão de Matheus, 20/09/2026, validada em
+# cronometrar_refresh_individual.py: ~0,63s médio isolado, bem abaixo de
+# 1s -- não precisa do mecanismo de segundo plano usado pelas 2
+# varreduras). Classificação e sanitização das mensagens (bleach) portadas
+# de integracao_mercado_livre/views.py::_construir_mensagens_mediacao,
+# já validadas em produção no Hub de Consulta -- só que aqui meu_papel já
+# vem pronto de ClaimMercadoLivre.meu_papel (cacheado pela varredura), sem
+# precisar de uma chamada extra a /users/me pra descobrir.
+
+def _formatar_data_mensagem(valor_iso):
+    if not valor_iso or not isinstance(valor_iso, str):
+        return None
+    try:
+        instante = datetime.fromisoformat(valor_iso)
+    except ValueError:
+        return valor_iso
+    instante = instante.astimezone(FUSO_HORARIO_EXIBICAO_MSG)
+    return instante.strftime("%d/%m/%Y %H:%M")
+
+
+def _preparar_mensagem_html(texto):
+    """Prepara o campo 'message' de uma mensagem da claim pra exibição segura
+    no template com |safe: se já vier com HTML (parágrafo, negrito, link —
+    como normalmente vêm as mensagens do mediador), sanitiza mantendo só um
+    punhado de tags seguras (bleach). Se vier em texto puro (como normalmente
+    vêm as suas e as do comprador), cada quebra de linha vira <br> antes de
+    sanitizar, senão o navegador ignora as quebras. Todo link vira
+    target="_blank" pra não tirar o usuário da tela sem aviso."""
+    if not texto:
+        return '<p class="text-muted mb-0">(sem texto — mensagem só com anexo, ou campo vazio)</p>'
+    if "<" not in texto:
+        texto = texto.replace("\n", "<br>")
+    limpo = bleach.clean(
+        texto,
+        tags=TAGS_PERMITIDAS_MENSAGEM,
+        attributes=ATRIBUTOS_PERMITIDOS_MENSAGEM,
+        strip=True,
+    )
+    return limpo.replace("<a ", '<a target="_blank" rel="noopener" ')
+
+
+def atualizar_e_formatar_mensagens(conta, cache, nome_cliente):
+    """Busca mensagens frescas da claim (1 chamada síncrona) e já devolve
+    formatadas pra exibição (papel/rótulo/iniciais/data/texto_html). Em
+    caso de falha na busca, cai pro que já estava salvo na cache (pode
+    ser None, se nunca buscou com sucesso antes) -- nunca perde o que já
+    tinha por causa de 1 chamada que falhou agora. Devolve
+    (mensagens_formatadas_ou_None, sucesso)."""
+    mensagens_brutas = _buscar_mensagens_da_reclamacao(conta, cache.claim_id)
+    sucesso = mensagens_brutas is not None
+
+    if sucesso:
+        cache.mensagens = mensagens_brutas
+        cache.ultima_busca_em = timezone.now()
+        cache.save(update_fields=['mensagens', 'ultima_busca_em'])
+    else:
+        mensagens_brutas = cache.mensagens
+
+    if not mensagens_brutas:
+        return ([] if sucesso else None), sucesso
+
+    iniciais_cliente = (nome_cliente or '').strip()[:1].upper() or 'CL'
+    mensagens_ordenadas = sorted(mensagens_brutas, key=lambda m: m.get('date_created') or '')
+
+    resultado = []
+    for m in mensagens_ordenadas:
+        sender = m.get('sender_role')
+        if sender == 'mediator':
+            papel, rotulo, iniciais = 'ml', 'Mercado Livre', 'ML'
+        elif cache.meu_papel is not None and sender == cache.meu_papel:
+            papel, rotulo, iniciais = 'voce', 'Você', conta
+        else:
+            papel, rotulo, iniciais = 'cliente', 'Cliente', iniciais_cliente
+        resultado.append({
+            'papel': papel,
+            'rotulo': rotulo,
+            'iniciais': iniciais,
+            'data': _formatar_data_mensagem(m.get('date_created')),
+            'texto_html': _preparar_mensagem_html(m.get('message')),
+        })
+    return resultado, sucesso

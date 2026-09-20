@@ -41,8 +41,9 @@ from .models import (
 )
 from .reorganizacao_fotos import reorganizar_fotos_devolucao
 from .varredura_mediacoes import (
-    buscar_nome_cliente_e_produto, categoria_slug, contagem_por_categoria,
-    executar_atualizacao_acompanhados, executar_varredura_completa,
+    atualizar_e_formatar_mensagens, buscar_nome_cliente_e_produto,
+    categoria_slug, contagem_por_categoria, executar_atualizacao_acompanhados,
+    executar_varredura_completa,
 )
 
 
@@ -942,12 +943,31 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
         mediacao_selecionada = get_object_or_404(MediacaoAvulsa, pk=avulsa_id)
         tipo_selecionado = 'avulsa'
 
+    mensagens_chat = None
+    mensagens_falhou = False
     if mediacao_selecionada:
         # * [EXPLICAÇÃO] → marca como "visualizada agora" só de abrir a
         #   tela — é o gatilho do indicador de mensagem nova (entra na
         #   próxima etapa, quando a mensagem real existir pra comparar).
         mediacao_selecionada.mediacao_visualizada_em = timezone.now()
         mediacao_selecionada.save(update_fields=['mediacao_visualizada_em'])
+
+        # * [EXPLICAÇÃO] → busca síncrona de mensagens toda vez que Ana
+        #   abre o chat de um item -- validado em
+        #   cronometrar_refresh_individual.py (~0,63s médio, isolado),
+        #   decisão de Matheus 20/09/2026: não precisa do mecanismo de
+        #   segundo plano usado pelas 2 varreduras, só pro refresh de 1
+        #   chat. Sem claim_id ainda (nenhuma varredura casou esse
+        #   pedido) não tem como buscar -- fica None mesmo.
+        if mediacao_selecionada.claim_id:
+            cache_da_conversa = ClaimMercadoLivre.objects.filter(pk=mediacao_selecionada.claim_id).first()
+            conta = CONTA_POR_EMPRESA.get(obter_empresa_ativa())
+            if cache_da_conversa and conta:
+                mensagens_chat, sucesso = atualizar_e_formatar_mensagens(conta, cache_da_conversa, mediacao_selecionada.nome_cliente)
+                mensagens_falhou = not sucesso
+                if sucesso:
+                    mediacao_selecionada.mediacao_atualizada_em = timezone.now()
+                    mediacao_selecionada.save(update_fields=['mediacao_atualizada_em'])
 
     # * [EXPLICAÇÃO] → qual aba abre selecionada — sem isso, clicar numa
     #   mediação Encerrada recarregava a página e voltava pra "Abertas"
@@ -964,6 +984,8 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
         'mediacao_selecionada': mediacao_selecionada,
         'tipo_selecionado': tipo_selecionado,
         'aba_ativa': aba_ativa,
+        'mensagens_chat': mensagens_chat,
+        'mensagens_falhou': mensagens_falhou,
         'pagina_ativa': 'mediacoes_ml',
     }
     return render(request, 'devolucoes/mediacoes_ml.html', contexto)

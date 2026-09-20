@@ -262,10 +262,12 @@
             </div>
 
             <p class="vd-texto-bloco" style="margin-top:8px; color:var(--cor-texto-muted); font-size:12px;">
-                {% if mediacao_selecionada.mediacao_atualizada_em %}
-                Última atualização: {{ mediacao_selecionada.mediacao_atualizada_em|date:"d/m/Y H:i" }} — o sistema não atualiza sozinho.
+                {% if not mediacao_selecionada.claim_id %}
+                Conversa ainda não vinculada a uma reclamação do Mercado Livre — isso é preenchido automaticamente quando uma varredura completa encontra esse pedido.
+                {% elif mensagens_falhou %}
+                Não foi possível atualizar as mensagens agora.{% if mediacao_selecionada.mediacao_atualizada_em %} Mostrando a última busca com sucesso: {{ mediacao_selecionada.mediacao_atualizada_em|date:"d/m/Y H:i" }}.{% endif %}
                 {% else %}
-                Conversa ainda não atualizada nenhuma vez — a busca real de mensagens entra no próximo passo.
+                Mensagens atualizadas automaticamente ao abrir esta tela — última busca: {{ mediacao_selecionada.mediacao_atualizada_em|date:"d/m/Y H:i" }}.
                 {% endif %}
             </p>
 
@@ -318,11 +320,45 @@
 
             <hr class="vd-divisor">
 
-            <div class="vd-subgrupo-titulo">Conversa com o Mercado Livre</div>
+            <div class="med-lista-cabecalho">
+                <div class="vd-subgrupo-titulo">Conversa com o Mercado Livre</div>
+                {% if mediacao_selecionada.claim_id %}
+                <a href="{% if tipo_selecionado == 'devolucao' %}{% url 'mediacoes_ml_devolucao' mediacao_selecionada.id %}{% else %}{% url 'mediacoes_ml_avulsa' mediacao_selecionada.id %}{% endif %}" class="vd-btn">
+                    <i class="fas fa-arrows-rotate"></i> Atualizar
+                </a>
+                {% endif %}
+            </div>
+            {% if not mediacao_selecionada.claim_id %}
             <div class="med-conversa-pendente">
                 <i class="fas fa-circle-info"></i>
-                <span>A busca real das mensagens (e o botão "Atualizar") ainda não foram implementados — é o próximo passo depois desse.</span>
+                <span>Ainda não identificamos o ID da reclamação desse pedido — isso é preenchido automaticamente quando uma varredura completa encontra esse pedido no Mercado Livre.</span>
             </div>
+            {% elif mensagens_falhou and not mensagens_chat %}
+            <div class="med-conversa-pendente">
+                <i class="fas fa-triangle-exclamation"></i>
+                <span>Não foi possível buscar as mensagens agora. Clique em "Atualizar" pra tentar de novo.</span>
+            </div>
+            {% elif mensagens_chat %}
+            <div class="med-conversa-lista">
+                {% for msg in mensagens_chat %}
+                <div class="med-msg med-msg--{{ msg.papel }}">
+                    <span class="med-msg-iniciais">{{ msg.iniciais }}</span>
+                    <div class="med-msg-bolha">
+                        <div class="med-msg-topo">
+                            <span class="med-msg-rotulo">{{ msg.rotulo }}</span>
+                            <span class="med-msg-data">{{ msg.data }}</span>
+                        </div>
+                        <div class="med-msg-texto">{{ msg.texto_html|safe }}</div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="med-conversa-pendente">
+                <i class="fas fa-circle-info"></i>
+                <span>Nenhuma mensagem nessa reclamação ainda.</span>
+            </div>
+            {% endif %}
         </div>
         {% else %}
         <div class="vd-cartao">
