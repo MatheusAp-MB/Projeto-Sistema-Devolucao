@@ -134,7 +134,8 @@
 
         <div class="vd-cartao vd-produto-mini">
             <h2 class="vd-cartao-titulo">Produto</h2>
-            <div class="vd-produto-foto-mini">
+            <div class="vd-produto-foto-mini{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
+                 {% if devolucao.produto.foto %}data-fotos-id="vd-produto-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                 {% if devolucao.produto.foto %}
                     <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
                 {% else %}
@@ -174,7 +175,8 @@
         {% if fotos_reclamacao_cliente %}
             <div class="vd-grade-fotos">
                 {% for foto in fotos_reclamacao_cliente %}
-                    <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item" title="{{ foto.nome_arquivo }}">
+                    <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item card-fotos-item" title="{{ foto.nome_arquivo }}"
+                       data-fotos-id="vd-reclamacao-cliente" data-titulo="Foto do cliente" data-legenda="{{ foto.nome_arquivo }}">
                         <div class="vd-foto-thumb">
                             <img src="{{ foto.imagem.url }}" alt="Foto do cliente">
                         </div>
@@ -194,7 +196,8 @@
                         <div class="vd-resumo-card">
                             <div class="vd-resumo-card-topo">
                                 {% if conferencia.peca.imagem %}
-                                    <img class="vd-resumo-card-foto" src="{{ conferencia.peca.imagem.url }}" alt="">
+                                    <img class="vd-resumo-card-foto card-fotos-item" src="{{ conferencia.peca.imagem.url }}" alt=""
+                                         data-fotos-id="vd-resumo-{{ conferencia.peca.id }}" data-titulo="{{ conferencia.peca.nome_generico }}">
                                 {% else %}
                                     <div class="vd-resumo-card-foto-vazia"></div>
                                 {% endif %}
@@ -232,7 +235,9 @@
                 <div class="vd-grade-fotos">
                     {% for conferencia in pecas_com_problema %}
                         {% for foto in conferencia.fotos.all %}
-                            <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item" title="{{ foto.nome_arquivo }}">
+                            <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item card-fotos-item" title="{{ foto.nome_arquivo }}"
+                               data-fotos-id="vd-evidencia" data-titulo="{{ conferencia.peca.nome_generico }}"
+                               data-legenda="{{ conferencia.anotacao|default:'' }}">
                                 <div class="vd-foto-thumb">
                                     <img src="{{ foto.imagem.url }}" alt="Foto de {{ conferencia.peca.nome_generico }}">
                                 </div>
@@ -241,7 +246,9 @@
                         {% endfor %}
                     {% endfor %}
                     {% for foto in fotos_observacao_geral %}
-                        <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item" title="{{ foto.nome_arquivo }}">
+                        <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item card-fotos-item" title="{{ foto.nome_arquivo }}"
+                           data-fotos-id="vd-evidencia" data-titulo="Observação geral do produto"
+                           data-legenda="{{ devolucao.observacao_geral|default:'' }}">
                             <div class="vd-foto-thumb">
                                 <img src="{{ foto.imagem.url }}" alt="Foto geral do produto">
                             </div>

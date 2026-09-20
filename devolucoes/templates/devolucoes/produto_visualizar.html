@@ -15,7 +15,8 @@
         </a>
 
         <div class="produto-view-cartao">
-            <div class="produto-view-foto">
+            <div class="produto-view-foto{% if produto.foto %} card-fotos-item{% endif %}"
+                 {% if produto.foto %}data-fotos-id="produto-view-principal-{{ produto.id }}" data-titulo="{{ produto.nome }}"{% endif %}>
                 {% if produto.foto %}
                     <img src="{{ produto.foto.url }}" alt="{{ produto.nome }}">
                 {% else %}
@@ -73,7 +74,8 @@
             <div class="produto-view-pecas-lista">
                 {% for comp in compatibilidades %}
                     <div class="produto-view-peca-linha">
-                        <div class="produto-view-peca-foto-mini">
+                        <div class="produto-view-peca-foto-mini{% if comp.peca.imagem %} card-fotos-item{% endif %}"
+                             {% if comp.peca.imagem %}data-fotos-id="produto-view-peca-{{ comp.id }}" data-titulo="{{ comp.peca.nome_generico }}"{% endif %}>
                             {% if comp.peca.imagem %}
                                 <img src="{{ comp.peca.imagem.url }}" alt="{{ comp.peca.nome_generico }}">
                             {% else %}

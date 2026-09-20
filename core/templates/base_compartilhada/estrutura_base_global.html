@@ -28,6 +28,7 @@
         <!-- Layout global do sistema -->
         <link rel="stylesheet" href="{% static 'base_compartilhada/css/layout_global.css' %}">
         <link rel="stylesheet" href="{% static 'base_compartilhada/css/layout_badges.css' %}">
+        <link rel="stylesheet" href="{% static 'base_compartilhada/css/layout_modal_fotos.css' %}">
         {% block head_extra %}{% endblock %}
     </head>
     <body>
@@ -124,6 +125,28 @@
         <!-- Bootstrap JS -->
         <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
         <script src="{% static 'base_compartilhada/js/script_global.js' %}"></script>
+
+        <!-- Modal de fotos — único pro sistema inteiro, ver layout_modal_fotos.css / script_modal_fotos.js -->
+        <div id="modal-fotos" class="modal-fotos-overlay" hidden>
+            <div class="modal-fotos-cabecalho">
+                <div class="modal-fotos-identificacao">
+                    <span class="modal-fotos-titulo" id="modal-fotos-titulo"></span>
+                    <span class="modal-fotos-subtitulo" id="modal-fotos-subtitulo"></span>
+                </div>
+                <span class="modal-fotos-contador" id="modal-fotos-contador"></span>
+                <button type="button" class="modal-fotos-fechar" id="modal-fotos-fechar" aria-label="Fechar">&times;</button>
+            </div>
+            <div class="modal-fotos-area">
+                <button type="button" class="modal-fotos-nav" id="modal-fotos-anterior" aria-label="Foto anterior">&#10094;</button>
+                <div class="modal-fotos-corpo">
+                    <img id="modal-fotos-imagem" class="modal-fotos-imagem" src="" alt="">
+                </div>
+                <button type="button" class="modal-fotos-nav" id="modal-fotos-proxima" aria-label="Próxima foto">&#10095;</button>
+            </div>
+            <p class="modal-fotos-legenda" id="modal-fotos-legenda"></p>
+        </div>
+        <script src="{% static 'base_compartilhada/js/script_modal_fotos.js' %}"></script>
+
         {% block scripts %}{% endblock %}
     </body>
 </html>

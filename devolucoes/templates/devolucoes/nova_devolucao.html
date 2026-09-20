@@ -141,7 +141,8 @@
                     {% if fotos_reclamacao_cliente %}
                         <div class="cf-fotos-grade">
                             {% for foto in fotos_reclamacao_cliente %}
-                                <div class="cf-foto-item">
+                                <div class="cf-foto-item card-fotos-item"
+                                     data-fotos-id="nd-fotos-cliente" data-titulo="Foto do cliente">
                                     <img src="{{ foto.imagem.url }}" alt="Foto do cliente">
                                     <button type="submit" class="cf-foto-excluir" title="Excluir foto"
                                             formmethod="post" formaction="{% url 'excluir_foto_reclamacao_cliente' foto.id %}">

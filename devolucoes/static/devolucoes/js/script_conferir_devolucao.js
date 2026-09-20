@@ -64,7 +64,9 @@
 
             arquivosAcumulados.forEach(function (arquivo, indice) {
                 var item = document.createElement('div');
-                item.className = 'cf-foto-preview-item';
+                item.className = 'cf-foto-preview-item card-fotos-item';
+                item.setAttribute('data-fotos-id', 'preview-' + input.name);
+                item.setAttribute('data-titulo', 'Foto selecionada (ainda não salva)');
 
                 var img = document.createElement('img');
                 var leitor = new FileReader();

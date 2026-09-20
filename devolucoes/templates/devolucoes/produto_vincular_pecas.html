@@ -18,7 +18,8 @@
             </a>
             <div class="vp-header-divisor"></div>
             <div class="vp-header-produto">
-                <div class="vp-header-foto">
+                <div class="vp-header-foto{% if produto.foto %} card-fotos-item{% endif %}"
+                     {% if produto.foto %}data-fotos-id="vp-header-{{ produto.id }}" data-titulo="{{ produto.nome }}"{% endif %}>
                     {% if produto.foto %}
                         <img src="{{ produto.foto.url }}" alt="{{ produto.nome }}">
                     {% else %}

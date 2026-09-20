@@ -3,8 +3,9 @@
      data-busca="{{ peca.nome_generico|lower }} {{ peca.marca.nome|lower }}"
      data-marca-id="{{ peca.marca_id }}"
      data-status="{% if peca.qtd_produtos_vinculados %}vinculada{% else %}avulsa{% endif %}">
-    <div class="gaveta-peca-card-foto{% if peca.imagem %} catalogo-peca-foto--clicavel{% endif %}"
-         {% if peca.imagem %}data-imagem-url="{{ peca.imagem.url }}" data-imagem-titulo="{{ peca.nome_generico }}"{% endif %}>
+    <div class="gaveta-peca-card-foto{% if peca.imagem %} catalogo-peca-foto--clicavel card-fotos-item{% endif %}"
+         {% if peca.imagem %}data-imagem-url="{{ peca.imagem.url }}" data-imagem-titulo="{{ peca.nome_generico }}"
+         data-fotos-id="gaveta-peca-{{ peca.id }}" data-titulo="{{ peca.nome_generico }}"{% endif %}>
         {% if peca.imagem %}
             <img src="{{ peca.imagem.url }}" alt="{{ peca.nome_generico }}">
         {% else %}

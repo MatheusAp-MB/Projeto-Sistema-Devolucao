@@ -20,7 +20,8 @@
         {% endif %}
 
         <div class="cf-recap">
-            <div class="cf-recap-foto">
+            <div class="cf-recap-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
+                 {% if devolucao.produto.foto %}data-fotos-id="cf-recap-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}" data-subtitulo="Foto original do produto"{% endif %}>
                 {% if devolucao.produto.foto %}
                     <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
                 {% else %}
@@ -43,7 +44,8 @@
             {% for item in pecas %}
                 <div class="cf-peca">
                     <div class="cf-peca-topo">
-                        <div class="cf-peca-foto">
+                        <div class="cf-peca-foto{% if item.peca.imagem %} card-fotos-item{% endif %}"
+                             {% if item.peca.imagem %}data-fotos-id="cf-peca-ref-{{ item.peca.id }}" data-titulo="{{ item.peca.nome_generico }}" data-subtitulo="Foto de referência"{% endif %}>
                             {% if item.peca.imagem %}
                                 <img src="{{ item.peca.imagem.url }}" alt="{{ item.peca.nome_generico }}">
                             {% else %}
@@ -91,7 +93,8 @@
                         {% if item.fotos %}
                             <div class="cf-fotos-grade">
                                 {% for foto in item.fotos %}
-                                    <div class="cf-foto-item">
+                                    <div class="cf-foto-item card-fotos-item"
+                                         data-fotos-id="cf-fotos-{{ item.peca.id }}" data-titulo="{{ item.peca.nome_generico }}">
                                         <img src="{{ foto.imagem.url }}" alt="Foto da peça {{ item.peca.nome_generico }}">
                                         <button type="submit" class="cf-foto-excluir" title="Excluir foto"
                                                 formmethod="post" formaction="{% url 'excluir_foto_conferencia' foto.id %}">
@@ -139,7 +142,8 @@
                     {% if fotos_observacao_geral %}
                         <div class="cf-fotos-grade">
                             {% for foto in fotos_observacao_geral %}
-                                <div class="cf-foto-item">
+                                <div class="cf-foto-item card-fotos-item"
+                                     data-fotos-id="cf-fotos-geral-{{ devolucao.id }}" data-titulo="Observação geral do produto">
                                     <img src="{{ foto.imagem.url }}" alt="Foto geral do produto">
                                     <button type="submit" class="cf-foto-excluir" title="Excluir foto"
                                             formmethod="post" formaction="{% url 'excluir_foto_observacao_geral' foto.id %}">

@@ -53,7 +53,8 @@
             <div class="dp-lista">
                 {% for devolucao in aguardando_conferencia %}
                 <div class="dp-item" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
-                    <div class="dp-item-foto">
+                    <div class="dp-item-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
+                         {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
                             <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
                         {% else %}
@@ -100,7 +101,8 @@
             <div class="dp-lista">
                 {% for devolucao in conferidos %}
                 <div class="dp-item" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
-                    <div class="dp-item-foto">
+                    <div class="dp-item-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
+                         {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
                             <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
                         {% else %}
@@ -155,7 +157,8 @@
             <div class="dp-lista">
                 {% for devolucao in mediacoes_abertas %}
                 <div class="dp-item" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
-                    <div class="dp-item-foto">
+                    <div class="dp-item-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
+                         {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
                             <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
                         {% else %}
@@ -213,7 +216,8 @@
             <div class="dp-lista">
                 {% for devolucao in mediacoes_encerradas %}
                 <div class="dp-item" data-reembolso="{{ devolucao.reembolsado_filtro }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
-                    <div class="dp-item-foto">
+                    <div class="dp-item-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
+                         {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
                             <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
                         {% else %}
@@ -279,7 +283,8 @@
             <div class="dp-lista">
                 {% for devolucao in impressos %}
                 <div class="dp-item" data-reembolso="{{ devolucao.reembolsado_filtro }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
-                    <div class="dp-item-foto">
+                    <div class="dp-item-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
+                         {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
                             <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
                         {% else %}
