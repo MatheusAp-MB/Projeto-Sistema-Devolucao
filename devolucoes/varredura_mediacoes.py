@@ -14,6 +14,7 @@
 import bleach
 
 from datetime import datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
 from django.utils import timezone
@@ -176,6 +177,109 @@ def resolver_claim_por_numero_pedido(conta, numero_pedido):
         },
     )
     return cache
+
+
+# ==== auto-completar MediacaoAvulsa na criação (decisão de Matheus, ====
+# 20/09/2026: o motivo de existir "mediação avulsa" em vez de criar
+# uma Devolução é não precisar preencher nada à mão -- ao cadastrar,
+# tudo que a API já responde sozinha deve ser buscado de uma vez).
+
+def _para_date_local(valor_iso):
+    """Converte uma data ISO da API (com timezone) pra um date() no
+    fuso de exibição -- mesma conversão já usada em
+    integracao_mercado_livre/views.py::_formatar_data_para_input, só
+    que devolvendo date() em vez de string formatada pra input HTML
+    (aqui o destino é direto um DateField do model). Sem essa conversão
+    de fuso, um evento perto da meia-noite (UTC ou fuso da API) podia
+    cair gravado no dia errado."""
+    if not valor_iso or not isinstance(valor_iso, str):
+        return None
+    try:
+        instante = datetime.fromisoformat(valor_iso)
+    except ValueError:
+        return None
+    return instante.astimezone(FUSO_HORARIO_EXIBICAO).date()
+
+
+def completar_avulsa_automaticamente(conta, avulsa):
+    """Preenche uma MediacaoAvulsa recém-criada com tudo que a API do
+    Mercado Livre já consegue responder sozinha. Roda 1x só, de forma
+    síncrona, dentro do POST de adicionar_mediacao_avulsa, e nunca
+    impede o cadastro de acontecer: cada busca aqui é best-effort
+    (mesmo espírito de buscar_nome_cliente_e_produto/
+    resolver_claim_por_numero_pedido) -- qualquer falha isolada só
+    deixa aquele campo específico em branco, exatamente como já
+    ficava antes desta função existir.
+
+    Não reaproveita buscar_nome_cliente_e_produto porque aqui também
+    precisamos do preço do produto (ClaimMercadoLivre, pra quem aquela
+    função foi feita, não tem esse campo) -- por isso o /orders/ é
+    buscado de novo aqui, com a mesma extração já validada em
+    view_consultar_pedido (buyer.first_name/last_name,
+    order_items[0].item.title, order_items[0].unit_price -- este
+    último irmão de "item", não aninhado nele)."""
+    numero_pedido = avulsa.numero_pedido
+    campos_alterados = []
+
+    try:
+        resposta_pedido = chamar_api("GET", f"/orders/{numero_pedido}", pasta_logs=PASTA_LOGS_ML, conta=conta)
+        pedido = resposta_pedido.json()
+    except (ErroAPI, ErroAutenticacaoAPI):
+        pedido = None
+
+    if pedido:
+        comprador = pedido.get("buyer") or {}
+        nome_cliente = f"{comprador.get('first_name', '')} {comprador.get('last_name', '')}".strip()
+        item = (pedido.get("order_items") or [{}])[0]
+        nome_produto = (item.get("item") or {}).get("title") or ''
+        preco_produto = item.get("unit_price")
+
+        if nome_cliente:
+            avulsa.nome_cliente = nome_cliente
+            campos_alterados.append('nome_cliente')
+        if nome_produto:
+            avulsa.nome_produto = nome_produto
+            campos_alterados.append('nome_produto')
+        if preco_produto is not None:
+            try:
+                avulsa.preco_produto = Decimal(str(preco_produto))
+                campos_alterados.append('preco_produto')
+            except (InvalidOperation, TypeError):
+                pass
+
+    cache_claim = resolver_claim_por_numero_pedido(conta, numero_pedido)
+    if cache_claim:
+        avulsa.claim_id = cache_claim.claim_id
+        campos_alterados.append('claim_id')
+
+        mensagens_claim = _buscar_mensagens_da_reclamacao(conta, cache_claim.claim_id)
+        if mensagens_claim:
+            datas_dispute = [
+                m.get('date_created') for m in mensagens_claim
+                if m.get('stage') == 'dispute' and m.get('date_created')
+            ]
+            if datas_dispute:
+                data_abertura = _para_date_local(min(datas_dispute))
+                if data_abertura:
+                    avulsa.data_abertura_mediacao = data_abertura
+                    campos_alterados.append('data_abertura_mediacao')
+
+        try:
+            resposta_devolucao = chamar_api(
+                "GET", f"/post-purchase/v2/claims/{cache_claim.claim_id}/returns",
+                pasta_logs=PASTA_LOGS_ML, conta=conta,
+            )
+            dados_devolucao = resposta_devolucao.json()
+        except (ErroAPI, ErroAutenticacaoAPI):
+            dados_devolucao = None
+
+        data_fechamento = _para_date_local((dados_devolucao or {}).get('date_closed'))
+        if data_fechamento:
+            avulsa.data_finalizacao_mediacao = data_fechamento
+            campos_alterados.append('data_finalizacao_mediacao')
+
+    if campos_alterados:
+        avulsa.save(update_fields=campos_alterados)
 
 
 # ==== categoria (Reclamação / +Mediação / +Devolução / +Mediação+Devolução) ====

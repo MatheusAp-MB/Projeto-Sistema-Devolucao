@@ -42,9 +42,9 @@ from .models import (
 from .reorganizacao_fotos import reorganizar_fotos_devolucao
 from .varredura_mediacoes import (
     atualizar_e_formatar_mensagens, buscar_nome_cliente_e_produto,
-    categoria_slug, contagem_por_categoria, executar_atualizacao_acompanhados,
-    executar_varredura_completa, formatar_mensagens_em_cache,
-    resolver_claim_por_numero_pedido,
+    categoria_slug, completar_avulsa_automaticamente, contagem_por_categoria,
+    executar_atualizacao_acompanhados, executar_varredura_completa,
+    formatar_mensagens_em_cache, resolver_claim_por_numero_pedido,
 )
 
 
@@ -1053,7 +1053,14 @@ def adicionar_mediacao_avulsa(request):
     própria — mesmo padrão de marcar_devolucao_impressa. Confere
     duplicidade nos 2 lugares onde uma mediação pode já existir
     (Devolucao e MediacaoAvulsa) antes de criar, pra não duplicar a
-    mesma mediação na lista."""
+    mesma mediação na lista.
+
+    Logo após criar, busca automaticamente tudo que a API do Mercado
+    Livre já responde sozinha (nome/produto/preço, claim_id, datas de
+    abertura/encerramento) via completar_avulsa_automaticamente --
+    decisão de Matheus, 20/09/2026. Best-effort e síncrono: se a
+    empresa ativa não tiver conta mapeada, ou a API falhar, o cadastro
+    acontece normalmente do mesmo jeito, só sem os campos extras."""
     if request.method == 'POST':
         numero_pedido = request.POST.get('numero_pedido', '').strip()
         if not numero_pedido:
@@ -1064,6 +1071,9 @@ def adicionar_mediacao_avulsa(request):
             messages.error(request, f'O pedido {numero_pedido} já está na lista de mediações.')
         else:
             avulsa = MediacaoAvulsa.objects.create(numero_pedido=numero_pedido)
+            conta = CONTA_POR_EMPRESA.get(obter_empresa_ativa())
+            if conta:
+                completar_avulsa_automaticamente(conta, avulsa)
             return redirect('mediacoes_ml_avulsa', avulsa_id=avulsa.id)
 
     return redirect('mediacoes_ml')
