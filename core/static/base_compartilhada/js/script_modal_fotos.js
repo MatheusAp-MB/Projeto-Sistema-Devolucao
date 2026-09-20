@@ -45,7 +45,11 @@
     }
 
     function dadosDoElemento(elemento) {
-        var img = elemento.querySelector('img');
+        // O elemento com "card-fotos-item" às vezes É o próprio <img>
+        // (ex.: Resumo geral da conferência) e às vezes é uma <div>/<a>
+        // que só CONTÉM um <img> lá dentro (a maioria das telas). Nos
+        // dois casos precisa achar a imagem certa.
+        var img = elemento.tagName === 'IMG' ? elemento : elemento.querySelector('img');
         var url = (img && img.src) || elemento.getAttribute('data-url') || '';
         return {
             url: url,
