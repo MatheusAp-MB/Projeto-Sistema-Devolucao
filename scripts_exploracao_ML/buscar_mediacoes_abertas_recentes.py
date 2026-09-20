@@ -256,13 +256,22 @@ def main():
     tabela_resumo.add_column("Quantidade", justify="right")
     for chave in ordem:
         tabela_resumo.add_row(chave, str(contagem.get(chave, 0)))
+    # classificar() pode gerar combinações fora das 4 esperadas (variantes
+    # "(devolução não verificada)", quando tem_devolucao_fisica() não
+    # conseguiu confirmar) -- nunca deixar essas caírem fora da tabela-resumo
+    # silenciosamente, senão a soma das linhas visíveis não bate com o TOTAL
+    # sem nenhuma explicação.
+    extras = sorted(chave for chave in contagem if chave not in ordem)
+    for chave in extras:
+        tabela_resumo.add_row(chave, str(contagem.get(chave, 0)))
     tabela_resumo.add_row("[bold]TOTAL[/bold]", f"[bold]{len(todas)}[/bold]")
 
     console.print()
     console.print(tabela_resumo)
     if nao_verificados:
         console.print(f"\n[dim yellow]{nao_verificados} reclamação(ões) não tiveram a devolução confirmada por erro na API — "
-                      f"contadas acima como 'sem devolução' (ver avisos durante a execução).[/dim yellow]")
+                      f"aparecem acima com o sufixo '(devolução não verificada)' na combinação, e NÃO foram contadas "
+                      f"como 'sem devolução' (ver avisos durante a execução).[/dim yellow]")
 
 
 if __name__ == "__main__":
