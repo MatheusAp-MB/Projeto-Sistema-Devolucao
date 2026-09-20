@@ -859,11 +859,13 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
     arquivado de verdade, não faz sentido ocupar espaço nesta tela.
     Decisão tomada nesta implementação, não confirmada com Matheus ainda."""
     devolucoes_abertas = Devolucao.objects.select_related('produto').filter(
+        nome_plataforma=Devolucao.PLATAFORMA_MERCADO_LIVRE,
         data_abertura_mediacao__isnull=False,
         data_finalizacao_mediacao__isnull=True,
         relatorio_impresso_em__isnull=True,
     )
     devolucoes_encerradas = Devolucao.objects.select_related('produto').filter(
+        nome_plataforma=Devolucao.PLATAFORMA_MERCADO_LIVRE,
         data_finalizacao_mediacao__isnull=False,
         relatorio_impresso_em__isnull=True,
     )
@@ -886,7 +888,13 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
     mediacao_selecionada = None
     tipo_selecionado = None
     if devolucao_id:
-        mediacao_selecionada = get_object_or_404(Devolucao.objects.select_related('produto'), pk=devolucao_id)
+        # * [EXPLICAÇÃO] → filtro de plataforma também aqui (não só na
+        #   lista) — sem isso, dava pra abrir o detalhe de uma devolução
+        #   de outra plataforma digitando a URL na mão (20/09/2026).
+        mediacao_selecionada = get_object_or_404(
+            Devolucao.objects.select_related('produto'),
+            pk=devolucao_id, nome_plataforma=Devolucao.PLATAFORMA_MERCADO_LIVRE,
+        )
         tipo_selecionado = 'devolucao'
     elif avulsa_id:
         mediacao_selecionada = get_object_or_404(MediacaoAvulsa, pk=avulsa_id)
