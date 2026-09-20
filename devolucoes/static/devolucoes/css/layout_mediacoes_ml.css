@@ -6,12 +6,35 @@
 * de layout_devolucoes_pendentes.css — sem duplicar esses blocos aqui.
 */
 
+/* ===== tela sem scroll geral, só rolagem interna (igual WhatsApp
+   Web) -- essas 3 regras sobrescrevem .layout-container/
+   .conteudo-principal (definidos em layout_global.css), mas só tem
+   efeito NESTA página, porque este arquivo CSS só é carregado aqui.
+   Nenhuma outra tela do sistema é afetada. ===== */
+
+body {
+    height: 100vh;
+    overflow: hidden;
+}
+
+.layout-container {
+    height: 100vh;
+}
+
+.conteudo-principal {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
 .med-shell {
     display: grid;
-    grid-template-columns: 420px 1fr;
+    grid-template-columns: 470px 1fr;
     gap: 18px;
-    align-items: start;
+    align-items: stretch;
     max-width: 1500px;
+    flex: 1;
+    min-height: 0;
 }
 
 .med-lista-cartao {
@@ -19,6 +42,59 @@
     flex-direction: column;
     gap: 12px;
     padding: 16px;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.med-lista-cartao .dp-tab-panel--ativa {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 10px;
+}
+
+.med-detalhe {
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding-right: 10px;
+}
+
+/* ===== scrollbar fina nas regiões de rolagem interna (em vez da
+   barra grossa padrão do navegador) -- Firefox via scrollbar-width/
+   scrollbar-color, Chrome/Edge/Safari via ::-webkit-scrollbar ===== */
+
+.med-lista-cartao .dp-tab-panel--ativa,
+.med-detalhe,
+.med-lista-scroll[data-lista="encontrados"] {
+    scrollbar-width: thin;
+    scrollbar-color: #c3cbd4 transparent;
+}
+
+.med-lista-cartao .dp-tab-panel--ativa::-webkit-scrollbar,
+.med-detalhe::-webkit-scrollbar,
+.med-lista-scroll[data-lista="encontrados"]::-webkit-scrollbar {
+    width: 7px;
+}
+
+.med-lista-cartao .dp-tab-panel--ativa::-webkit-scrollbar-track,
+.med-detalhe::-webkit-scrollbar-track,
+.med-lista-scroll[data-lista="encontrados"]::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.med-lista-cartao .dp-tab-panel--ativa::-webkit-scrollbar-thumb,
+.med-detalhe::-webkit-scrollbar-thumb,
+.med-lista-scroll[data-lista="encontrados"]::-webkit-scrollbar-thumb {
+    background-color: #c3cbd4;
+    border-radius: 20px;
+}
+
+.med-lista-cartao .dp-tab-panel--ativa::-webkit-scrollbar-thumb:hover,
+.med-detalhe::-webkit-scrollbar-thumb:hover,
+.med-lista-scroll[data-lista="encontrados"]::-webkit-scrollbar-thumb:hover {
+    background-color: var(--cor-texto-muted);
 }
 
 .med-lista-cabecalho {
@@ -517,7 +593,7 @@
 .med-lista-scroll[data-lista="encontrados"] {
     max-height: 380px;
     overflow-y: auto;
-    padding-right: 4px;
+    padding-right: 10px;
 }
 
 .med-enc-item {
