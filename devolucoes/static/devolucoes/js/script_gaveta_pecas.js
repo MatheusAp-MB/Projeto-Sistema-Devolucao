@@ -415,10 +415,8 @@
         card.setAttribute('data-status', 'avulsa');
 
         var foto = document.createElement('div');
-        foto.className = 'gaveta-peca-card-foto' + (dados.imagemUrl ? ' catalogo-peca-foto--clicavel card-fotos-item' : '');
+        foto.className = 'gaveta-peca-card-foto' + (dados.imagemUrl ? ' card-fotos-item' : '');
         if (dados.imagemUrl) {
-            foto.setAttribute('data-imagem-url', dados.imagemUrl);
-            foto.setAttribute('data-imagem-titulo', dados.nome);
             foto.setAttribute('data-fotos-id', 'gaveta-peca-' + dados.id);
             foto.setAttribute('data-titulo', dados.nome);
             var img = document.createElement('img');
@@ -607,9 +605,7 @@
 
         var fotoEl = card.querySelector('.gaveta-peca-card-foto');
         if (fotoEl && dados.imagem_url) {
-            fotoEl.className = 'gaveta-peca-card-foto catalogo-peca-foto--clicavel card-fotos-item';
-            fotoEl.setAttribute('data-imagem-url', dados.imagem_url);
-            fotoEl.setAttribute('data-imagem-titulo', dados.nome);
+            fotoEl.className = 'gaveta-peca-card-foto card-fotos-item';
             fotoEl.setAttribute('data-fotos-id', 'gaveta-peca-' + dados.id);
             fotoEl.setAttribute('data-titulo', dados.nome);
             fotoEl.innerHTML = '';
