@@ -1,21 +1,15 @@
 # devolucoes/varredura_mediacoes.py
 
 # Função Objetivo: lógica de varredura de reclamações/mediações do
-# Mercado Livre em segundo plano — busca TODAS as reclamações na API
-# (qualquer status, não só "opened" — decisão de Matheus, 20/09/2026: a
-# varredura completa é rodada só de vez em quando, então não tem
-# problema ela demorar mais pra também achar reclamação já encerrada no
-# ML, único jeito de casar um registro antigo — Devolucao ou
-# MediacaoAvulsa — com uma mediação que já tinha sido resolvida lá antes
-# dessa feature existir), verifica devolução física e mensagens de cada
-# uma, grava tudo na cache ClaimMercadoLivre e atualiza
-# StatusVarreduraMediacoes item a item (não só no final), pros 2 botões
-# da tela "Mediações ML" (varredura completa e atualização dos itens em
-# acompanhamento). Lógica adaptada da já validada em
-# scripts_exploracao_ML/buscar_mediacoes_abertas_recentes.py e
-# cronometrada em cronometrar_refresh_individual.py (ambos 20/09/2026)
-# — porta as funções de busca pra cá porque scripts_exploracao_ML/ é
-# pasta de exploração, não código de produção.
+# Mercado Livre em segundo plano — busca reclamações abertas na API,
+# verifica devolução física e mensagens de cada uma, grava tudo na cache
+# ClaimMercadoLivre e atualiza StatusVarreduraMediacoes item a item (não
+# só no final), pros 2 botões da tela "Mediações ML" (varredura completa
+# e atualização dos itens em acompanhamento). Lógica adaptada da já
+# validada em scripts_exploracao_ML/buscar_mediacoes_abertas_recentes.py
+# e cronometrada em cronometrar_refresh_individual.py (ambos
+# 20/09/2026) — porta as funções de busca pra cá porque
+# scripts_exploracao_ML/ é pasta de exploração, não código de produção.
 
 import bleach
 
@@ -36,13 +30,7 @@ ATRIBUTOS_PERMITIDOS_MENSAGEM = {"a": ["href"]}
 
 MESES_ATRAS = 6
 LIMITE_POR_PAGINA = 100
-# * [EXPLICACAO] -> teto de seguranca por conta/papel -- 50 x 100 =
-#   5.000. Aumentado de 10 pra 50 quando a varredura completa passou a
-#   buscar TODOS os status (nao so "opened") -- o volume por janela de 6
-#   meses cresce bastante ao incluir reclamacoes ja encerradas, e um
-#   teto baixo demais cortaria resultado sem avisar (decisao de
-#   Matheus, 20/09/2026).
-MAX_PAGINAS = 50
+MAX_PAGINAS = 10
 FUSO_HORARIO_EXIBICAO = ZoneInfo("America/Sao_Paulo")
 
 
@@ -56,14 +44,7 @@ def _buscar_user_id(conta):
     return resposta.json()["id"]
 
 
-def _buscar_todas_as_claims(conta, user_id, papel, inicio_formatado, fim_formatado):
-    """Busca TODAS as reclamações do período, de QUALQUER status -- não
-    só 'opened'. Decisão de Matheus (20/09/2026): a varredura completa
-    é rodada só de vez em quando mesmo, então não tem problema ela
-    demorar mais pra também achar reclamações já encerradas no ML (ex:
-    mediação que já foi resolvida lá antes dessa feature existir, e
-    cujo registro aqui dentro -- Devolucao ou MediacaoAvulsa -- nunca
-    teria como casar com a cache sem isso)."""
+def _buscar_claims_abertas(conta, user_id, papel, inicio_formatado, fim_formatado):
     claims = []
     offset = 0
     for _ in range(MAX_PAGINAS):
@@ -73,6 +54,7 @@ def _buscar_todas_as_claims(conta, user_id, papel, inicio_formatado, fim_formata
             params={
                 "players.user_id": user_id,
                 "players.role": papel,
+                "status": "opened",
                 "range": f"date_created:after:{inicio_formatado},before:{fim_formatado}",
                 "sort": "date_created:desc",
                 "limit": LIMITE_POR_PAGINA,
@@ -190,20 +172,15 @@ def _falhar_varredura(mensagem_tecnica):
 
 def executar_varredura_completa(empresa):
     """Roda na thread de segundo plano do botão 'Fazer varredura completa
-    (6 meses)'. Busca TODAS as reclamações dos últimos MESES_ATRAS meses
-    (respondent E complainant), de qualquer status -- não só as que
-    ainda estão abertas no ML (decisão de Matheus, 20/09/2026: a
-    varredura é rodada só de vez em quando, então não tem problema ela
-    demorar mais pra também achar reclamação já encerrada, único jeito
-    de casar um registro antigo -- Devolucao ou MediacaoAvulsa -- com
-    uma mediação que já tinha sido resolvida no ML antes dessa feature
-    existir). Verifica devolução física e mensagens de cada uma,
-    grava/atualiza a cache ClaimMercadoLivre item a item e casa
-    automaticamente com Devolucao ou MediacaoAvulsa existente pelo
-    numero_pedido (gatilho: presença do registro, não a categoria
-    encontrada — decisão de Matheus, 20/09/2026). A thread precisa
-    chamar definir_empresa_ativa() ela mesma logo no início —
-    threading.local() não herda da requisição que disparou a thread."""
+    (6 meses)'. Busca todas as reclamações abertas dos últimos
+    MESES_ATRAS meses (respondent E complainant), verifica devolução
+    física e mensagens de cada uma, grava/atualiza a cache
+    ClaimMercadoLivre item a item e casa automaticamente com Devolucao
+    ou MediacaoAvulsa existente pelo numero_pedido (gatilho: presença do
+    registro, não a categoria encontrada — decisão de Matheus,
+    20/09/2026). A thread precisa chamar definir_empresa_ativa() ela
+    mesma logo no início — threading.local() não herda da requisição
+    que disparou a thread."""
     definir_empresa_ativa(empresa)
     conta = CONTA_POR_EMPRESA.get(empresa)
     if conta is None:
@@ -220,7 +197,7 @@ def executar_varredura_completa(empresa):
         claims_encontradas = []
         ids_ja_vistos = set()
         for papel in ('respondent', 'complainant'):
-            for c in _buscar_todas_as_claims(conta, user_id, papel, inicio_formatado, fim_formatado):
+            for c in _buscar_claims_abertas(conta, user_id, papel, inicio_formatado, fim_formatado):
                 if c.get('id') in ids_ja_vistos:
                     continue
                 ids_ja_vistos.add(c.get('id'))
