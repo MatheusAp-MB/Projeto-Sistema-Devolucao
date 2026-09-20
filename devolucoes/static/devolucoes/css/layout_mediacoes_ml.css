@@ -533,6 +533,35 @@
     color: var(--cor-alerta);
 }
 
+.med-item-link {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    flex: 1;
+    min-width: 0;
+    color: inherit;
+}
+
+.med-item-link:hover {
+    text-decoration: none;
+}
+
+.med-item-acao--acompanhando {
+    border-color: var(--cor-alerta);
+    background: #fef3e2;
+    color: var(--cor-alerta);
+}
+
+span.med-item-acao--fixa {
+    cursor: default;
+    color: var(--cor-texto-muted);
+}
+
+span.med-item-acao--fixa:hover {
+    border-color: var(--cor-borda);
+    color: var(--cor-texto-muted);
+}
+
 /* ===== badges de categoria -- reaproveita a mesma paleta ja usada por
    dp-badge--mediacao-aberta/--conferido/--mediacao-encerrada, so com
    outro significado aqui ===== */

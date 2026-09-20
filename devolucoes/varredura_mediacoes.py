@@ -114,6 +114,70 @@ def buscar_nome_cliente_e_produto(conta, numero_pedido):
     return nome_cliente, nome_produto
 
 
+def resolver_claim_por_numero_pedido(conta, numero_pedido):
+    """Busca avulsa e única -- roda só quando Ana abre o detalhe de uma
+    mediação (Devolucao ou MediacaoAvulsa) que ainda não tem claim_id.
+    Isso acontece com pedido cuja reclamação já estava encerrada no ML
+    antes dessa feature existir (ou antes de qualquer varredura ter
+    rodado) -- a varredura completa só busca status=opened (decisão de
+    Matheus, 20/09/2026: buscar todo status de uma vez trouxe volume
+    demais de reclamação já resolvida sem necessidade de acompanhamento,
+    revertido), então nunca teria como achar esse pedido sozinha.
+
+    Busca por order_id -- mesmo parâmetro já validado em produção na
+    tela "Consultar Pedido" (integracao_mercado_livre/views.py) -- que
+    NÃO exige status, então acha a reclamação esteja ela aberta ou
+    encerrada. Se tiver mais de uma reclamação pro mesmo pedido, prefere
+    a que estiver em stage=dispute (é o campo que define "é mediação de
+    verdade", mesmo critério usado em categoria_slug).
+
+    Roda 1x só: grava na cache ClaimMercadoLivre e devolve — quem chama
+    é responsável por salvar esse claim_id na Devolucao/MediacaoAvulsa.
+    Depois disso, o claim_id fica permanente lá, e essa busca nunca mais
+    roda pra esse pedido. Best-effort: qualquer falha (API fora do ar,
+    pedido sem reclamação nenhuma) devolve None sem quebrar a tela --
+    ela simplesmente continua mostrando "ainda não vinculada"."""
+    try:
+        resposta = chamar_api(
+            "GET", "/post-purchase/v1/claims/search",
+            pasta_logs=PASTA_LOGS_ML, conta=conta,
+            params={"order_id": numero_pedido},
+        )
+        claims = resposta.json().get("data", [])
+    except (ErroAPI, ErroAutenticacaoAPI):
+        return None
+    if not claims:
+        return None
+
+    claim = next((c for c in claims if c.get("stage") == "dispute"), claims[0])
+    claim_id = str(claim.get("id"))
+
+    try:
+        meu_user_id = _buscar_user_id(conta)
+    except (ErroAPI, ErroAutenticacaoAPI):
+        meu_user_id = None
+    meu_papel = None
+    for player in claim.get("players", []):
+        if player.get("user_id") == meu_user_id:
+            meu_papel = player.get("role")
+            break
+
+    tem_devolucao = _tem_devolucao_fisica(conta, claim_id)
+
+    cache, _criado = ClaimMercadoLivre.objects.update_or_create(
+        claim_id=claim_id,
+        defaults={
+            'numero_pedido': numero_pedido,
+            'meu_papel': meu_papel,
+            'dados_brutos': claim,
+            'tem_devolucao_fisica': tem_devolucao,
+            'esta_acompanhando': True,
+            'ultima_busca_em': timezone.now(),
+        },
+    )
+    return cache
+
+
 # ==== categoria (Reclamação / +Mediação / +Devolução / +Mediação+Devolução) ====
 #
 # Nunca fica salva — sempre recalculada a partir de dados_brutos['stage']

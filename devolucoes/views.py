@@ -43,7 +43,7 @@ from .reorganizacao_fotos import reorganizar_fotos_devolucao
 from .varredura_mediacoes import (
     atualizar_e_formatar_mensagens, buscar_nome_cliente_e_produto,
     categoria_slug, contagem_por_categoria, executar_atualizacao_acompanhados,
-    executar_varredura_completa,
+    executar_varredura_completa, resolver_claim_por_numero_pedido,
 )
 
 
@@ -878,7 +878,17 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
         data_finalizacao_mediacao__isnull=False,
         relatorio_impresso_em__isnull=True,
     )
-    avulsas_abertas = MediacaoAvulsa.objects.filter(data_finalizacao_mediacao__isnull=True)
+    # * [EXPLICACAO] -> exclui só quem foi explicitamente desmarcada via
+    #   "Deixar de acompanhar" (cache.esta_acompanhando=False). Uma
+    #   avulsa sem claim_id ainda (nunca vinculada) não tem cache pra
+    #   checar, então nunca é excluida por aqui -- so quem já foi
+    #   vinculada e depois desmarcada some da lista. Devolucao (fluxo
+    #   normal de devolução física) NUNCA passa por esse filtro -- fica
+    #   sempre visível enquanto tiver mediação aberta de verdade, decisão
+    #   de Matheus 20/09/2026: a estrela dela é só visual, não remove
+    #   nada daqui.
+    claim_ids_desmarcados = ClaimMercadoLivre.objects.filter(esta_acompanhando=False).values_list('claim_id', flat=True)
+    avulsas_abertas = MediacaoAvulsa.objects.filter(data_finalizacao_mediacao__isnull=True).exclude(claim_id__in=claim_ids_desmarcados)
     avulsas_encerradas = MediacaoAvulsa.objects.filter(data_finalizacao_mediacao__isnull=False)
 
     mediacoes_abertas = sorted(
@@ -952,16 +962,31 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
         mediacao_selecionada.mediacao_visualizada_em = timezone.now()
         mediacao_selecionada.save(update_fields=['mediacao_visualizada_em'])
 
+        conta = CONTA_POR_EMPRESA.get(obter_empresa_ativa())
+
+        # * [EXPLICAÇÃO] → pedido ainda sem claim_id (nenhuma varredura
+        #   casou esse pedido -- geralmente porque a reclamação já
+        #   estava encerrada no ML antes dessa feature existir, ou antes
+        #   de qualquer varredura ter rodado). Tenta resolver na hora,
+        #   1x só -- decisão de Matheus, 20/09/2026. Depois que acha, o
+        #   claim_id fica salvo pra sempre na Devolucao/MediacaoAvulsa e
+        #   essa busca nunca mais roda pra esse pedido -- as próximas
+        #   aberturas já caem direto no bloco de baixo.
+        if not mediacao_selecionada.claim_id and conta:
+            cache_resolvida = resolver_claim_por_numero_pedido(conta, mediacao_selecionada.numero_pedido)
+            if cache_resolvida:
+                mediacao_selecionada.claim_id = cache_resolvida.claim_id
+                mediacao_selecionada.save(update_fields=['claim_id'])
+
         # * [EXPLICAÇÃO] → busca síncrona de mensagens toda vez que Ana
         #   abre o chat de um item -- validado em
         #   cronometrar_refresh_individual.py (~0,63s médio, isolado),
         #   decisão de Matheus 20/09/2026: não precisa do mecanismo de
         #   segundo plano usado pelas 2 varreduras, só pro refresh de 1
-        #   chat. Sem claim_id ainda (nenhuma varredura casou esse
-        #   pedido) não tem como buscar -- fica None mesmo.
+        #   chat. Sem claim_id (nem salvo, nem resolvido agora) não tem
+        #   como buscar -- fica None mesmo.
         if mediacao_selecionada.claim_id:
             cache_da_conversa = ClaimMercadoLivre.objects.filter(pk=mediacao_selecionada.claim_id).first()
-            conta = CONTA_POR_EMPRESA.get(obter_empresa_ativa())
             if cache_da_conversa and conta:
                 mensagens_chat, sucesso = atualizar_e_formatar_mensagens(conta, cache_da_conversa, mediacao_selecionada.nome_cliente)
                 mensagens_falhou = not sucesso
