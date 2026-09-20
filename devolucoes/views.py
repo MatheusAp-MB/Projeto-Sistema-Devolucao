@@ -930,6 +930,8 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
         {
             'claim_id': c.claim_id,
             'numero_pedido': c.numero_pedido,
+            'nome_cliente': c.nome_cliente,
+            'nome_produto': c.nome_produto,
             'categoria_slug': categoria_slug(c.dados_brutos.get('stage'), c.tem_devolucao_fisica),
         }
         for c in ClaimMercadoLivre.objects.filter(esta_acompanhando=False)

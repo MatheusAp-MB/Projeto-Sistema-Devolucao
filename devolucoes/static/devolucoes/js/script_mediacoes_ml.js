@@ -14,7 +14,7 @@
     var nota = document.getElementById('med-nota-outras-abas');
 
     function itensQueBatem(painel, termo) {
-        var itens = Array.prototype.slice.call(painel.querySelectorAll('.med-item'));
+        var itens = Array.prototype.slice.call(painel.querySelectorAll('.med-item, .med-enc-item'));
         if (!termo) return itens;
         return itens.filter(function (item) {
             return item.getAttribute('data-busca').indexOf(termo) !== -1;
@@ -44,12 +44,29 @@
 
             aba.querySelector('.dp-aba-contagem').textContent = termo ? encontrados.length : aba.getAttribute('data-total');
 
-            var todosItens = painel.querySelectorAll('.med-item');
+            var todosItens = painel.querySelectorAll('.med-item, .med-enc-item');
             todosItens.forEach(function (item) {
                 item.style.display = encontrados.indexOf(item) !== -1 ? '' : 'none';
             });
             var avisoBusca = painel.querySelector('.med-lista-vazia-busca');
             if (avisoBusca) avisoBusca.style.display = (encontrados.length > 0 || todosItens.length === 0) ? 'none' : 'block';
+
+            // * [EXPLICACAO] -> "Encontrados pelo sistema" comeca sempre
+            //   recolhido -- se a busca achar alguem la dentro, expande
+            //   sozinho (mesmo principio do trocarSeNecessario pras abas:
+            //   um resultado nao pode ficar escondido so porque o grupo
+            //   comeca fechado).
+            var grupoEncontrados = painel.querySelector('.med-grupo[data-grupo="encontrados"]');
+            if (grupoEncontrados && termo) {
+                var achouEmEncontrados = encontrados.some(function (item) { return item.classList.contains('med-enc-item'); });
+                if (achouEmEncontrados && grupoEncontrados.getAttribute('data-recolhido') !== 'false') {
+                    var botaoToggle = grupoEncontrados.querySelector('[data-toggle-grupo]');
+                    var conteudoGrupo = grupoEncontrados.querySelector('.med-grupo-conteudo');
+                    grupoEncontrados.setAttribute('data-recolhido', 'false');
+                    if (conteudoGrupo) conteudoGrupo.hidden = false;
+                    if (botaoToggle) botaoToggle.setAttribute('aria-expanded', 'true');
+                }
+            }
         });
 
         var abaAtual = document.querySelector('.dp-aba-btn--ativa').getAttribute('data-aba');

@@ -89,14 +89,15 @@
                         </div>
                         <div class="med-lista-scroll" data-lista="encontrados">
                             {% for item in encontrados %}
-                            <div class="med-enc-item" data-combinacao="{{ item.categoria_slug }}">
+                            <div class="med-enc-item" data-combinacao="{{ item.categoria_slug }}"
+                                 data-busca="{{ item.nome_cliente|lower }} {{ item.numero_pedido|lower }} {{ item.nome_produto|lower }}">
                                 <span class="med-item-foto"><i class="fas fa-comments"></i></span>
                                 <span class="med-item-corpo">
                                     <span class="med-item-topo">
-                                        <span class="med-item-produto">Pedido {{ item.numero_pedido }}</span>
+                                        <span class="med-item-produto">{{ item.nome_produto|default:"Produto não informado" }}</span>
                                     </span>
                                     <span class="med-item-rodape">
-                                        <span class="med-item-pedido">Claim {{ item.claim_id }} · cliente ainda não identificado</span>
+                                        <span class="med-item-pedido">Pedido {{ item.numero_pedido }} — {{ item.nome_cliente|default:"cliente não informado" }}</span>
                                         {% if item.categoria_slug == 'mediacao' %}
                                         <span class="dp-badge dp-badge--categ-mediacao">Mediação</span>
                                         {% elif item.categoria_slug == 'devolucao' %}

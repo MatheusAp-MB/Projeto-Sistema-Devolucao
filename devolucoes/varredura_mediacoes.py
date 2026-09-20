@@ -280,10 +280,22 @@ def executar_varredura_completa(empresa):
             if tem_devolucao is None:
                 itens_nao_confirmados += 1
 
-            _atualizar_status(fase_atual='Buscando e classificando mensagens...')
+            _atualizar_status(fase_atual='Buscando mensagens e dados do pedido...')
             mensagens = _buscar_mensagens_da_reclamacao(conta, claim_id)
             if mensagens is None:
                 itens_nao_confirmados += 1
+
+            # * [EXPLICACAO] -> nome do cliente + produto pra TODO item
+            #   encontrado, nao so quem vira MediacaoAvulsa -- decisao de
+            #   Matheus, 20/09/2026: facilita a vida da Ana (mostra nome
+            #   de verdade em "Encontrados pelo Sistema", nao so numero
+            #   de pedido) e permite buscar por nome ali tambem. Custo
+            #   aceito: mais 1 chamada por item (~0,5-0,7s). Best-effort
+            #   (a propria funcao devolve string vazia em qualquer falha,
+            #   nunca quebra a varredura) -- por isso NAO soma em
+            #   itens_nao_confirmados, mesmo espirito de quem ja usa essa
+            #   funcao em acompanhar_claim.
+            nome_cliente, nome_produto = buscar_nome_cliente_e_produto(conta, numero_pedido)
 
             cache, _criado = ClaimMercadoLivre.objects.update_or_create(
                 claim_id=claim_id,
@@ -293,6 +305,8 @@ def executar_varredura_completa(empresa):
                     'dados_brutos': claim,
                     'tem_devolucao_fisica': tem_devolucao,
                     'mensagens': mensagens,
+                    'nome_cliente': nome_cliente,
+                    'nome_produto': nome_produto,
                     'ultima_busca_em': timezone.now(),
                 },
             )

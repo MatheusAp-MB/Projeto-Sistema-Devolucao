@@ -18,6 +18,14 @@ class ClaimMercadoLivre(models.Model):
         'Número do pedido', max_length=100, db_index=True,
         help_text='Chave de casamento com Devolucao.numero_pedido — não é única aqui (mais de 1 claim pode existir pro mesmo pedido ao longo do tempo).',
     )
+    nome_cliente = models.CharField(
+        'Nome do cliente', max_length=200, blank=True,
+        help_text='Buscado junto com a reclamação na varredura completa (GET /orders/{numero_pedido}) — existe pra mostrar/buscar em "Encontrados pelo Sistema", antes de virar MediacaoAvulsa/Devolucao.',
+    )
+    nome_produto = models.CharField(
+        'Nome do produto', max_length=200, blank=True,
+        help_text='Mesmo texto livre do MediacaoAvulsa.nome_produto — buscado junto do nome do cliente.',
+    )
     meu_papel = models.CharField(
         'Nosso papel nesta reclamação', max_length=20,
         help_text='"respondent" ou "complainant" — vem de qual busca (players.role) encontrou o claim.',
