@@ -12,6 +12,7 @@
 # scripts_exploracao_ML/ é pasta de exploração, não código de produção.
 
 import bleach
+import os
 
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -527,9 +528,41 @@ def _preparar_mensagem_html(texto):
     return limpo.replace("<a ", '<a target="_blank" rel="noopener" ')
 
 
+def _url_anexo_mensagem(cache, conta, anexo):
+    """Monta o link direto (abre em nova guia, na sessão de navegador de
+    quem clicar) pra abrir 1 anexo de mensagem na Central de Vendedores
+    -- padrão de URL mapeado manualmente antes (vault,
+    05_Integracao_Mercado_Livre/Referencia_API/Endpoints) e validado
+    agora contra dado real do claim 5564889989. pack_id usa numero_pedido
+    (só diverge quando o pedido faz parte de um pack com mais de 1
+    pedido, caso ainda não visto na prática -- pior hipótese o link dá
+    erro, não quebra a tela). seller_id vem de {CONTA}_USER_ID no .env
+    (já existente, mesmo padrão de {CONTA}_ADDRESS_ID).
+
+    Decisão de Matheus, 20/09/2026: não tenta renderizar a imagem
+    embutida na própria tela -- essa URL exige cookie de sessão de
+    navegador (confirmado testando: sem login, cai na tela de login do
+    ML), não o token Bearer da API, e embed cross-site (<img src=...>)
+    corre risco real de o navegador bloquear o cookie por política de
+    SameSite. Por isso é só um ícone clicável que abre em nova guia
+    (navegação de topo, não bloqueada por SameSite) -- se não funcionar
+    pra quem clicar, só abre uma aba com erro/tela de login, nada quebra
+    na tela de Mediações."""
+    filename = anexo.get('filename')
+    seller_id = os.getenv(f'{conta}_USER_ID')
+    if not filename or not seller_id:
+        return None
+    return (
+        f'https://vendedores.mercadolivre.com.br/api/messages/packs/{cache.numero_pedido}'
+        f'/sellers/{seller_id}/messages/attachments/{filename}'
+        f'?siteId=MLB&tag=claim&claimId={cache.claim_id}&dispute=false'
+    )
+
+
 def _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta):
     """Extraído de atualizar_e_formatar_mensagens -- só formatação
-    (papel/rótulo/iniciais/data/texto_html), sem nenhuma chamada de API.
+    (papel/rótulo/iniciais/data/texto_html/anexos), sem nenhuma chamada
+    de API nova (attachments já vem dentro de mensagens_brutas).
     Reaproveitado tanto por quem busca mensagens frescas quanto por quem
     só formata o que já está em cache.mensagens (pré-visualização de
     'Encontrados pelo Sistema', decisão de Matheus 20/09/2026)."""
@@ -545,12 +578,20 @@ def _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta):
             papel, rotulo, iniciais = 'voce', 'Você', conta
         else:
             papel, rotulo, iniciais = 'cliente', 'Cliente', iniciais_cliente
+
+        anexos = []
+        for anexo in (m.get('attachments') or []):
+            url = _url_anexo_mensagem(cache, conta, anexo)
+            if url:
+                anexos.append({'url': url})
+
         resultado.append({
             'papel': papel,
             'rotulo': rotulo,
             'iniciais': iniciais,
             'data': _formatar_data_mensagem(m.get('date_created')),
             'texto_html': _preparar_mensagem_html(m.get('message')),
+            'anexos': anexos,
         })
     return resultado
 

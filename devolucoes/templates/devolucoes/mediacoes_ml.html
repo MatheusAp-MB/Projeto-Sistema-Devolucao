@@ -383,6 +383,15 @@
                             <span class="med-msg-data">{{ msg.data }}</span>
                         </div>
                         <div class="med-msg-texto">{{ msg.texto_html|safe }}</div>
+                        {% if msg.anexos %}
+                        <div class="med-msg-anexos">
+                            {% for anexo in msg.anexos %}
+                            <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="med-msg-anexo" title="Abrir imagem anexada (abre em nova guia — pede login do Mercado Livre se você ainda não estiver logado)">
+                                <i class="fas fa-image"></i>
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
@@ -462,6 +471,15 @@
                             <span class="med-msg-data">{{ msg.data }}</span>
                         </div>
                         <div class="med-msg-texto">{{ msg.texto_html|safe }}</div>
+                        {% if msg.anexos %}
+                        <div class="med-msg-anexos">
+                            {% for anexo in msg.anexos %}
+                            <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="med-msg-anexo" title="Abrir imagem anexada (abre em nova guia — pede login do Mercado Livre se você ainda não estiver logado)">
+                                <i class="fas fa-image"></i>
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}

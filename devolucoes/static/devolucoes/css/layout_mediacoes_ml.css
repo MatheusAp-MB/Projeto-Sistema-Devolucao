@@ -779,6 +779,32 @@ span.med-item-acao--fixa:hover {
     color: var(--cor-primaria-clara);
 }
 
+.med-msg-anexos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 7px;
+}
+
+.med-msg-anexo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: var(--cor-fundo-pagina);
+    border: 1px solid var(--cor-borda);
+    color: var(--cor-texto-muted);
+    font-size: 12px;
+}
+
+.med-msg-anexo:hover {
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria-clara);
+    text-decoration: none;
+}
+
 @media (max-width: 980px) {
     .med-shell {
         grid-template-columns: 1fr;

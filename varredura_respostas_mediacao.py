@@ -37,8 +37,9 @@ COMO USAR:
   sozinho (ver acima), ele imprime a lista e você roda de novo com:
   python varredura_respostas_mediacao.py --empresa=SV --numero_pedido=2000017788033354 --claim_id=5564889989
 
-  Se quiser ver o sender_role e o date_created crus de cada mensagem (além
-  do texto limpo), rode com --bruto:
+  Se quiser ver o JSON cru completo de cada mensagem (além do texto limpo)
+  -- útil pra conferir campos que o script ainda não extrai, tipo anexo/
+  imagem -- rode com --bruto:
   python varredura_respostas_mediacao.py --empresa=SV --numero_pedido=2000017788033354 --bruto
 
 PENDENTE (de propósito, pra não estourar o tempo agora):
@@ -52,6 +53,7 @@ PENDENTE (de propósito, pra não estourar o tempo agora):
 
 import argparse
 import html
+import json
 import re
 import sys
 from datetime import datetime
@@ -101,9 +103,10 @@ def ler_argumentos():
     )
     parser.add_argument(
         "--bruto", action="store_true",
-        help="Além do chat limpo, mostra o sender_role e o date_created crus de cada "
-             "mensagem — pra conferir contra a tela da Central de Vendedores quando "
-             "a classificação parecer estranha.",
+        help="Além do chat limpo, mostra o JSON cru completo de cada mensagem — pra "
+             "conferir contra a tela da Central de Vendedores quando a classificação "
+             "parecer estranha, ou checar campos que o script ainda não extrai (ex: "
+             "anexo/imagem).",
     )
     args = parser.parse_args()
     return args.numero_pedido, args.empresa, args.claim_id, args.bruto
@@ -254,6 +257,12 @@ def main():
                 f"  [dim]bruto: sender_role={escape(repr(sender))}, "
                 f"date_created={escape(repr(m.get('date_created')))}[/dim]"
             )
+            # * [EXPLICAÇÃO] -> JSON cru completo da mensagem, sem filtrar
+            #   nenhum campo -- investigação de Matheus, 20/09/2026: checar
+            #   se /post-purchase/v1/claims/{id}/messages devolve anexo/
+            #   imagem em algum campo que o script ainda não extrai (só
+            #   sender_role/date_created/message eram lidos até aqui).
+            console.print(f"  [dim]json bruto: {escape(json.dumps(m, ensure_ascii=False))}[/dim]")
 
         texto_limpo = limpar_html_mensagem(m.get("message"))
         for linha in texto_limpo.split("\n"):
