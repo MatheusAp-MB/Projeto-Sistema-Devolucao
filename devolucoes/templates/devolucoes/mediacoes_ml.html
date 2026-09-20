@@ -16,22 +16,32 @@
     <div class="vd-cartao med-lista-cartao">
         <div class="med-lista-cabecalho">
             <span class="med-lista-titulo">Mediações</span>
+            <button type="button" class="med-btn-icone" id="btn-abrir-modal-mediacao" title="Adicionar mediação manualmente">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+
+        <div class="dp-campo-busca">
+            <i class="fas fa-magnifying-glass"></i>
+            <input type="text" id="busca-mediacoes" placeholder="Buscar por pedido, cliente ou produto...">
         </div>
 
         <div class="dp-abas-nav">
-            <button type="button" class="dp-aba-btn{% if aba_ativa == 'abertas' %} dp-aba-btn--ativa{% endif %}" data-aba="abertas">
+            <button type="button" class="dp-aba-btn{% if aba_ativa == 'abertas' %} dp-aba-btn--ativa{% endif %}" data-aba="abertas" data-total="{{ mediacoes_abertas|length }}">
                 Abertas <span class="dp-aba-contagem">{{ mediacoes_abertas|length }}</span>
             </button>
-            <button type="button" class="dp-aba-btn{% if aba_ativa == 'encerradas' %} dp-aba-btn--ativa{% endif %}" data-aba="encerradas">
+            <button type="button" class="dp-aba-btn{% if aba_ativa == 'encerradas' %} dp-aba-btn--ativa{% endif %}" data-aba="encerradas" data-total="{{ mediacoes_encerradas|length }}">
                 Encerradas <span class="dp-aba-contagem">{{ mediacoes_encerradas|length }}</span>
             </button>
         </div>
+        <div class="dp-nota-outras-abas" id="med-nota-outras-abas"></div>
 
         <div class="dp-tab-panel{% if aba_ativa == 'abertas' %} dp-tab-panel--ativa{% endif %}" data-painel="abertas">
             <div class="med-lista-scroll">
                 {% for item in mediacoes_abertas %}
                 <a href="{% if item.tipo == 'devolucao' %}{% url 'mediacoes_ml_devolucao' item.id %}{% else %}{% url 'mediacoes_ml_avulsa' item.id %}{% endif %}"
-                   class="med-item{% if tipo_selecionado == item.tipo and mediacao_selecionada.id == item.id %} med-item--selecionada{% endif %}">
+                   class="med-item{% if tipo_selecionado == item.tipo and mediacao_selecionada.id == item.id %} med-item--selecionada{% endif %}"
+                   data-busca="{{ item.nome_cliente|lower }} {{ item.numero_pedido|lower }} {{ item.nome_produto|lower }}">
                     <span class="med-item-foto"><i class="fas fa-comments"></i></span>
                     <span class="med-item-corpo">
                         <span class="med-item-topo">
@@ -46,6 +56,7 @@
                 {% empty %}
                 <div class="med-lista-vazia">Nenhuma mediação aberta no momento.</div>
                 {% endfor %}
+                <div class="med-lista-vazia-busca">Nenhuma mediação aberta encontrada com esse termo.</div>
             </div>
         </div>
 
@@ -53,7 +64,8 @@
             <div class="med-lista-scroll">
                 {% for item in mediacoes_encerradas %}
                 <a href="{% if item.tipo == 'devolucao' %}{% url 'mediacoes_ml_devolucao' item.id %}{% else %}{% url 'mediacoes_ml_avulsa' item.id %}{% endif %}"
-                   class="med-item{% if tipo_selecionado == item.tipo and mediacao_selecionada.id == item.id %} med-item--selecionada{% endif %}">
+                   class="med-item{% if tipo_selecionado == item.tipo and mediacao_selecionada.id == item.id %} med-item--selecionada{% endif %}"
+                   data-busca="{{ item.nome_cliente|lower }} {{ item.numero_pedido|lower }} {{ item.nome_produto|lower }}">
                     <span class="med-item-foto"><i class="fas fa-comments"></i></span>
                     <span class="med-item-corpo">
                         <span class="med-item-topo">
@@ -72,6 +84,7 @@
                 {% empty %}
                 <div class="med-lista-vazia">Nenhuma mediação encerrada ainda.</div>
                 {% endfor %}
+                <div class="med-lista-vazia-busca">Nenhuma mediação encerrada encontrada com esse termo.</div>
             </div>
         </div>
     </div>
@@ -213,6 +226,24 @@
         {% endif %}
     </div>
 
+</div>
+
+<div id="modal-add-mediacao" class="modal-add-mediacao-overlay" hidden>
+    <div class="modal-add-mediacao-caixa">
+        <span class="modal-add-mediacao-titulo">Adicionar mediação manualmente</span>
+        <form method="post" action="{% url 'adicionar_mediacao_avulsa' %}" class="modal-add-mediacao-form">
+            {% csrf_token %}
+            <div class="modal-add-mediacao-campo">
+                <label for="input-novo-pedido-mediacao">Número do pedido</label>
+                <input type="text" id="input-novo-pedido-mediacao" name="numero_pedido" placeholder="Ex: 2000012345678901" required>
+            </div>
+            <p class="modal-add-mediacao-aviso">Use quando a mediação ainda não tem devolução registrada aqui — os outros dados podem ser completados depois.</p>
+            <div class="modal-add-mediacao-acoes">
+                <button type="button" class="vd-btn" id="btn-fechar-modal-mediacao">Cancelar</button>
+                <button type="submit" class="vd-btn vd-btn--principal">Adicionar</button>
+            </div>
+        </form>
+    </div>
 </div>
 {% endblock %}
 

@@ -924,6 +924,29 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
     return render(request, 'devolucoes/mediacoes_ml.html', contexto)
 
 
+def adicionar_mediacao_avulsa(request):
+    """Cria uma MediacaoAvulsa a partir só do número do pedido — usado
+    quando a Ana quer acompanhar uma mediação que ainda não tem
+    Devolucao registrada aqui (ver o model). Sempre POST, sem tela
+    própria — mesmo padrão de marcar_devolucao_impressa. Confere
+    duplicidade nos 2 lugares onde uma mediação pode já existir
+    (Devolucao e MediacaoAvulsa) antes de criar, pra não duplicar a
+    mesma mediação na lista."""
+    if request.method == 'POST':
+        numero_pedido = request.POST.get('numero_pedido', '').strip()
+        if not numero_pedido:
+            messages.error(request, 'Informe o número do pedido.')
+        elif Devolucao.objects.filter(numero_pedido=numero_pedido).exists():
+            messages.error(request, f'O pedido {numero_pedido} já está registrado como devolução — não precisa adicionar manualmente.')
+        elif MediacaoAvulsa.objects.filter(numero_pedido=numero_pedido).exists():
+            messages.error(request, f'O pedido {numero_pedido} já está na lista de mediações.')
+        else:
+            avulsa = MediacaoAvulsa.objects.create(numero_pedido=numero_pedido)
+            return redirect('mediacoes_ml_avulsa', avulsa_id=avulsa.id)
+
+    return redirect('mediacoes_ml')
+
+
 def _pecas_para_conferencia(devolucao):
     """Monta a lista de peças pra tela de conferência — parte das peças
     ATUALMENTE compatíveis com o produto (Compatibilidade) e sobrepõe

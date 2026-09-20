@@ -21,6 +21,7 @@ urlpatterns = [
     path('devolucoes/<int:devolucao_id>/etiqueta-termica/zpl/', views.gerar_etiqueta_termica_devolucao, name='gerar_etiqueta_termica_devolucao'),
 
     path('mediacoes/', views.mediacoes_ml, name='mediacoes_ml'),
+    path('mediacoes/adicionar/', views.adicionar_mediacao_avulsa, name='adicionar_mediacao_avulsa'),
     path('mediacoes/devolucao/<int:devolucao_id>/', views.mediacoes_ml, name='mediacoes_ml_devolucao'),
     path('mediacoes/avulsa/<int:avulsa_id>/', views.mediacoes_ml, name='mediacoes_ml_avulsa'),
 

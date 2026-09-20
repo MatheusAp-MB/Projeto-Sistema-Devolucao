@@ -178,6 +178,114 @@
     margin-top: 4px;
 }
 
+.med-btn-icone {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    border: 1px solid var(--cor-borda);
+    background: #fff;
+    color: var(--cor-primaria);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.med-btn-icone:hover {
+    background: var(--cor-primaria);
+    color: #fff;
+    border-color: var(--cor-primaria);
+}
+
+.med-lista-vazia-busca {
+    display: none;
+    font-size: 12.5px;
+    color: var(--cor-texto-muted);
+    text-align: center;
+    padding: 24px 0;
+    font-style: italic;
+}
+
+/* ===== modal "adicionar mediação manualmente" — mesmo padrão
+   :not([hidden]) do modal de fotos global (script_modal_fotos.js):
+   [hidden] só some de verdade se nenhuma regra do autor forçar display
+   antes, então display:flex mora em :not([hidden]), nunca solto. ===== */
+
+.modal-add-mediacao-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(20, 30, 40, .55);
+    z-index: 300;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-add-mediacao-overlay:not([hidden]) {
+    display: flex;
+}
+
+.modal-add-mediacao-caixa {
+    background: #fff;
+    border-radius: 10px;
+    padding: 22px 24px;
+    width: 400px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.modal-add-mediacao-titulo {
+    font-size: 15px;
+    font-weight: 700;
+    color: #333;
+}
+
+.modal-add-mediacao-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.modal-add-mediacao-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.modal-add-mediacao-campo label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--cor-texto-muted);
+    font-weight: 700;
+}
+
+.modal-add-mediacao-campo input {
+    padding: 9px 11px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    font-size: 13.5px;
+}
+
+.modal-add-mediacao-campo input:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
+}
+
+.modal-add-mediacao-acoes {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.modal-add-mediacao-aviso {
+    font-size: 11.5px;
+    color: var(--cor-texto-muted);
+}
+
 @media (max-width: 980px) {
     .med-shell {
         grid-template-columns: 1fr;
