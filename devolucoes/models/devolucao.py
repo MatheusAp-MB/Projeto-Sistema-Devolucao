@@ -112,6 +112,19 @@ class Devolucao(models.Model):
         help_text='Valor que a plataforma efetivamente reembolsou ao cliente na mediação — sempre digitado manualmente, não tem de onde puxar pela API.',
     )
 
+    # * [EXPLICAÇÃO] → 2 campos pra tela "Mediações ML" (20/09/2026): o
+    #   mesmo par existe em MediacaoAvulsa, com o mesmo nome e mesmo
+    #   comportamento, pra tratar devolução-com-mediação-aberta e
+    #   mediação avulsa da mesma forma na tela, sem caso especial.
+    mediacao_visualizada_em = models.DateTimeField(
+        'Mediação visualizada em', null=True, blank=True,
+        help_text='Preenchido automaticamente sempre que alguém abre a conversa dessa mediação na tela "Mediações ML" — é o que decide se tem mensagem nova não vista. Não é por usuário (o sistema ainda não tem login), é 1 timestamp só, compartilhado.',
+    )
+    mediacao_atualizada_em = models.DateTimeField(
+        'Mediação atualizada em', null=True, blank=True,
+        help_text='Preenchido automaticamente sempre que o botão "Atualizar" (individual ou "Atualizar tudo") busca as mensagens dessa mediação na API do Mercado Livre. O sistema nunca atualiza sozinho — só nesse clique.',
+    )
+
     # ===== Sobre a reclamação feita pelo cliente =====
     motivo_reclamacao = models.TextField('Motivo da reclamação do cliente')
     # * [EXPLICAÇÃO] → as imagens do cliente moram em FotoReclamacaoCliente

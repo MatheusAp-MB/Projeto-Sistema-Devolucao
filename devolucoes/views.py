@@ -16,6 +16,7 @@
 import json
 import re
 import subprocess
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
@@ -33,7 +34,7 @@ from core.empresa import obter_alias_banco_ativo
 from .models import (
     Compatibilidade, ConferenciaPeca, Devolucao, FotoConferenciaPeca,
     FotoObservacaoGeral, FotoReclamacaoCliente, GrupoFornecedor, Marca,
-    ModeloAnotacao, Peca, Produto,
+    MediacaoAvulsa, ModeloAnotacao, Peca, Produto,
 )
 from .reorganizacao_fotos import reorganizar_fotos_devolucao
 
@@ -813,6 +814,99 @@ def marcar_devolucao_impressa(request, devolucao_id):
         messages.success(request, f'Devolução do pedido {devolucao.numero_pedido} marcada como impressa.')
 
     return redirect('devolucoes_pendentes')
+
+
+def _serializar_mediacao(obj, tipo):
+    """Normaliza uma Devolucao (em mediação) ou uma MediacaoAvulsa num
+    dict com os mesmos campos, pra tela de Mediações ML poder montar 1
+    lista só, ordenada junto, sem `if` de tipo espalhado pelo template.
+    Só usado pra LISTAGEM — o detalhe de cada mediação usa o objeto real
+    direto (ver mediacoes_ml), porque lá o acesso campo a campo já é
+    natural."""
+    return {
+        'tipo': tipo,
+        'id': obj.id,
+        'numero_pedido': obj.numero_pedido,
+        'nome_cliente': obj.nome_cliente,
+        'nome_produto': obj.produto.nome if tipo == 'devolucao' else obj.nome_produto,
+        'reembolsado_filtro': obj.reembolsado_filtro,
+        'data_abertura_mediacao': obj.data_abertura_mediacao,
+        'data_finalizacao_mediacao': obj.data_finalizacao_mediacao,
+    }
+
+
+def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
+    """Painel de acompanhamento de mediações do Mercado Livre (dor da
+    Ana: hoje ela acompanha cada mediação aberta numa aba fixada do
+    Chrome, 1 por 1). Junta 2 fontes na mesma lista: Devolucao em
+    Mediação Aberta/Encerrada (Devolucao.status_fluxo) e MediacaoAvulsa
+    (mediação sem devolução registrada aqui — ver o model). Mockup
+    aprovado por Matheus, 20/09/2026.
+
+    [ATENÇÃO] → esta é a 2ª etapa da implementação (sidebar + lista real
+    + dashboard + detalhe com os dados que já existem hoje). A conversa
+    de verdade com o Mercado Livre (busca de mensagens, botões de
+    atualizar) e o modal de adicionar mediação manual ainda NÃO estão
+    implementados — entram nas próximas etapas.
+
+    Sem sistema de login ainda (só a Ana usa essa tela, direto do PC
+    dela — confirmado por Matheus, 20/09/2026), então
+    mediacao_visualizada_em é 1 timestamp só por mediação, compartilhado,
+    não por usuário.
+
+    [ATENÇÃO] → "Encerradas" aqui exclui quem já foi impresso
+    (relatorio_impresso_em preenchido) — uma vez impresso já está
+    arquivado de verdade, não faz sentido ocupar espaço nesta tela.
+    Decisão tomada nesta implementação, não confirmada com Matheus ainda."""
+    devolucoes_abertas = Devolucao.objects.select_related('produto').filter(
+        data_abertura_mediacao__isnull=False,
+        data_finalizacao_mediacao__isnull=True,
+        relatorio_impresso_em__isnull=True,
+    )
+    devolucoes_encerradas = Devolucao.objects.select_related('produto').filter(
+        data_finalizacao_mediacao__isnull=False,
+        relatorio_impresso_em__isnull=True,
+    )
+    avulsas_abertas = MediacaoAvulsa.objects.filter(data_finalizacao_mediacao__isnull=True)
+    avulsas_encerradas = MediacaoAvulsa.objects.filter(data_finalizacao_mediacao__isnull=False)
+
+    mediacoes_abertas = sorted(
+        [_serializar_mediacao(d, 'devolucao') for d in devolucoes_abertas]
+        + [_serializar_mediacao(a, 'avulsa') for a in avulsas_abertas],
+        key=lambda m: m['data_abertura_mediacao'] or date.min,
+        reverse=True,
+    )
+    mediacoes_encerradas = sorted(
+        [_serializar_mediacao(d, 'devolucao') for d in devolucoes_encerradas]
+        + [_serializar_mediacao(a, 'avulsa') for a in avulsas_encerradas],
+        key=lambda m: m['data_finalizacao_mediacao'] or date.min,
+        reverse=True,
+    )
+
+    mediacao_selecionada = None
+    tipo_selecionado = None
+    if devolucao_id:
+        mediacao_selecionada = get_object_or_404(Devolucao.objects.select_related('produto'), pk=devolucao_id)
+        tipo_selecionado = 'devolucao'
+    elif avulsa_id:
+        mediacao_selecionada = get_object_or_404(MediacaoAvulsa, pk=avulsa_id)
+        tipo_selecionado = 'avulsa'
+
+    if mediacao_selecionada:
+        # * [EXPLICAÇÃO] → marca como "visualizada agora" só de abrir a
+        #   tela — é o gatilho do indicador de mensagem nova (entra na
+        #   próxima etapa, quando a mensagem real existir pra comparar).
+        mediacao_selecionada.mediacao_visualizada_em = timezone.now()
+        mediacao_selecionada.save(update_fields=['mediacao_visualizada_em'])
+
+    contexto = {
+        'mediacoes_abertas': mediacoes_abertas,
+        'mediacoes_encerradas': mediacoes_encerradas,
+        'mediacao_selecionada': mediacao_selecionada,
+        'tipo_selecionado': tipo_selecionado,
+        'pagina_ativa': 'mediacoes_ml',
+    }
+    return render(request, 'devolucoes/mediacoes_ml.html', contexto)
 
 
 def _pecas_para_conferencia(devolucao):

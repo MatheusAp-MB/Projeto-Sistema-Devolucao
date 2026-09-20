@@ -67,6 +67,11 @@
                         <i class="fas fa-clipboard-list"></i>
                         <span>Devoluções</span>
                     </a>
+                    <a href="{% url 'mediacoes_ml' %}"
+                       class="sidebar-item{% if pagina_ativa == 'mediacoes_ml' %} sidebar-item--ativo{% endif %}">
+                        <i class="fas fa-comments"></i>
+                        <span>Mediações ML</span>
+                    </a>
                     <a href="{% url 'produtos' %}"
                        class="sidebar-item{% if pagina_ativa == 'produtos' %} sidebar-item--ativo{% endif %}">
                         <i class="fas fa-box"></i>

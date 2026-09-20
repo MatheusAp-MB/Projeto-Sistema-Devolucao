@@ -1,0 +1,185 @@
+/*
+* [RESUMO] → Layout específico da tela "Mediações ML" — só o painel
+* dividido (lista + detalhe) e os cards de resumo do dashboard.
+* Reaproveita .vd-cartao/.vd-badge/.vd-grade-dados de
+* layout_visualizar_devolucao.css e .dp-abas-nav/.dp-badge/.dp-tab-panel
+* de layout_devolucoes_pendentes.css — sem duplicar esses blocos aqui.
+*/
+
+.med-shell {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 18px;
+    align-items: start;
+    max-width: 1500px;
+}
+
+.med-lista-cartao {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+}
+
+.med-lista-cabecalho {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.med-lista-titulo {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #333;
+}
+
+.med-lista-scroll {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.med-lista-vazia {
+    font-size: 12.5px;
+    color: var(--cor-texto-muted);
+    text-align: center;
+    padding: 30px 10px;
+    font-style: italic;
+}
+
+.med-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    background: #fff;
+    color: inherit;
+}
+
+.med-item:hover {
+    border-color: var(--cor-primaria-clara);
+    text-decoration: none;
+}
+
+.med-item--selecionada {
+    border-color: var(--cor-primaria-clara);
+    background: #eaf2fa;
+}
+
+.med-item-foto {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: var(--cor-fundo-pagina);
+    border: 1px solid var(--cor-borda);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--cor-texto-muted);
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.med-item-corpo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.med-item-topo {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.med-item-produto {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.med-item-rodape {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 1px;
+}
+
+.med-item-pedido {
+    font-size: 10.5px;
+    color: var(--cor-texto-muted);
+}
+
+.med-link-voltar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--cor-primaria-clara);
+}
+
+.med-link-voltar:hover {
+    color: var(--cor-primaria);
+    text-decoration: underline;
+}
+
+.med-conversa-pendente,
+.med-home-dica {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 4px;
+    padding: 14px 16px;
+    background: var(--cor-fundo-pagina);
+    border: 1px dashed var(--cor-borda);
+    border-radius: 8px;
+    font-size: 12.5px;
+    color: var(--cor-texto-muted);
+}
+
+.med-home-dica {
+    margin-top: 18px;
+}
+
+.med-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 10px;
+}
+
+.med-stat-card {
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    padding: 12px 14px;
+}
+
+.med-stat-numero {
+    font-size: 24px;
+    font-weight: 700;
+    color: #333;
+    line-height: 1.1;
+}
+
+.med-stat-legenda {
+    font-size: 12px;
+    color: var(--cor-texto-muted);
+    margin-top: 4px;
+}
+
+@media (max-width: 980px) {
+    .med-shell {
+        grid-template-columns: 1fr;
+    }
+}

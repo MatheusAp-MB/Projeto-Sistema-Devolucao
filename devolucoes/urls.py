@@ -19,6 +19,11 @@ urlpatterns = [
     path('devolucoes/<int:devolucao_id>/marcar-impressa/', views.marcar_devolucao_impressa, name='marcar_devolucao_impressa'),
     path('devolucoes/<int:devolucao_id>/etiqueta-termica/', views.imprimir_etiqueta_termica_devolucao, name='imprimir_etiqueta_termica_devolucao'),
     path('devolucoes/<int:devolucao_id>/etiqueta-termica/zpl/', views.gerar_etiqueta_termica_devolucao, name='gerar_etiqueta_termica_devolucao'),
+
+    path('mediacoes/', views.mediacoes_ml, name='mediacoes_ml'),
+    path('mediacoes/devolucao/<int:devolucao_id>/', views.mediacoes_ml, name='mediacoes_ml_devolucao'),
+    path('mediacoes/avulsa/<int:avulsa_id>/', views.mediacoes_ml, name='mediacoes_ml_avulsa'),
+
     path('produtos/', views.produtos, name='produtos'),
     path('produtos/<int:produto_id>/', views.visualizar_produto, name='visualizar_produto'),
     path('produtos/<int:produto_id>/excluir/', views.excluir_produto, name='excluir_produto'),

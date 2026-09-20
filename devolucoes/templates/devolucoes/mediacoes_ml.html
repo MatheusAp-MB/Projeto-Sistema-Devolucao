@@ -1,0 +1,197 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Mediações ML{% endblock %}
+{% block toolbar_titulo %}Mediações ML{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_devolucoes_pendentes.css' %}">
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_visualizar_devolucao.css' %}">
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_mediacoes_ml.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+<div class="med-shell">
+
+    <div class="vd-cartao med-lista-cartao">
+        <div class="med-lista-cabecalho">
+            <span class="med-lista-titulo">Mediações</span>
+        </div>
+
+        <div class="dp-abas-nav">
+            <button type="button" class="dp-aba-btn dp-aba-btn--ativa" data-aba="abertas">
+                Abertas <span class="dp-aba-contagem">{{ mediacoes_abertas|length }}</span>
+            </button>
+            <button type="button" class="dp-aba-btn" data-aba="encerradas">
+                Encerradas <span class="dp-aba-contagem">{{ mediacoes_encerradas|length }}</span>
+            </button>
+        </div>
+
+        <div class="dp-tab-panel dp-tab-panel--ativa" data-painel="abertas">
+            <div class="med-lista-scroll">
+                {% for item in mediacoes_abertas %}
+                <a href="{% if item.tipo == 'devolucao' %}{% url 'mediacoes_ml_devolucao' item.id %}{% else %}{% url 'mediacoes_ml_avulsa' item.id %}{% endif %}"
+                   class="med-item{% if tipo_selecionado == item.tipo and mediacao_selecionada.id == item.id %} med-item--selecionada{% endif %}">
+                    <span class="med-item-foto"><i class="fas fa-comments"></i></span>
+                    <span class="med-item-corpo">
+                        <span class="med-item-topo">
+                            <span class="med-item-produto">{{ item.nome_produto|default:"Produto não informado" }}</span>
+                        </span>
+                        <span class="med-item-rodape">
+                            <span class="med-item-pedido">Pedido {{ item.numero_pedido }} — {{ item.nome_cliente|default:"cliente não informado" }}</span>
+                            <span class="dp-badge dp-badge--mediacao-aberta">Aberta</span>
+                        </span>
+                    </span>
+                </a>
+                {% empty %}
+                <div class="med-lista-vazia">Nenhuma mediação aberta no momento.</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="dp-tab-panel" data-painel="encerradas">
+            <div class="med-lista-scroll">
+                {% for item in mediacoes_encerradas %}
+                <a href="{% if item.tipo == 'devolucao' %}{% url 'mediacoes_ml_devolucao' item.id %}{% else %}{% url 'mediacoes_ml_avulsa' item.id %}{% endif %}"
+                   class="med-item{% if tipo_selecionado == item.tipo and mediacao_selecionada.id == item.id %} med-item--selecionada{% endif %}">
+                    <span class="med-item-foto"><i class="fas fa-comments"></i></span>
+                    <span class="med-item-corpo">
+                        <span class="med-item-topo">
+                            <span class="med-item-produto">{{ item.nome_produto|default:"Produto não informado" }}</span>
+                        </span>
+                        <span class="med-item-rodape">
+                            <span class="med-item-pedido">Pedido {{ item.numero_pedido }} — {{ item.nome_cliente|default:"cliente não informado" }}</span>
+                            {% if item.reembolsado_filtro == 'sim' %}
+                            <span class="dp-badge dp-badge--reembolsado">Reembolsado</span>
+                            {% else %}
+                            <span class="dp-badge dp-badge--nao-reembolsado">Não reembolsado</span>
+                            {% endif %}
+                        </span>
+                    </span>
+                </a>
+                {% empty %}
+                <div class="med-lista-vazia">Nenhuma mediação encerrada ainda.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="med-detalhe">
+        {% if mediacao_selecionada %}
+        <div class="vd-cartao">
+            <a href="{% url 'mediacoes_ml' %}" class="med-link-voltar">
+                <i class="fas fa-arrow-left"></i> Voltar ao painel
+            </a>
+
+            <div class="vd-cabecalho">
+                <div>
+                    <h1 class="vd-titulo-pedido">
+                        {% if tipo_selecionado == 'devolucao' %}{{ mediacao_selecionada.produto.nome }}{% else %}{{ mediacao_selecionada.nome_produto|default:"Produto não informado" }}{% endif %}
+                    </h1>
+                    <div class="vd-meta-linha">
+                        <span><i class="fas fa-hashtag"></i> Pedido {{ mediacao_selecionada.numero_pedido }}</span>
+                        <span><i class="fas fa-user"></i> {{ mediacao_selecionada.nome_cliente|default:"não informado" }}</span>
+                        {% if tipo_selecionado == 'avulsa' %}
+                        <span><i class="fas fa-link-slash"></i> Mediação avulsa — sem devolução vinculada</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="vd-acoes-topo">
+                    {% if mediacao_selecionada.status_fluxo == 'mediacao_aberta' %}
+                    <span class="vd-badge vd-badge--vermelho"><i class="fas fa-comments"></i> Mediação Aberta</span>
+                    {% else %}
+                    <span class="vd-badge vd-badge--verde"><i class="fas fa-check-circle"></i> Mediação Encerrada</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <p class="vd-texto-bloco" style="margin-top:8px; color:var(--cor-texto-muted); font-size:12px;">
+                {% if mediacao_selecionada.mediacao_atualizada_em %}
+                Última atualização: {{ mediacao_selecionada.mediacao_atualizada_em|date:"d/m/Y H:i" }} — o sistema não atualiza sozinho.
+                {% else %}
+                Conversa ainda não atualizada nenhuma vez — a busca real de mensagens entra no próximo passo.
+                {% endif %}
+            </p>
+
+            <hr class="vd-divisor">
+
+            <div class="vd-subgrupo-titulo">Dados da Mediação</div>
+            <div class="vd-grade-dados vd-grade-dados--3col">
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Aberta em</span>
+                    {% if mediacao_selecionada.data_abertura_mediacao %}
+                    <span class="vd-valor">{{ mediacao_selecionada.data_abertura_mediacao|date:"d/m/Y" }}</span>
+                    {% else %}
+                    <span class="vd-valor vd-valor--vazio">Não informado</span>
+                    {% endif %}
+                </div>
+                {% if mediacao_selecionada.data_finalizacao_mediacao %}
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Encerrada em</span>
+                    <span class="vd-valor">{{ mediacao_selecionada.data_finalizacao_mediacao|date:"d/m/Y" }}</span>
+                </div>
+                {% endif %}
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Preço do produto</span>
+                    {% if mediacao_selecionada.preco_produto %}
+                    <span class="vd-valor">R$ {{ mediacao_selecionada.preco_produto }}</span>
+                    {% else %}
+                    <span class="vd-valor vd-valor--vazio">Não informado</span>
+                    {% endif %}
+                </div>
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Valor reembolsado</span>
+                    {% if mediacao_selecionada.valor_reembolsado is not None %}
+                    <span class="vd-valor">R$ {{ mediacao_selecionada.valor_reembolsado }}</span>
+                    {% else %}
+                    <span class="vd-valor vd-valor--vazio">Ainda não definido</span>
+                    {% endif %}
+                </div>
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Diferença (preço − reembolso)</span>
+                    {% if mediacao_selecionada.diferenca_reembolso is not None %}
+                    <span class="vd-valor">R$ {{ mediacao_selecionada.diferenca_reembolso }}</span>
+                    {% else %}
+                    <span class="vd-valor vd-valor--vazio">Não calculado</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="vd-subgrupo-titulo" style="margin-top:18px">Motivo da Reclamação</div>
+            <p class="vd-texto-bloco">{{ mediacao_selecionada.motivo_reclamacao|default:"Não informado."|linebreaksbr }}</p>
+
+            <hr class="vd-divisor">
+
+            <div class="vd-subgrupo-titulo">Conversa com o Mercado Livre</div>
+            <div class="med-conversa-pendente">
+                <i class="fas fa-circle-info"></i>
+                <span>A busca real das mensagens (e o botão "Atualizar") ainda não foram implementados — é o próximo passo depois desse.</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="vd-cartao">
+            <div class="vd-cartao-titulo">Painel Geral</div>
+            <div class="med-stat-grid">
+                <div class="med-stat-card">
+                    <div class="med-stat-numero">{{ mediacoes_abertas|length }}</div>
+                    <div class="med-stat-legenda">Mediações em aberto</div>
+                </div>
+                <div class="med-stat-card">
+                    <div class="med-stat-numero">{{ mediacoes_encerradas|length }}</div>
+                    <div class="med-stat-legenda">Encerradas</div>
+                </div>
+            </div>
+            <div class="med-home-dica">
+                <i class="fas fa-circle-info"></i>
+                <span>Selecione uma mediação na lista ao lado pra ver os dados completos. Indicadores de mensagem nova e prazo entram numa próxima etapa, junto com a busca real de mensagens.</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'devolucoes/js/script_mediacoes_ml.js' %}"></script>
+{% endblock %}
