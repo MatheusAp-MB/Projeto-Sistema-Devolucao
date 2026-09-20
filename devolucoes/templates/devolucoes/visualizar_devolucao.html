@@ -36,6 +36,11 @@
                             <i class="fas fa-clock"></i> Pendente de conferência
                         </span>
                     {% endif %}
+                    {% if devolucao.nome_plataforma == 'Mercado Livre' and devolucao.data_abertura_mediacao and not devolucao.relatorio_impresso_em %}
+                    <a href="{% url 'mediacoes_ml_devolucao' devolucao.id %}" class="vd-btn">
+                        <i class="fas fa-comments"></i> Ver mediação
+                    </a>
+                    {% endif %}
                     <a href="{% url 'conferir_devolucao' devolucao.id %}" class="vd-btn">
                         <i class="fas fa-pen-to-square"></i> Editar conferência
                     </a>
