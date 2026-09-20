@@ -218,6 +218,30 @@ a:hover {
     border-radius: 6px;
     border-left: 4px solid transparent;
     font-size: 0.9rem;
+    transition: opacity .3s ease;
+}
+
+.aviso-global--saindo {
+    opacity: 0;
+}
+
+.aviso-global-texto {
+    flex: 1;
+}
+
+.aviso-global-fechar {
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.55;
+    cursor: pointer;
+    padding: 2px 4px;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.aviso-global-fechar:hover {
+    opacity: 1;
 }
 
 .aviso-global--success {

@@ -108,7 +108,7 @@
                     {% if messages %}
                     <div class="avisos-globais">
                         {% for message in messages %}
-                        <div class="aviso-global aviso-global--{{ message.tags }}">
+                        <div class="aviso-global aviso-global--{{ message.tags }}" data-auto-dismiss="{% if message.tags == 'success' or message.tags == 'info' %}true{% else %}false{% endif %}">
                             {% if message.tags == 'success' %}
                                 <i class="fas fa-check-circle"></i>
                             {% elif message.tags == 'warning' %}
@@ -118,7 +118,10 @@
                             {% else %}
                                 <i class="fas fa-info-circle"></i>
                             {% endif %}
-                            {{ message }}
+                            <span class="aviso-global-texto">{{ message }}</span>
+                            <button type="button" class="aviso-global-fechar" aria-label="Fechar aviso">
+                                <i class="fas fa-xmark"></i>
+                            </button>
                         </div>
                         {% endfor %}
                     </div>
