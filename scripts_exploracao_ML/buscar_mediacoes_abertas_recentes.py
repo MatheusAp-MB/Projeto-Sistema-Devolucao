@@ -36,6 +36,7 @@
 #   python scripts_exploracao_ML/buscar_mediacoes_abertas_recentes.py
 
 import sys
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -175,15 +176,18 @@ def classificar(stage, tem_devolucao):
 
 
 def main():
+    inicio_geral = time.monotonic()
     agora = datetime.now(FUSO_HORARIO_EXIBICAO)
     inicio_formatado = formatar_data_para_filtro(agora - timedelta(days=MESES_ATRAS * 30))
     fim_formatado = formatar_data_para_filtro(agora)
 
     todas = []
     ids_ja_vistos = set()
+    tempo_busca_por_conta = {}
 
     for conta in CONTAS:
         console.print(f"[bold]Conta {conta}[/bold] — buscando reclamações abertas dos últimos {MESES_ATRAS} meses...")
+        inicio_busca_conta = time.monotonic()
         try:
             user_id = buscar_user_id(conta)
             claims_da_conta = []
@@ -192,6 +196,7 @@ def main():
         except (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao) as erro:
             console.print(f"  [bold red]Erro:[/bold red] {escape(str(erro))}")
             continue
+        tempo_busca_por_conta[conta] = time.monotonic() - inicio_busca_conta
 
         novas = 0
         for c in claims_da_conta:
@@ -211,12 +216,17 @@ def main():
 
     if not todas:
         console.print("\nNenhuma reclamação aberta encontrada nas 2 contas, no período.")
+        console.print(f"[dim]Tempo total do script: {time.monotonic() - inicio_geral:.2f}s[/dim]")
         return
 
     console.print()
     nao_verificados = 0
+    tempo_verificacao_por_conta = {}
     for item in track(todas, description="Verificando devolução física de cada uma..."):
+        inicio_item = time.monotonic()
         resultado = tem_devolucao_fisica(item["conta"], item["claim_id"])
+        item["tempo_verificacao"] = time.monotonic() - inicio_item
+        tempo_verificacao_por_conta[item["conta"]] = tempo_verificacao_por_conta.get(item["conta"], 0.0) + item["tempo_verificacao"]
         item["tem_devolucao"] = resultado
         if resultado is None:
             nao_verificados += 1
@@ -231,12 +241,13 @@ def main():
     tabela.add_column("Devolução?")
     tabela.add_column("Combinação")
     tabela.add_column("Aberta em")
+    tabela.add_column("Tempo (s)", justify="right")
     for item in sorted(todas, key=lambda x: x["data_abertura"] or "", reverse=True):
         devolucao_txt = "sim" if item["tem_devolucao"] else ("não confirmado" if item["tem_devolucao"] is None else "não")
         tabela.add_row(
             item["conta"], str(item["pedido"]), str(item["claim_id"]),
             item["tipo"], item["stage"] or "—", devolucao_txt, item["combinacao"],
-            formatar_data_exibicao(item["data_abertura"]),
+            formatar_data_exibicao(item["data_abertura"]), f"{item['tempo_verificacao']:.2f}",
         )
     console.print()
     console.print(tabela)
@@ -272,6 +283,22 @@ def main():
         console.print(f"\n[dim yellow]{nao_verificados} reclamação(ões) não tiveram a devolução confirmada por erro na API — "
                       f"aparecem acima com o sufixo '(devolução não verificada)' na combinação, e NÃO foram contadas "
                       f"como 'sem devolução' (ver avisos durante a execução).[/dim yellow]")
+
+    tabela_tempo = Table(title="Tempo gasto por conta", box=box.SIMPLE)
+    tabela_tempo.add_column("Conta")
+    tabela_tempo.add_column("Busca de reclamações (s)", justify="right")
+    tabela_tempo.add_column("Verificação de devolução (s)", justify="right")
+    tabela_tempo.add_column("Total da conta (s)", justify="right")
+    for conta in CONTAS:
+        tempo_busca = tempo_busca_por_conta.get(conta, 0.0)
+        tempo_verificacao = tempo_verificacao_por_conta.get(conta, 0.0)
+        tabela_tempo.add_row(
+            conta, f"{tempo_busca:.2f}", f"{tempo_verificacao:.2f}", f"{tempo_busca + tempo_verificacao:.2f}",
+        )
+
+    console.print()
+    console.print(tabela_tempo)
+    console.print(f"\n[bold]Tempo total do script:[/bold] {time.monotonic() - inicio_geral:.2f}s")
 
 
 if __name__ == "__main__":
