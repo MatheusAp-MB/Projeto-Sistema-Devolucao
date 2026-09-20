@@ -907,11 +907,18 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
         mediacao_selecionada.mediacao_visualizada_em = timezone.now()
         mediacao_selecionada.save(update_fields=['mediacao_visualizada_em'])
 
+    # * [EXPLICAÇÃO] → qual aba abre selecionada — sem isso, clicar numa
+    #   mediação Encerrada recarregava a página e voltava pra "Abertas"
+    #   por padrão, com o item selecionado escondido na aba errada (bug
+    #   real, 20/09/2026).
+    aba_ativa = 'encerradas' if mediacao_selecionada and mediacao_selecionada.status_fluxo == 'mediacao_encerrada' else 'abertas'
+
     contexto = {
         'mediacoes_abertas': mediacoes_abertas,
         'mediacoes_encerradas': mediacoes_encerradas,
         'mediacao_selecionada': mediacao_selecionada,
         'tipo_selecionado': tipo_selecionado,
+        'aba_ativa': aba_ativa,
         'pagina_ativa': 'mediacoes_ml',
     }
     return render(request, 'devolucoes/mediacoes_ml.html', contexto)

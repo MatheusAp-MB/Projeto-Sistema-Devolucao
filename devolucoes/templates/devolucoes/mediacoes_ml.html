@@ -19,15 +19,15 @@
         </div>
 
         <div class="dp-abas-nav">
-            <button type="button" class="dp-aba-btn dp-aba-btn--ativa" data-aba="abertas">
+            <button type="button" class="dp-aba-btn{% if aba_ativa == 'abertas' %} dp-aba-btn--ativa{% endif %}" data-aba="abertas">
                 Abertas <span class="dp-aba-contagem">{{ mediacoes_abertas|length }}</span>
             </button>
-            <button type="button" class="dp-aba-btn" data-aba="encerradas">
+            <button type="button" class="dp-aba-btn{% if aba_ativa == 'encerradas' %} dp-aba-btn--ativa{% endif %}" data-aba="encerradas">
                 Encerradas <span class="dp-aba-contagem">{{ mediacoes_encerradas|length }}</span>
             </button>
         </div>
 
-        <div class="dp-tab-panel dp-tab-panel--ativa" data-painel="abertas">
+        <div class="dp-tab-panel{% if aba_ativa == 'abertas' %} dp-tab-panel--ativa{% endif %}" data-painel="abertas">
             <div class="med-lista-scroll">
                 {% for item in mediacoes_abertas %}
                 <a href="{% if item.tipo == 'devolucao' %}{% url 'mediacoes_ml_devolucao' item.id %}{% else %}{% url 'mediacoes_ml_avulsa' item.id %}{% endif %}"
@@ -49,7 +49,7 @@
             </div>
         </div>
 
-        <div class="dp-tab-panel" data-painel="encerradas">
+        <div class="dp-tab-panel{% if aba_ativa == 'encerradas' %} dp-tab-panel--ativa{% endif %}" data-painel="encerradas">
             <div class="med-lista-scroll">
                 {% for item in mediacoes_encerradas %}
                 <a href="{% if item.tipo == 'devolucao' %}{% url 'mediacoes_ml_devolucao' item.id %}{% else %}{% url 'mediacoes_ml_avulsa' item.id %}{% endif %}"
@@ -102,7 +102,31 @@
                     {% else %}
                     <span class="vd-badge vd-badge--verde"><i class="fas fa-check-circle"></i> Mediação Encerrada</span>
                     {% endif %}
+                    {% if tipo_selecionado == 'devolucao' %}
+                    <a href="{% url 'visualizar_devolucao' mediacao_selecionada.id %}" class="vd-btn">
+                        <i class="fas fa-eye"></i> Visualizar devolução
+                    </a>
+                    <a href="{% url 'editar_devolucao' mediacao_selecionada.id %}" class="vd-btn">
+                        <i class="fas fa-pen"></i> Editar devolução
+                    </a>
+                    {% endif %}
+                    <a href="https://www.mercadolivre.com.br/vendas/{{ mediacao_selecionada.numero_pedido }}/detalhe" target="_blank" class="vd-btn">
+                        <i class="fas fa-arrow-up-right-from-square"></i> Ver pedido no ML
+                    </a>
+                    {% if mediacao_selecionada.claim_id %}
+                    <a href="https://www.mercadolivre.com.br/vendas/novo/mensagens/{{ mediacao_selecionada.numero_pedido }}/reclamacao/{{ mediacao_selecionada.claim_id }}" target="_blank" class="vd-btn">
+                        <i class="fas fa-arrow-up-right-from-square"></i> Ver reclamação no ML
+                    </a>
+                    <a href="https://www.mercadolivre.com.br/vendas/novo/mensagens/{{ mediacao_selecionada.numero_pedido }}/mediacao/{{ mediacao_selecionada.claim_id }}" target="_blank" class="vd-btn">
+                        <i class="fas fa-arrow-up-right-from-square"></i> Ver mediação no ML
+                    </a>
+                    {% endif %}
                 </div>
+                {% if not mediacao_selecionada.claim_id %}
+                <p class="vd-texto-bloco" style="margin-top:8px; color:var(--cor-texto-muted); font-size:12px;">
+                    <i class="fas fa-circle-info"></i> "Ver reclamação"/"Ver mediação" aparecem depois que a busca real de mensagens rodar pela 1ª vez (próximo passo) e guardar o ID da reclamação.
+                </p>
+                {% endif %}
             </div>
 
             <p class="vd-texto-bloco" style="margin-top:8px; color:var(--cor-texto-muted); font-size:12px;">

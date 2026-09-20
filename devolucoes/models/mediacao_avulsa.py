@@ -41,6 +41,10 @@ class MediacaoAvulsa(models.Model):
         'Mediação atualizada em', null=True, blank=True,
         help_text='Preenchido automaticamente sempre que o botão "Atualizar" (individual ou "Atualizar tudo") busca as mensagens dessa mediação na API do Mercado Livre. O sistema nunca atualiza sozinho — só nesse clique.',
     )
+    claim_id = models.CharField(
+        'ID da reclamação/mediação no ML', max_length=50, null=True, blank=True,
+        help_text='ID da claim no Mercado Livre — preenchido automaticamente quando a busca de mensagens roda pela 1ª vez (ainda não implementada). Usado pra montar os links "Ver reclamação"/"Ver mediação" no site do ML.',
+    )
 
     criado_em = models.DateTimeField(auto_now_add=True)
 
