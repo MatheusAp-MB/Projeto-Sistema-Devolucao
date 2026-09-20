@@ -22,7 +22,7 @@ from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI
 from core.empresa import definir_empresa_ativa
 from integracao_mercado_livre.views import CONTA_POR_EMPRESA, PASTA_LOGS_ML
 
-from .models import ClaimMercadoLivre, Devolucao, StatusVarreduraMediacoes
+from .models import ClaimMercadoLivre, Devolucao, MediacaoAvulsa, StatusVarreduraMediacoes
 
 FUSO_HORARIO_EXIBICAO_MSG = ZoneInfo("America/Sao_Paulo")
 TAGS_PERMITIDAS_MENSAGEM = ["p", "br", "strong", "b", "em", "i", "a"]
@@ -232,18 +232,26 @@ def executar_varredura_completa(empresa):
                 },
             )
 
-            # * [EXPLICACAO] -> casamento automatico com Devolucao
-            #   existente -- so liga a flag, nunca desliga sozinho.
-            #   Preenche o claim_id da Devolucao, que ja esperava por isso
-            #   desde a migration 0019.
+            # * [EXPLICACAO] -> casamento automatico com Devolucao OU
+            #   MediacaoAvulsa existente -- so liga a flag, nunca desliga
+            #   sozinho. Preenche o claim_id de quem ja existia (Devolucao
+            #   esperava por isso desde a migration 0019; MediacaoAvulsa
+            #   cadastrada ANTES desta feature nunca tinha claim_id
+            #   nenhum -- sem isso ela nunca casava com a cache e a
+            #   conversa ficava travada pra sempre no "ainda não
+            #   vinculada").
             if not cache.esta_acompanhando:
                 devolucao_correspondente = Devolucao.objects.filter(numero_pedido=numero_pedido).first()
-                if devolucao_correspondente:
+                avulsa_correspondente = MediacaoAvulsa.objects.filter(numero_pedido=numero_pedido).first()
+                if devolucao_correspondente or avulsa_correspondente:
                     cache.esta_acompanhando = True
                     cache.save(update_fields=['esta_acompanhando'])
-                    if not devolucao_correspondente.claim_id:
+                    if devolucao_correspondente and not devolucao_correspondente.claim_id:
                         devolucao_correspondente.claim_id = claim_id
                         devolucao_correspondente.save(update_fields=['claim_id'])
+                    if avulsa_correspondente and not avulsa_correspondente.claim_id:
+                        avulsa_correspondente.claim_id = claim_id
+                        avulsa_correspondente.save(update_fields=['claim_id'])
 
             _atualizar_status(processados=indice, itens_nao_confirmados=itens_nao_confirmados)
 

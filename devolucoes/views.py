@@ -1103,17 +1103,25 @@ def acompanhar_claim(request, claim_id):
     'Acompanhar' num item de 'Encontrados pelo Sistema'. Cria uma
     MediacaoAvulsa (mesmo padrão de adicionar_mediacao_avulsa) só quando
     o pedido ainda não tem Devolucao nem MediacaoAvulsa cadastrada; se já
-    tiver (ex: o casamento automático da varredura chegou primeiro, ou
-    ela deixou de acompanhar antes e mudou de ideia), só liga a flag da
-    cache de novo, sem duplicar nada. Decisão de Matheus, 20/09/2026."""
+    tiver (ex: um cadastro anterior a esta feature, ou o casamento
+    automático da varredura chegou primeiro, ou ela deixou de acompanhar
+    antes e mudou de ideia), preenche o claim_id nesse registro existente
+    se ainda estiver vazio, sem duplicar nada. Decisão de Matheus,
+    20/09/2026."""
     cache = get_object_or_404(ClaimMercadoLivre, pk=claim_id)
 
     if request.method == 'POST' and not cache.esta_acompanhando:
-        ja_existe = (
-            Devolucao.objects.filter(numero_pedido=cache.numero_pedido).exists()
-            or MediacaoAvulsa.objects.filter(numero_pedido=cache.numero_pedido).exists()
-        )
-        if not ja_existe:
+        devolucao_correspondente = Devolucao.objects.filter(numero_pedido=cache.numero_pedido).first()
+        avulsa_correspondente = MediacaoAvulsa.objects.filter(numero_pedido=cache.numero_pedido).first()
+        if devolucao_correspondente:
+            if not devolucao_correspondente.claim_id:
+                devolucao_correspondente.claim_id = cache.claim_id
+                devolucao_correspondente.save(update_fields=['claim_id'])
+        elif avulsa_correspondente:
+            if not avulsa_correspondente.claim_id:
+                avulsa_correspondente.claim_id = cache.claim_id
+                avulsa_correspondente.save(update_fields=['claim_id'])
+        else:
             conta = CONTA_POR_EMPRESA.get(obter_empresa_ativa())
             nome_cliente, nome_produto = buscar_nome_cliente_e_produto(conta, cache.numero_pedido) if conta else ('', '')
             MediacaoAvulsa.objects.create(
