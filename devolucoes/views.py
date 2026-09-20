@@ -947,6 +947,22 @@ def adicionar_mediacao_avulsa(request):
     return redirect('mediacoes_ml')
 
 
+def excluir_mediacao_avulsa(request, avulsa_id):
+    """Remove uma mediação avulsa da lista — esse modelo existe só pra
+    alimentar esta tela, então excluir o registro aqui não afeta nada
+    mais no sistema (diferente de excluir_devolucao, que apaga uma
+    devolução de verdade, com peças/fotos etc). Sempre POST, sem tela
+    própria — mesmo padrão de excluir_devolucao/adicionar_mediacao_avulsa."""
+    avulsa = get_object_or_404(MediacaoAvulsa, pk=avulsa_id)
+
+    if request.method == 'POST':
+        numero_pedido = avulsa.numero_pedido
+        avulsa.delete()
+        messages.success(request, f'Mediação avulsa do pedido {numero_pedido} removida da lista.')
+
+    return redirect('mediacoes_ml')
+
+
 def _pecas_para_conferencia(devolucao):
     """Monta a lista de peças pra tela de conferência — parte das peças
     ATUALMENTE compatíveis com o produto (Compatibilidade) e sobrepõe

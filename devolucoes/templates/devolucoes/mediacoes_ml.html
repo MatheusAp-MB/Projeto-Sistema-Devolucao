@@ -134,6 +134,14 @@
                         <i class="fas fa-arrow-up-right-from-square"></i> Ver mediação no ML
                     </a>
                     {% endif %}
+                    {% if tipo_selecionado == 'avulsa' %}
+                    <form method="post" action="{% url 'excluir_mediacao_avulsa' mediacao_selecionada.id %}" class="dp-form-inline dp-form-excluir">
+                        {% csrf_token %}
+                        <button type="submit" class="dp-btn dp-btn--perigo" data-nome="{{ mediacao_selecionada.numero_pedido }}">
+                            <i class="fas fa-trash"></i> Excluir mediação avulsa
+                        </button>
+                    </form>
+                    {% endif %}
                 </div>
                 {% if not mediacao_selecionada.claim_id %}
                 <p class="vd-texto-bloco" style="margin-top:8px; color:var(--cor-texto-muted); font-size:12px;">

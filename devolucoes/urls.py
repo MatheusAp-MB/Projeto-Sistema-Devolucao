@@ -24,6 +24,7 @@ urlpatterns = [
     path('mediacoes/adicionar/', views.adicionar_mediacao_avulsa, name='adicionar_mediacao_avulsa'),
     path('mediacoes/devolucao/<int:devolucao_id>/', views.mediacoes_ml, name='mediacoes_ml_devolucao'),
     path('mediacoes/avulsa/<int:avulsa_id>/', views.mediacoes_ml, name='mediacoes_ml_avulsa'),
+    path('mediacoes/avulsa/<int:avulsa_id>/excluir/', views.excluir_mediacao_avulsa, name='excluir_mediacao_avulsa'),
 
     path('produtos/', views.produtos, name='produtos'),
     path('produtos/<int:produto_id>/', views.visualizar_produto, name='visualizar_produto'),

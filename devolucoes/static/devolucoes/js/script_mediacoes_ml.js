@@ -132,3 +132,19 @@
         if (e.target === modal) modal.hidden = true;
     });
 })();
+
+// Confirmação antes de excluir uma mediação avulsa — mesmo padrão do
+// dp-form-excluir de script_devolucoes_pendentes.js, reaproveitado aqui
+// porque essa tela não carrega aquele script.
+(function () {
+    document.addEventListener('submit', function (evento) {
+        var form = evento.target;
+        if (!form.classList || !form.classList.contains('dp-form-excluir')) return;
+
+        var botao = form.querySelector('.dp-btn--perigo');
+        var numeroPedido = botao ? botao.getAttribute('data-nome') : 'esta mediação';
+        if (!window.confirm('Remover a mediação avulsa do pedido ' + numeroPedido + ' desta lista? Essa ação não pode ser desfeita.')) {
+            evento.preventDefault();
+        }
+    });
+})();
