@@ -26,6 +26,37 @@
             <input type="text" id="busca-mediacoes" placeholder="Buscar por pedido, cliente ou produto...">
         </div>
 
+        <div class="med-linha-varredura">
+            <button type="button" class="dp-btn dp-btn--principal med-btn-varredura" id="btn-varredura-completa">
+                <i class="fas fa-arrows-rotate"></i> Fazer varredura completa (6 meses)
+            </button>
+            <button type="button" class="dp-btn med-btn-varredura" id="btn-atualizar-acompanhados">
+                <i class="fas fa-arrows-rotate"></i> Atualizar itens em acompanhamento
+            </button>
+        </div>
+
+        <div class="med-banner-progresso" id="med-banner-progresso" hidden>
+            <div class="med-banner-progresso-topo">
+                <i class="fas fa-arrows-rotate"></i>
+                <span id="med-banner-fase">Iniciando...</span>
+                <span class="med-banner-progresso-contagem" id="med-banner-contagem"></span>
+            </div>
+            <div class="med-banner-progresso-barra-trilho"><div class="med-banner-progresso-barra-preenchida" id="med-banner-barra"></div></div>
+        </div>
+
+        <div class="med-toast-concluido" id="med-toast-concluido">
+            <i class="fas fa-circle-check"></i>
+            <span id="med-toast-texto"></span>
+        </div>
+
+        <div class="med-banner-erro" id="med-banner-erro" hidden>
+            <i class="fas fa-triangle-exclamation"></i>
+            <span class="med-banner-erro-texto" id="med-banner-erro-texto"></span>
+            <button type="button" class="med-banner-erro-fechar" id="med-banner-erro-fechar" title="Fechar aviso">
+                <i class="fas fa-xmark"></i>
+            </button>
+        </div>
+
         <div class="dp-abas-nav">
             <button type="button" class="dp-aba-btn{% if aba_ativa == 'abertas' %} dp-aba-btn--ativa{% endif %}" data-aba="abertas" data-total="{{ mediacoes_abertas|length }}">
                 Abertas <span class="dp-aba-contagem">{{ mediacoes_abertas|length }}</span>
@@ -38,25 +69,105 @@
 
         <div class="dp-tab-panel{% if aba_ativa == 'abertas' %} dp-tab-panel--ativa{% endif %}" data-painel="abertas">
             <div class="med-lista-scroll">
-                {% for item in mediacoes_abertas %}
-                <a href="{% if item.tipo == 'devolucao' %}{% url 'mediacoes_ml_devolucao' item.id %}{% else %}{% url 'mediacoes_ml_avulsa' item.id %}{% endif %}"
-                   class="med-item{% if tipo_selecionado == item.tipo and mediacao_selecionada.id == item.id %} med-item--selecionada{% endif %}"
-                   data-busca="{{ item.nome_cliente|lower }} {{ item.numero_pedido|lower }} {{ item.nome_produto|lower }}">
-                    <span class="med-item-foto"><i class="fas fa-comments"></i></span>
-                    <span class="med-item-corpo">
-                        <span class="med-item-topo">
-                            <span class="med-item-produto">{{ item.nome_produto|default:"Produto não informado" }}</span>
+
+                <div class="med-grupo" data-grupo="encontrados" data-recolhido="true">
+                    <button type="button" class="med-grupo-cabecalho med-grupo-cabecalho--toggle" data-toggle-grupo="encontrados" aria-expanded="false">
+                        <span class="med-grupo-cabecalho-esquerda">
+                            <i class="fas fa-chevron-right med-grupo-chevron"></i>
+                            <span class="med-grupo-titulo">Encontrados pelo sistema</span>
+                            <span class="med-grupo-contagem-resumo">{{ contagem_encontrados.todas }}</span>
                         </span>
-                        <span class="med-item-rodape">
-                            <span class="med-item-pedido">Pedido {{ item.numero_pedido }} — {{ item.nome_cliente|default:"cliente não informado" }}</span>
-                            <span class="dp-badge dp-badge--mediacao-aberta">Aberta</span>
-                        </span>
-                    </span>
-                </a>
-                {% empty %}
-                <div class="med-lista-vazia">Nenhuma mediação aberta no momento.</div>
-                {% endfor %}
-                <div class="med-lista-vazia-busca">Nenhuma mediação aberta encontrada com esse termo.</div>
+                        <span class="med-grupo-subtitulo">varredura de 6 meses — ainda não vinculados</span>
+                    </button>
+                    <div class="med-grupo-conteudo" data-conteudo="encontrados" hidden>
+                        <div class="dp-filtro-secundario" data-chips="encontrados">
+                            <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todas">Todas ({{ contagem_encontrados.todas }})</button>
+                            <button type="button" class="dp-chip-filtro" data-filtro="reclamacao">Só reclamação ({{ contagem_encontrados.reclamacao }})</button>
+                            <button type="button" class="dp-chip-filtro" data-filtro="mediacao">+ Mediação ({{ contagem_encontrados.mediacao }})</button>
+                            <button type="button" class="dp-chip-filtro" data-filtro="devolucao">+ Devolução ({{ contagem_encontrados.devolucao }})</button>
+                            <button type="button" class="dp-chip-filtro" data-filtro="mediacao-devolucao">+ Mediação + Devolução ({{ contagem_encontrados.mediacao_devolucao }})</button>
+                        </div>
+                        <div class="med-lista-scroll" data-lista="encontrados">
+                            {% for item in encontrados %}
+                            <div class="med-enc-item" data-combinacao="{{ item.categoria_slug }}">
+                                <span class="med-item-foto"><i class="fas fa-comments"></i></span>
+                                <span class="med-item-corpo">
+                                    <span class="med-item-topo">
+                                        <span class="med-item-produto">Pedido {{ item.numero_pedido }}</span>
+                                    </span>
+                                    <span class="med-item-rodape">
+                                        <span class="med-item-pedido">Claim {{ item.claim_id }} · cliente ainda não identificado</span>
+                                        {% if item.categoria_slug == 'mediacao' %}
+                                        <span class="dp-badge dp-badge--categ-mediacao">Mediação</span>
+                                        {% elif item.categoria_slug == 'devolucao' %}
+                                        <span class="dp-badge dp-badge--categ-devolucao">Devolução</span>
+                                        {% elif item.categoria_slug == 'mediacao-devolucao' %}
+                                        <span class="dp-badge dp-badge--categ-mediacao">Mediação</span>
+                                        <span class="dp-badge dp-badge--categ-devolucao">Devolução</span>
+                                        {% else %}
+                                        <span class="dp-badge dp-badge--categ-reclamacao">Só reclamação</span>
+                                        {% endif %}
+                                    </span>
+                                </span>
+                                <form method="post" action="{% url 'acompanhar_claim' item.claim_id %}" class="dp-form-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="med-item-acao" title="Acompanhar este item">
+                                        <i class="fas fa-star"></i>
+                                    </button>
+                                </form>
+                            </div>
+                            {% empty %}
+                            <div class="med-lista-vazia">Nenhum resultado de varredura ainda — clique em "Fazer varredura completa" acima.</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="med-grupo" data-grupo="acompanhamento">
+                    <div class="med-grupo-cabecalho">
+                        <span class="med-grupo-titulo med-grupo-titulo--acompanhamento">Em acompanhamento</span>
+                        <span class="med-grupo-contagem-resumo">{{ contagem_acompanhamento.todas }}</span>
+                    </div>
+                    <div class="dp-filtro-secundario" data-chips="acompanhamento">
+                        <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todas">Todas ({{ contagem_acompanhamento.todas }})</button>
+                        <button type="button" class="dp-chip-filtro" data-filtro="reclamacao">Só reclamação ({{ contagem_acompanhamento.reclamacao }})</button>
+                        <button type="button" class="dp-chip-filtro" data-filtro="mediacao">+ Mediação ({{ contagem_acompanhamento.mediacao }})</button>
+                        <button type="button" class="dp-chip-filtro" data-filtro="devolucao">+ Devolução ({{ contagem_acompanhamento.devolucao }})</button>
+                        <button type="button" class="dp-chip-filtro" data-filtro="mediacao-devolucao">+ Mediação + Devolução ({{ contagem_acompanhamento.mediacao_devolucao }})</button>
+                    </div>
+                    <div class="med-lista-scroll" data-lista="acompanhamento">
+                        {% for item in mediacoes_abertas %}
+                        <a href="{% if item.tipo == 'devolucao' %}{% url 'mediacoes_ml_devolucao' item.id %}{% else %}{% url 'mediacoes_ml_avulsa' item.id %}{% endif %}"
+                           class="med-item{% if tipo_selecionado == item.tipo and mediacao_selecionada.id == item.id %} med-item--selecionada{% endif %}"
+                           data-busca="{{ item.nome_cliente|lower }} {{ item.numero_pedido|lower }} {{ item.nome_produto|lower }}"
+                           {% if item.categoria_slug %}data-combinacao="{{ item.categoria_slug }}"{% endif %}>
+                            <span class="med-item-foto"><i class="fas fa-comments"></i></span>
+                            <span class="med-item-corpo">
+                                <span class="med-item-topo">
+                                    <span class="med-item-produto">{{ item.nome_produto|default:"Produto não informado" }}</span>
+                                </span>
+                                <span class="med-item-rodape">
+                                    <span class="med-item-pedido">Pedido {{ item.numero_pedido }} — {{ item.nome_cliente|default:"cliente não informado" }}</span>
+                                    {% if item.categoria_slug == 'mediacao' %}
+                                    <span class="dp-badge dp-badge--categ-mediacao">Mediação</span>
+                                    {% elif item.categoria_slug == 'devolucao' %}
+                                    <span class="dp-badge dp-badge--categ-devolucao">Devolução</span>
+                                    {% elif item.categoria_slug == 'mediacao-devolucao' %}
+                                    <span class="dp-badge dp-badge--categ-mediacao">Mediação</span>
+                                    <span class="dp-badge dp-badge--categ-devolucao">Devolução</span>
+                                    {% else %}
+                                    <span class="dp-badge dp-badge--mediacao-aberta">Aberta</span>
+                                    {% endif %}
+                                </span>
+                            </span>
+                        </a>
+                        {% empty %}
+                        <div class="med-lista-vazia">Nenhuma mediação aberta no momento.</div>
+                        {% endfor %}
+                        <div class="med-lista-vazia-busca">Nenhuma mediação aberta encontrada com esse termo.</div>
+                    </div>
+                </div>
+
             </div>
         </div>
 

@@ -286,6 +286,266 @@
     color: var(--cor-texto-muted);
 }
 
+/* ===== varredura de mediacoes em segundo plano -- linha de botoes,
+   banner de progresso, toast de conclusao e banner de erro amigavel
+   (decisao de Matheus, 20/09/2026 -- ver vault "Redesenho do Painel de
+   Mediacoes") ===== */
+
+.med-linha-varredura {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.med-btn-varredura {
+    flex: 1;
+    justify-content: center;
+}
+
+.med-btn-varredura.rodando i {
+    animation: med-girar 0.9s linear infinite;
+}
+
+@keyframes med-girar {
+    to { transform: rotate(360deg); }
+}
+
+.med-banner-progresso {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    background: #fef3c7;
+    border: 1px solid #fde3a8;
+    border-radius: 8px;
+}
+
+.med-banner-progresso[hidden] {
+    display: none;
+}
+
+.med-banner-progresso-topo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #92400e;
+}
+
+.med-banner-progresso-topo i {
+    animation: med-girar 0.9s linear infinite;
+}
+
+.med-banner-progresso-contagem {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+.med-banner-progresso-barra-trilho {
+    height: 6px;
+    border-radius: 20px;
+    background: #fde3a8;
+    overflow: hidden;
+}
+
+.med-banner-progresso-barra-preenchida {
+    height: 100%;
+    width: 0%;
+    background: var(--cor-alerta);
+    border-radius: 20px;
+    transition: width .35s ease;
+}
+
+.med-toast-concluido {
+    font-size: 12px;
+    color: var(--cor-positivo);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
+    transition: opacity .3s;
+}
+
+.med-toast-concluido.mostrar {
+    opacity: 1;
+    height: auto;
+}
+
+.med-banner-erro {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    padding: 12px 14px;
+    background: #fde8e8;
+    border: 1px solid #f6b8b8;
+    border-radius: 8px;
+    color: var(--cor-negativo);
+    font-size: 12.5px;
+    line-height: 1.45;
+}
+
+.med-banner-erro[hidden] {
+    display: none;
+}
+
+.med-banner-erro-texto {
+    flex: 1;
+}
+
+.med-banner-erro-fechar {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    color: var(--cor-negativo);
+    opacity: .7;
+    cursor: pointer;
+    padding: 2px;
+    border-radius: 4px;
+}
+
+.med-banner-erro-fechar:hover {
+    opacity: 1;
+    background: rgba(220, 53, 69, .12);
+}
+
+/* ===== grupos (Encontrados pelo Sistema / Em Acompanhamento) dentro da
+   aba "Abertas" ===== */
+
+.med-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.med-grupo-cabecalho {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.med-grupo-cabecalho--toggle {
+    border: none;
+    background: none;
+    padding: 5px 6px;
+    margin: -5px -6px 0;
+    width: calc(100% + 12px);
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.med-grupo-cabecalho--toggle:hover {
+    background: var(--cor-fundo-pagina);
+}
+
+.med-grupo-cabecalho-esquerda {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.med-grupo-chevron {
+    font-size: 11px;
+    color: var(--cor-texto-muted);
+    transition: transform .18s ease;
+}
+
+.med-grupo[data-recolhido="false"] .med-grupo-chevron {
+    transform: rotate(90deg);
+}
+
+.med-grupo-contagem-resumo {
+    background: #eceef1;
+    color: var(--cor-texto-muted);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 20px;
+    font-variant-numeric: tabular-nums;
+}
+
+.med-grupo-titulo {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--cor-texto-muted);
+}
+
+.med-grupo-titulo--acompanhamento {
+    color: var(--cor-primaria-clara);
+}
+
+.med-grupo-subtitulo {
+    font-size: 11px;
+    color: var(--cor-texto-muted);
+}
+
+.med-grupo-conteudo {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.med-grupo-conteudo[hidden] {
+    display: none;
+}
+
+.med-enc-item {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.med-item-acao {
+    flex-shrink: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    border: 1px solid var(--cor-borda);
+    background: #fff;
+    color: var(--cor-texto-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.med-item-acao:hover {
+    border-color: var(--cor-alerta);
+    color: var(--cor-alerta);
+}
+
+/* ===== badges de categoria -- reaproveita a mesma paleta ja usada por
+   dp-badge--mediacao-aberta/--conferido/--mediacao-encerrada, so com
+   outro significado aqui ===== */
+
+.dp-badge--categ-mediacao {
+    background: #fde8e8;
+    color: var(--cor-negativo);
+}
+
+.dp-badge--categ-devolucao {
+    background: #e7f0fa;
+    color: var(--cor-primaria-clara);
+}
+
+.dp-badge--categ-reclamacao {
+    background: #eceef1;
+    color: var(--cor-texto-muted);
+}
+
 @media (max-width: 980px) {
     .med-shell {
         grid-template-columns: 1fr;

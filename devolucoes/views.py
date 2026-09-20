@@ -16,6 +16,7 @@
 import json
 import re
 import subprocess
+import threading
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -29,14 +30,20 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.utils.text import slugify
 
-from core.empresa import obter_alias_banco_ativo
+from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
+from integracao_mercado_livre.views import CONTA_POR_EMPRESA
 
 from .models import (
-    Compatibilidade, ConferenciaPeca, Devolucao, FotoConferenciaPeca,
-    FotoObservacaoGeral, FotoReclamacaoCliente, GrupoFornecedor, Marca,
-    MediacaoAvulsa, ModeloAnotacao, Peca, Produto,
+    ClaimMercadoLivre, Compatibilidade, ConferenciaPeca, Devolucao,
+    FotoConferenciaPeca, FotoObservacaoGeral, FotoReclamacaoCliente,
+    GrupoFornecedor, Marca, MediacaoAvulsa, ModeloAnotacao, Peca, Produto,
+    StatusVarreduraMediacoes,
 )
 from .reorganizacao_fotos import reorganizar_fotos_devolucao
+from .varredura_mediacoes import (
+    buscar_nome_cliente_e_produto, categoria_slug, contagem_por_categoria,
+    executar_atualizacao_acompanhados, executar_varredura_completa,
+)
 
 
 def imprimir_relatorio_devolucao(request, devolucao_id):
@@ -826,6 +833,7 @@ def _serializar_mediacao(obj, tipo):
     return {
         'tipo': tipo,
         'id': obj.id,
+        'claim_id': obj.claim_id,
         'numero_pedido': obj.numero_pedido,
         'nome_cliente': obj.nome_cliente,
         'nome_produto': obj.produto.nome if tipo == 'devolucao' else obj.nome_produto,
@@ -885,6 +893,40 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
         reverse=True,
     )
 
+    # * [EXPLICACAO] -> categoria (Reclamacao/+Mediacao/+Devolucao/+
+    #   Mediacao+Devolucao) de cada item de "Em Acompanhamento" -- so
+    #   resolve pra quem ja tem claim_id (casado por uma varredura alguma
+    #   vez); quem ainda nao foi casado fica sem badge de categoria
+    #   (mostra o badge "Aberta" de sempre) em vez de arriscar uma
+    #   classificacao errada -- e continua sempre visivel nos 4 chips
+    #   (so item com categoria resolvida e escondido pelo filtro).
+    cache_por_claim_id = {
+        c.claim_id: c
+        for c in ClaimMercadoLivre.objects.filter(
+            claim_id__in=[m['claim_id'] for m in mediacoes_abertas if m['claim_id']]
+        )
+    }
+    for item in mediacoes_abertas:
+        cache = cache_por_claim_id.get(item['claim_id'])
+        item['categoria_slug'] = categoria_slug(cache.dados_brutos.get('stage'), cache.tem_devolucao_fisica) if cache else None
+
+    # * [EXPLICACAO] -> "Encontrados pelo Sistema" -- resultado bruto da
+    #   ultima varredura, so o que ainda NAO esta em acompanhamento (quem
+    #   ja esta, aparece do lado de "Em Acompanhamento" acima). Nunca
+    #   aparece em "Encerradas" -- a varredura so busca status "opened".
+    #   Decisao de Matheus, 20/09/2026.
+    encontrados = [
+        {
+            'claim_id': c.claim_id,
+            'numero_pedido': c.numero_pedido,
+            'categoria_slug': categoria_slug(c.dados_brutos.get('stage'), c.tem_devolucao_fisica),
+        }
+        for c in ClaimMercadoLivre.objects.filter(esta_acompanhando=False)
+    ]
+
+    contagem_encontrados = contagem_por_categoria(encontrados)
+    contagem_acompanhamento = contagem_por_categoria(mediacoes_abertas)
+
     mediacao_selecionada = None
     tipo_selecionado = None
     if devolucao_id:
@@ -916,6 +958,9 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None):
     contexto = {
         'mediacoes_abertas': mediacoes_abertas,
         'mediacoes_encerradas': mediacoes_encerradas,
+        'encontrados': encontrados,
+        'contagem_encontrados': contagem_encontrados,
+        'contagem_acompanhamento': contagem_acompanhamento,
         'mediacao_selecionada': mediacao_selecionada,
         'tipo_selecionado': tipo_selecionado,
         'aba_ativa': aba_ativa,
@@ -959,6 +1004,121 @@ def excluir_mediacao_avulsa(request, avulsa_id):
         numero_pedido = avulsa.numero_pedido
         avulsa.delete()
         messages.success(request, f'Mediação avulsa do pedido {numero_pedido} removida da lista.')
+
+    return redirect('mediacoes_ml')
+
+
+def iniciar_varredura_mediacoes(request):
+    """Dispara em segundo plano a varredura completa (6 meses, empresa
+    ativa da sessão) de reclamações abertas na API do Mercado Livre --
+    trava contra clique duplo via UPDATE...WHERE atômico (não
+    select_for_update()), 1 só por vez entre os 2 botões de varredura.
+    Sempre POST, sempre AJAX (a tela faz polling em
+    status_varredura_mediacoes enquanto isso roda). Decisão de Matheus,
+    20/09/2026 -- ver vault 'Redesenho do Painel de Mediações'."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    linhas = StatusVarreduraMediacoes.objects.filter(pk=1, rodando=False).update(
+        rodando=True, tipo_execucao=StatusVarreduraMediacoes.TIPO_COMPLETA,
+        fase_atual='Iniciando...', processados=0, total=0, itens_nao_confirmados=0,
+        iniciado_em=timezone.now(), finalizado_em=None, erro='',
+    )
+    if not linhas:
+        return JsonResponse({'erro': 'Já existe uma varredura em andamento.'}, status=409)
+
+    empresa = obter_empresa_ativa()
+    threading.Thread(target=executar_varredura_completa, args=(empresa,), daemon=True).start()
+    return JsonResponse({'ok': True})
+
+
+def iniciar_atualizacao_acompanhados(request):
+    """Mesmo mecanismo de iniciar_varredura_mediacoes, mas só atualiza
+    devolução física + mensagens dos itens já marcados
+    esta_acompanhando=True (não busca reclamações novas) -- tipicamente
+    ~6 itens, no extremo ~25 (dado por Matheus, 20/09/2026)."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    linhas = StatusVarreduraMediacoes.objects.filter(pk=1, rodando=False).update(
+        rodando=True, tipo_execucao=StatusVarreduraMediacoes.TIPO_ACOMPANHADOS,
+        fase_atual='Iniciando...', processados=0, total=0, itens_nao_confirmados=0,
+        iniciado_em=timezone.now(), finalizado_em=None, erro='',
+    )
+    if not linhas:
+        return JsonResponse({'erro': 'Já existe uma varredura em andamento.'}, status=409)
+
+    empresa = obter_empresa_ativa()
+    threading.Thread(target=executar_atualizacao_acompanhados, args=(empresa,), daemon=True).start()
+    return JsonResponse({'ok': True})
+
+
+def status_varredura_mediacoes(request):
+    """Estado atual (ou da última execução) da varredura de mediações --
+    alimenta tanto o polling durante a execução quanto a checagem no
+    carregamento da página (pra mostrar o aviso na hora se Ana sair e
+    voltar, ou der F5, com uma varredura em andamento). Nunca devolve o
+    texto técnico cru de `erro` -- só se existe ou não; a tela sempre
+    mostra a mesma mensagem fixa e amigável (decisão de Matheus,
+    20/09/2026: ela é usuária comum, nada técnico pra ela)."""
+    status = StatusVarreduraMediacoes.objects.filter(pk=1).first()
+    if status is None:
+        return JsonResponse({'rodando': False, 'tipo_execucao': None, 'fase_atual': None, 'processados': 0, 'total': 0, 'tem_erro': False})
+
+    return JsonResponse({
+        'rodando': status.rodando,
+        'tipo_execucao': status.tipo_execucao,
+        'fase_atual': status.fase_atual,
+        'processados': status.processados,
+        'total': status.total,
+        'itens_nao_confirmados': status.itens_nao_confirmados,
+        'tem_erro': bool(status.erro),
+    })
+
+
+def acompanhar_claim(request, claim_id):
+    """Caminho manual do mecanismo 'está acompanhando' -- Ana clica
+    'Acompanhar' num item de 'Encontrados pelo Sistema'. Cria uma
+    MediacaoAvulsa (mesmo padrão de adicionar_mediacao_avulsa) só quando
+    o pedido ainda não tem Devolucao nem MediacaoAvulsa cadastrada; se já
+    tiver (ex: o casamento automático da varredura chegou primeiro, ou
+    ela deixou de acompanhar antes e mudou de ideia), só liga a flag da
+    cache de novo, sem duplicar nada. Decisão de Matheus, 20/09/2026."""
+    cache = get_object_or_404(ClaimMercadoLivre, pk=claim_id)
+
+    if request.method == 'POST' and not cache.esta_acompanhando:
+        ja_existe = (
+            Devolucao.objects.filter(numero_pedido=cache.numero_pedido).exists()
+            or MediacaoAvulsa.objects.filter(numero_pedido=cache.numero_pedido).exists()
+        )
+        if not ja_existe:
+            conta = CONTA_POR_EMPRESA.get(obter_empresa_ativa())
+            nome_cliente, nome_produto = buscar_nome_cliente_e_produto(conta, cache.numero_pedido) if conta else ('', '')
+            MediacaoAvulsa.objects.create(
+                numero_pedido=cache.numero_pedido,
+                claim_id=cache.claim_id,
+                nome_cliente=nome_cliente,
+                nome_produto=nome_produto,
+            )
+        cache.esta_acompanhando = True
+        cache.save(update_fields=['esta_acompanhando'])
+        messages.success(request, f'Pedido {cache.numero_pedido} agora está em acompanhamento.')
+
+    return redirect('mediacoes_ml')
+
+
+def deixar_de_acompanhar_claim(request, claim_id):
+    """Desliga a flag 'está acompanhando' -- sempre não destrutivo (não
+    apaga Devolucao/MediacaoAvulsa nem a linha de cache), mesmo mecanismo
+    pros 2 tipos de mediação. O 'Excluir mediação avulsa' que já existe
+    (excluir_mediacao_avulsa, apaga de vez) continua disponível como ação
+    separada, mais forte. Decisão de Matheus, 20/09/2026."""
+    cache = get_object_or_404(ClaimMercadoLivre, pk=claim_id)
+
+    if request.method == 'POST':
+        cache.esta_acompanhando = False
+        cache.save(update_fields=['esta_acompanhando'])
+        messages.success(request, f'Pedido {cache.numero_pedido} não está mais em acompanhamento.')
 
     return redirect('mediacoes_ml')
 

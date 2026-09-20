@@ -25,6 +25,11 @@ urlpatterns = [
     path('mediacoes/devolucao/<int:devolucao_id>/', views.mediacoes_ml, name='mediacoes_ml_devolucao'),
     path('mediacoes/avulsa/<int:avulsa_id>/', views.mediacoes_ml, name='mediacoes_ml_avulsa'),
     path('mediacoes/avulsa/<int:avulsa_id>/excluir/', views.excluir_mediacao_avulsa, name='excluir_mediacao_avulsa'),
+    path('mediacoes/varredura/iniciar/', views.iniciar_varredura_mediacoes, name='iniciar_varredura_mediacoes'),
+    path('mediacoes/varredura/atualizar-acompanhados/', views.iniciar_atualizacao_acompanhados, name='iniciar_atualizacao_acompanhados'),
+    path('mediacoes/varredura/status/', views.status_varredura_mediacoes, name='status_varredura_mediacoes'),
+    path('mediacoes/claim/<str:claim_id>/acompanhar/', views.acompanhar_claim, name='acompanhar_claim'),
+    path('mediacoes/claim/<str:claim_id>/deixar-de-acompanhar/', views.deixar_de_acompanhar_claim, name='deixar_de_acompanhar_claim'),
 
     path('produtos/', views.produtos, name='produtos'),
     path('produtos/<int:produto_id>/', views.visualizar_produto, name='visualizar_produto'),

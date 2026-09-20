@@ -1,0 +1,288 @@
+# devolucoes/varredura_mediacoes.py
+
+# Função Objetivo: lógica de varredura de reclamações/mediações do
+# Mercado Livre em segundo plano — busca reclamações abertas na API,
+# verifica devolução física e mensagens de cada uma, grava tudo na cache
+# ClaimMercadoLivre e atualiza StatusVarreduraMediacoes item a item (não
+# só no final), pros 2 botões da tela "Mediações ML" (varredura completa
+# e atualização dos itens em acompanhamento). Lógica adaptada da já
+# validada em scripts_exploracao_ML/buscar_mediacoes_abertas_recentes.py
+# e cronometrada em cronometrar_refresh_individual.py (ambos
+# 20/09/2026) — porta as funções de busca pra cá porque
+# scripts_exploracao_ML/ é pasta de exploração, não código de produção.
+
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+from django.utils import timezone
+
+from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
+from core.empresa import definir_empresa_ativa
+from integracao_mercado_livre.views import CONTA_POR_EMPRESA, PASTA_LOGS_ML
+
+from .models import ClaimMercadoLivre, Devolucao, StatusVarreduraMediacoes
+
+MESES_ATRAS = 6
+LIMITE_POR_PAGINA = 100
+MAX_PAGINAS = 10
+FUSO_HORARIO_EXIBICAO = ZoneInfo("America/Sao_Paulo")
+
+
+def _formatar_data_para_filtro(instante):
+    texto = instante.isoformat(timespec="milliseconds")
+    return texto[:-6] + texto[-6:].replace(":", "")
+
+
+def _buscar_user_id(conta):
+    resposta = chamar_api("GET", "/users/me", pasta_logs=PASTA_LOGS_ML, conta=conta)
+    return resposta.json()["id"]
+
+
+def _buscar_claims_abertas(conta, user_id, papel, inicio_formatado, fim_formatado):
+    claims = []
+    offset = 0
+    for _ in range(MAX_PAGINAS):
+        resposta = chamar_api(
+            "GET", "/post-purchase/v1/claims/search",
+            pasta_logs=PASTA_LOGS_ML, conta=conta,
+            params={
+                "players.user_id": user_id,
+                "players.role": papel,
+                "status": "opened",
+                "range": f"date_created:after:{inicio_formatado},before:{fim_formatado}",
+                "sort": "date_created:desc",
+                "limit": LIMITE_POR_PAGINA,
+                "offset": offset,
+            },
+        )
+        pagina = resposta.json()
+        dados = pagina.get("data", [])
+        claims.extend(dados)
+        total = (pagina.get("paging") or {}).get("total", 0)
+        offset += LIMITE_POR_PAGINA
+        if offset >= total or not dados:
+            break
+    return claims
+
+
+def _tem_devolucao_fisica(conta, claim_id):
+    """True/False = confirmado via /returns. None = não deu pra confirmar
+    (erro que não foi um 404 limpo) — mesma semântica de
+    buscar_mediacoes_abertas_recentes.py::tem_devolucao_fisica()."""
+    try:
+        chamar_api("GET", f"/post-purchase/v2/claims/{claim_id}/returns", pasta_logs=PASTA_LOGS_ML, conta=conta)
+        return True
+    except ErroAPI as erro:
+        if str(erro).startswith("Erro 404 "):
+            return False
+        return None
+    except ErroAutenticacaoAPI:
+        return None
+
+
+def _buscar_mensagens_da_reclamacao(conta, claim_id):
+    try:
+        resposta = chamar_api("GET", f"/post-purchase/v1/claims/{claim_id}/messages", pasta_logs=PASTA_LOGS_ML, conta=conta)
+        return resposta.json()
+    except (ErroAPI, ErroAutenticacaoAPI):
+        return None
+
+
+def buscar_nome_cliente_e_produto(conta, numero_pedido):
+    """Nome do comprador + título do item — mesmo endpoint e mesma
+    extração já validados em produção
+    (integracao_mercado_livre/views.py::view_consultar_pedido: GET
+    /orders/{id} -> buyer.first_name/last_name, order_items[0].item.title).
+    Best-effort: em qualquer falha devolve ('', '') — o pedido/claim_id já
+    são suficientes pra criar a MediacaoAvulsa, o nome é só um complemento
+    visual (mesmo espírito do bloco do cliente em view_consultar_pedido)."""
+    try:
+        resposta = chamar_api("GET", f"/orders/{numero_pedido}", pasta_logs=PASTA_LOGS_ML, conta=conta)
+    except (ErroAPI, ErroAutenticacaoAPI):
+        return '', ''
+    pedido = resposta.json()
+    comprador = pedido.get("buyer") or {}
+    nome_cliente = f"{comprador.get('first_name', '')} {comprador.get('last_name', '')}".strip()
+    item = (pedido.get("order_items") or [{}])[0]
+    nome_produto = (item.get("item") or {}).get("title") or ''
+    return nome_cliente, nome_produto
+
+
+# ==== categoria (Reclamação / +Mediação / +Devolução / +Mediação+Devolução) ====
+#
+# Nunca fica salva — sempre recalculada a partir de dados_brutos['stage']
+# + tem_devolucao_fisica, reaproveitando a mesma leitura já validada em
+# buscar_mediacoes_abertas_recentes.py::classificar() (stage == "dispute"
+# é o que decide mediação, não "type"). O slug (com hífen) é o que a
+# tela usa em data-combinacao/data-filtro; None quando não dá pra
+# confirmar devolução é tratado como "sem devolução" só pra fins de
+# exibição do chip/badge — o valor True/False/None real continua salvo
+# como veio, sem perda de informação.
+
+def categoria_slug(stage, tem_devolucao_fisica):
+    eh_mediacao = stage == 'dispute'
+    tem_devolucao = bool(tem_devolucao_fisica)
+    if eh_mediacao and tem_devolucao:
+        return 'mediacao-devolucao'
+    if eh_mediacao:
+        return 'mediacao'
+    if tem_devolucao:
+        return 'devolucao'
+    return 'reclamacao'
+
+
+def contagem_por_categoria(itens):
+    """itens = lista de dicts com chave 'categoria_slug' (pode ser None).
+    Chaves do dict de retorno usam _ em vez de - (mediacao_devolucao) pra
+    dar pra acessar direto no template Django, que não aceita hífen em
+    lookup de variável."""
+    contagem = {'todas': len(itens), 'reclamacao': 0, 'mediacao': 0, 'devolucao': 0, 'mediacao_devolucao': 0}
+    for item in itens:
+        slug = item.get('categoria_slug')
+        if slug:
+            chave = slug.replace('-', '_')
+            contagem[chave] = contagem.get(chave, 0) + 1
+    return contagem
+
+
+# ==== orquestração — rodam na thread de segundo plano ====
+
+def _atualizar_status(**campos):
+    StatusVarreduraMediacoes.objects.filter(pk=1).update(**campos)
+
+
+def _concluir_varredura(itens_nao_confirmados):
+    StatusVarreduraMediacoes.objects.filter(pk=1).update(
+        rodando=False, finalizado_em=timezone.now(),
+        itens_nao_confirmados=itens_nao_confirmados, erro='',
+    )
+
+
+def _falhar_varredura(mensagem_tecnica):
+    StatusVarreduraMediacoes.objects.filter(pk=1).update(
+        rodando=False, finalizado_em=timezone.now(), erro=mensagem_tecnica,
+    )
+
+
+def executar_varredura_completa(empresa):
+    """Roda na thread de segundo plano do botão 'Fazer varredura completa
+    (6 meses)'. Busca todas as reclamações abertas dos últimos
+    MESES_ATRAS meses (respondent E complainant), verifica devolução
+    física e mensagens de cada uma, grava/atualiza a cache
+    ClaimMercadoLivre item a item e casa automaticamente com Devolucao
+    existente pelo numero_pedido (gatilho: presença da Devolucao, não a
+    categoria encontrada — decisão de Matheus, 20/09/2026). A thread
+    precisa chamar definir_empresa_ativa() ela mesma logo no início —
+    threading.local() não herda da requisição que disparou a thread."""
+    definir_empresa_ativa(empresa)
+    conta = CONTA_POR_EMPRESA.get(empresa)
+    if conta is None:
+        _falhar_varredura(f'Empresa ativa "{empresa}" não mapeada pra nenhuma conta MB/SV.')
+        return
+
+    try:
+        agora = datetime.now(FUSO_HORARIO_EXIBICAO)
+        inicio_formatado = _formatar_data_para_filtro(agora - timedelta(days=MESES_ATRAS * 30))
+        fim_formatado = _formatar_data_para_filtro(agora)
+
+        _atualizar_status(fase_atual='Buscando reclamações dos últimos 6 meses...')
+        user_id = _buscar_user_id(conta)
+        claims_encontradas = []
+        ids_ja_vistos = set()
+        for papel in ('respondent', 'complainant'):
+            for c in _buscar_claims_abertas(conta, user_id, papel, inicio_formatado, fim_formatado):
+                if c.get('id') in ids_ja_vistos:
+                    continue
+                ids_ja_vistos.add(c.get('id'))
+                claims_encontradas.append((c, papel))
+
+        total = len(claims_encontradas)
+        _atualizar_status(total=total)
+
+        itens_nao_confirmados = 0
+        for indice, (claim, papel) in enumerate(claims_encontradas, start=1):
+            claim_id = str(claim.get('id'))
+            numero_pedido = claim.get('resource_id')
+
+            _atualizar_status(fase_atual='Verificando devolução física de cada uma...', processados=indice - 1)
+            tem_devolucao = _tem_devolucao_fisica(conta, claim_id)
+            if tem_devolucao is None:
+                itens_nao_confirmados += 1
+
+            _atualizar_status(fase_atual='Buscando e classificando mensagens...')
+            mensagens = _buscar_mensagens_da_reclamacao(conta, claim_id)
+            if mensagens is None:
+                itens_nao_confirmados += 1
+
+            cache, _criado = ClaimMercadoLivre.objects.update_or_create(
+                claim_id=claim_id,
+                defaults={
+                    'numero_pedido': numero_pedido,
+                    'meu_papel': papel,
+                    'dados_brutos': claim,
+                    'tem_devolucao_fisica': tem_devolucao,
+                    'mensagens': mensagens,
+                    'ultima_busca_em': timezone.now(),
+                },
+            )
+
+            # * [EXPLICACAO] -> casamento automatico com Devolucao
+            #   existente -- so liga a flag, nunca desliga sozinho.
+            #   Preenche o claim_id da Devolucao, que ja esperava por isso
+            #   desde a migration 0019.
+            if not cache.esta_acompanhando:
+                devolucao_correspondente = Devolucao.objects.filter(numero_pedido=numero_pedido).first()
+                if devolucao_correspondente:
+                    cache.esta_acompanhando = True
+                    cache.save(update_fields=['esta_acompanhando'])
+                    if not devolucao_correspondente.claim_id:
+                        devolucao_correspondente.claim_id = claim_id
+                        devolucao_correspondente.save(update_fields=['claim_id'])
+
+            _atualizar_status(processados=indice, itens_nao_confirmados=itens_nao_confirmados)
+
+        _concluir_varredura(itens_nao_confirmados)
+    except Exception as erro:
+        _falhar_varredura(str(erro))
+
+
+def executar_atualizacao_acompanhados(empresa):
+    """Roda na thread de segundo plano do botão 'Atualizar itens em
+    acompanhamento' -- refaz devolução física + mensagens só dos claims
+    já marcados esta_acompanhando=True (não busca reclamações novas) --
+    normalmente ~6 itens, no extremo ~25 (dado por Matheus, 20/09/2026).
+    Não re-busca dados_brutos (stage) -- só devolução+mensagens, mesma
+    conta de custo (~1,34s/item) usada pra estimar o tempo na tela."""
+    definir_empresa_ativa(empresa)
+    conta = CONTA_POR_EMPRESA.get(empresa)
+    if conta is None:
+        _falhar_varredura(f'Empresa ativa "{empresa}" não mapeada pra nenhuma conta MB/SV.')
+        return
+
+    try:
+        itens = list(ClaimMercadoLivre.objects.filter(esta_acompanhando=True))
+        total = len(itens)
+        _atualizar_status(total=total)
+
+        itens_nao_confirmados = 0
+        for indice, cache in enumerate(itens, start=1):
+            _atualizar_status(fase_atual='Verificando devolução física de cada uma...', processados=indice - 1)
+            tem_devolucao = _tem_devolucao_fisica(conta, cache.claim_id)
+            if tem_devolucao is None:
+                itens_nao_confirmados += 1
+
+            _atualizar_status(fase_atual='Buscando e classificando mensagens...')
+            mensagens = _buscar_mensagens_da_reclamacao(conta, cache.claim_id)
+            if mensagens is None:
+                itens_nao_confirmados += 1
+
+            cache.tem_devolucao_fisica = tem_devolucao
+            cache.mensagens = mensagens
+            cache.ultima_busca_em = timezone.now()
+            cache.save(update_fields=['tem_devolucao_fisica', 'mensagens', 'ultima_busca_em'])
+
+            _atualizar_status(processados=indice, itens_nao_confirmados=itens_nao_confirmados)
+
+        _concluir_varredura(itens_nao_confirmados)
+    except Exception as erro:
+        _falhar_varredura(str(erro))
