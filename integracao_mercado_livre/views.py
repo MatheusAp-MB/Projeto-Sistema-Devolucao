@@ -265,11 +265,30 @@ def _preparar_mensagem_html(texto):
     return limpo.replace("<a ", '<a target="_blank" rel="noopener" ')
 
 
-def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_cliente):
+def _url_anexo_mensagem(numero_pedido, claim_id, conta, anexo):
+    """Mesma URL de download de anexo usada em devolucoes/varredura_mediacoes.py
+    (ver vault 'Anexos de Imagem nas Mensagens de Mediação', 20/09/2026) --
+    exige sessão web logada no Mercado Livre (cookie), por isso só funciona
+    como link aberto em nova guia, nunca embutido como <img>."""
+    filename = anexo.get('filename')
+    seller_id = os.getenv(f'{conta}_USER_ID')
+    if not filename or not seller_id:
+        return None
+    return (
+        f'https://vendedores.mercadolivre.com.br/api/messages/packs/{numero_pedido}'
+        f'/sellers/{seller_id}/messages/attachments/{filename}'
+        f'?siteId=MLB&tag=claim&claimId={claim_id}&dispute=false'
+    )
+
+
+def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_cliente, numero_pedido):
     """Monta a lista de mensagens da claim pro Bloco 4, já classificada em
     ML / você / cliente (mesma lógica do varredura_respostas_mediacao.py:
     sender_role == 'mediator' é o ML, sender_role == o seu papel nos players
-    é você, o resto é a cliente) e com o texto pronto pra exibir no chat."""
+    é você, o resto é a cliente) e com o texto pronto pra exibir no chat.
+    Anexos (attachments) incluídos a partir de 20/09/2026, mesmo padrão de
+    devolucoes/varredura_mediacoes.py -- ícone clicável que abre o anexo em
+    nova guia, autenticado pela sessão do navegador."""
     meu_papel = None
     for player in claim.get("players", []):
         if player.get("user_id") == meu_user_id:
@@ -296,6 +315,13 @@ def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_
             papel, lado, rotulo, iniciais = "voce", "dir", "Você", conta
         else:
             papel, lado, rotulo, iniciais = "cliente", "esq", "Cliente", iniciais_cliente
+
+        anexos = []
+        for anexo in (m.get('attachments') or []):
+            url = _url_anexo_mensagem(numero_pedido, claim_id, conta, anexo)
+            if url:
+                anexos.append({'url': url})
+
         resultado.append({
             "papel": papel,
             "lado": lado,
@@ -303,6 +329,7 @@ def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_
             "iniciais": iniciais,
             "data": _formatar_data(m.get("date_created")),
             "texto_html": _preparar_mensagem_html(m.get("message")),
+            "anexos": anexos,
         })
     return resultado
 
@@ -732,7 +759,7 @@ def view_consultar_pedido(request):
         try:
             me = chamar_api("GET", "/users/me", pasta_logs=PASTA_LOGS_ML, conta=conta).json()
             mensagens_mediacao = _construir_mensagens_mediacao(
-                claim_id, conta, me.get('id'), claim, (nome_comprador[:1] or "C").upper()
+                claim_id, conta, me.get('id'), claim, (nome_comprador[:1] or "C").upper(), numero_pedido,
             )
         except (ErroAPI, ErroAutenticacaoAPI):
             mensagens_mediacao = []

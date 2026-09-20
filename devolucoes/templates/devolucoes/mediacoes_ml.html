@@ -135,8 +135,15 @@
 
                 <div class="med-grupo" data-grupo="acompanhamento">
                     <div class="med-grupo-cabecalho">
-                        <span class="med-grupo-titulo med-grupo-titulo--acompanhamento">Em acompanhamento</span>
-                        <span class="med-grupo-contagem-resumo">{{ contagem_acompanhamento.todas }}</span>
+                        <span class="med-grupo-cabecalho-esquerda">
+                            <span class="med-grupo-titulo med-grupo-titulo--acompanhamento">Em acompanhamento</span>
+                            <span class="med-grupo-contagem-resumo">{{ contagem_acompanhamento.todas }}</span>
+                        </span>
+                        {% if contagem_prazo_urgente_acompanhamento %}
+                        <span class="dp-badge dp-badge--prazo-vencido" title="Mediações com prazo de resposta vencido ou vencendo em até 2 dias">
+                            <i class="fas fa-triangle-exclamation"></i> {{ contagem_prazo_urgente_acompanhamento }} com prazo urgente
+                        </span>
+                        {% endif %}
                     </div>
                     <div class="dp-filtro-secundario" data-chips="acompanhamento">
                         <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todas">Todas ({{ contagem_acompanhamento.todas }})</button>
@@ -144,6 +151,11 @@
                         <button type="button" class="dp-chip-filtro" data-filtro="mediacao">+ Mediação ({{ contagem_acompanhamento.mediacao }})</button>
                         <button type="button" class="dp-chip-filtro" data-filtro="devolucao">+ Devolução ({{ contagem_acompanhamento.devolucao }})</button>
                         <button type="button" class="dp-chip-filtro" data-filtro="mediacao-devolucao">+ Mediação + Devolução ({{ contagem_acompanhamento.mediacao_devolucao }})</button>
+                    </div>
+                    <div class="dp-filtro-secundario">
+                        <button type="button" class="dp-chip-filtro" id="toggle-prazo-vencendo">
+                            <i class="fas fa-triangle-exclamation"></i> Só prazo vencendo
+                        </button>
                     </div>
                     <select class="med-select-ordenacao" data-ordena-lista="acompanhamento">
                         <option value="recentes">Mais recentes primeiro</option>
@@ -155,6 +167,7 @@
                         <div class="med-item{% if tipo_selecionado == item.tipo and mediacao_selecionada.id == item.id %} med-item--selecionada{% endif %}"
                              data-busca="{{ item.nome_cliente|lower }} {{ item.numero_pedido|lower }} {{ item.nome_produto|lower }}"
                              data-produto="{{ item.nome_produto|lower }}"
+                             data-prazo-urgente="{% if item.prazo_urgente %}1{% else %}0{% endif %}"
                              {% if item.categoria_slug %}data-combinacao="{{ item.categoria_slug }}"{% endif %}>
                             <a href="{% if item.tipo == 'devolucao' %}{% url 'mediacoes_ml_devolucao' item.id %}{% else %}{% url 'mediacoes_ml_avulsa' item.id %}{% endif %}"
                                class="med-item-link">
@@ -174,6 +187,13 @@
                                         <span class="dp-badge dp-badge--categ-devolucao">Devolução</span>
                                         {% else %}
                                         <span class="dp-badge dp-badge--mediacao-aberta">Aberta</span>
+                                        {% endif %}
+                                        {% if item.status_prazo_resposta == 'vencido' %}
+                                        <span class="dp-badge dp-badge--prazo-vencido"><i class="fas fa-triangle-exclamation"></i> Vencido há {{ item.dias_desde_vencimento_prazo }} dia{{ item.dias_desde_vencimento_prazo|pluralize }}</span>
+                                        {% elif item.status_prazo_resposta == 'hoje' %}
+                                        <span class="dp-badge dp-badge--prazo-vencido"><i class="fas fa-triangle-exclamation"></i> Vence hoje</span>
+                                        {% elif item.status_prazo_resposta == 'proximo' %}
+                                        <span class="dp-badge dp-badge--prazo-proximo"><i class="fas fa-clock"></i> Vence em {{ item.dias_ate_prazo_resposta }} dia{{ item.dias_ate_prazo_resposta|pluralize }}</span>
                                         {% endif %}
                                     </span>
                                 </span>
@@ -323,6 +343,23 @@
                     <span class="vd-valor">{{ mediacao_selecionada.data_finalizacao_mediacao|date:"d/m/Y" }}</span>
                 </div>
                 {% endif %}
+                <div class="vd-campo">
+                    <span class="vd-rotulo">Preciso responder até</span>
+                    <form method="post" action="{% if tipo_selecionado == 'devolucao' %}{% url 'definir_prazo_resposta_devolucao' mediacao_selecionada.id %}{% else %}{% url 'definir_prazo_resposta_avulsa' mediacao_selecionada.id %}{% endif %}" class="med-prazo-form">
+                        {% csrf_token %}
+                        <input type="date" name="prazo_resposta" value="{{ mediacao_selecionada.prazo_resposta|date:'Y-m-d' }}" class="med-prazo-input">
+                        <button type="submit" class="med-btn-icone" title="Salvar prazo de resposta"><i class="fas fa-check"></i></button>
+                    </form>
+                    {% if mediacao_selecionada.status_prazo_resposta == 'vencido' %}
+                    <span class="vd-badge vd-badge-prazo vd-badge--vermelho">Vencido há {{ mediacao_selecionada.dias_desde_vencimento_prazo }} dia{{ mediacao_selecionada.dias_desde_vencimento_prazo|pluralize }}</span>
+                    {% elif mediacao_selecionada.status_prazo_resposta == 'hoje' %}
+                    <span class="vd-badge vd-badge-prazo vd-badge--vermelho">Vence hoje</span>
+                    {% elif mediacao_selecionada.status_prazo_resposta == 'proximo' %}
+                    <span class="vd-badge vd-badge-prazo vd-badge--ambar">Vence em {{ mediacao_selecionada.dias_ate_prazo_resposta }} dia{{ mediacao_selecionada.dias_ate_prazo_resposta|pluralize }}</span>
+                    {% elif mediacao_selecionada.status_prazo_resposta == 'ok' %}
+                    <span class="vd-badge vd-badge-prazo vd-badge--verde">Vence em {{ mediacao_selecionada.dias_ate_prazo_resposta }} dias</span>
+                    {% endif %}
+                </div>
                 <div class="vd-campo">
                     <span class="vd-rotulo">Preço do produto</span>
                     {% if mediacao_selecionada.preco_produto %}
@@ -503,10 +540,16 @@
                     <div class="med-stat-numero">{{ mediacoes_encerradas|length }}</div>
                     <div class="med-stat-legenda">Encerradas</div>
                 </div>
+                {% if contagem_prazo_urgente_acompanhamento %}
+                <div class="med-stat-card med-stat-card--alerta">
+                    <div class="med-stat-numero">{{ contagem_prazo_urgente_acompanhamento }}</div>
+                    <div class="med-stat-legenda">Com prazo urgente</div>
+                </div>
+                {% endif %}
             </div>
             <div class="med-home-dica">
                 <i class="fas fa-circle-info"></i>
-                <span>Selecione uma mediação na lista ao lado pra ver os dados completos. Indicadores de mensagem nova e prazo entram numa próxima etapa, junto com a busca real de mensagens.</span>
+                <span>Selecione uma mediação na lista ao lado pra ver os dados completos. Indicador de mensagem nova entra numa próxima etapa, junto com a busca real de mensagens.</span>
             </div>
         </div>
         {% endif %}

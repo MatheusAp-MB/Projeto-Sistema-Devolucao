@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.db import models
 
 
@@ -45,6 +47,10 @@ class MediacaoAvulsa(models.Model):
         'ID da reclamação/mediação no ML', max_length=50, null=True, blank=True,
         help_text='ID da claim no Mercado Livre — preenchido automaticamente quando a busca de mensagens roda pela 1ª vez (ainda não implementada). Usado pra montar os links "Ver reclamação"/"Ver mediação" no site do ML.',
     )
+    prazo_resposta = models.DateField(
+        'Preciso responder até', null=True, blank=True,
+        help_text='Controle manual: o campo equivalente da API do Mercado Livre (due_date) existe mas nunca vem preenchido na prática (confirmado empiricamente, 20/09/2026) — preencha lendo o texto que o próprio ML manda no chat ("você tem até o dia X para responder").',
+    )
 
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -74,3 +80,36 @@ class MediacaoAvulsa(models.Model):
         if self.preco_produto is None or self.valor_reembolsado is None:
             return None
         return self.preco_produto - self.valor_reembolsado
+
+    @property
+    def dias_ate_prazo_resposta(self):
+        # * [EXPLICAÇÃO] → espelha Devolucao.dias_ate_prazo_resposta --
+        #   mesmo motivo, mesma lógica, mesmo comportamento nos 2 models
+        #   (ver comentário completo lá). Negativo = já venceu.
+        if self.prazo_resposta is None:
+            return None
+        return (self.prazo_resposta - date.today()).days
+
+    @property
+    def status_prazo_resposta(self):
+        dias = self.dias_ate_prazo_resposta
+        if dias is None:
+            return None
+        if dias < 0:
+            return 'vencido'
+        if dias == 0:
+            return 'hoje'
+        if dias <= 2:  # janela de "próximo" -- ajustável
+            return 'proximo'
+        return 'ok'
+
+    @property
+    def dias_desde_vencimento_prazo(self):
+        dias = self.dias_ate_prazo_resposta
+        if dias is None or dias >= 0:
+            return None
+        return -dias
+
+    @property
+    def prazo_urgente(self):
+        return self.status_prazo_resposta in ('vencido', 'hoje', 'proximo')

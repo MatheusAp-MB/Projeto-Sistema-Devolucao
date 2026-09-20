@@ -1,3 +1,5 @@
+from datetime import date
+
 from django.db import models
 
 from .produto import Produto
@@ -128,6 +130,10 @@ class Devolucao(models.Model):
         'ID da reclamação/mediação no ML', max_length=50, null=True, blank=True,
         help_text='ID da claim no Mercado Livre — preenchido automaticamente quando a busca de mensagens roda pela 1ª vez (ainda não implementada). Usado pra montar os links "Ver reclamação"/"Ver mediação" no site do ML.',
     )
+    prazo_resposta = models.DateField(
+        'Preciso responder até', null=True, blank=True,
+        help_text='Controle manual: o campo equivalente da API do Mercado Livre (due_date) existe mas nunca vem preenchido na prática (confirmado empiricamente, 20/09/2026) — preencha lendo o texto que o próprio ML manda no chat ("você tem até o dia X para responder").',
+    )
 
     # ===== Sobre a reclamação feita pelo cliente =====
     motivo_reclamacao = models.TextField('Motivo da reclamação do cliente')
@@ -235,3 +241,48 @@ class Devolucao(models.Model):
         if dias is None:
             return None
         return dias <= 7
+
+    @property
+    def dias_ate_prazo_resposta(self):
+        # * [EXPLICAÇÃO] → controle manual (pedido de Matheus, 20/09/2026):
+        #   o campo due_date da API do Mercado Livre existe (dentro de
+        #   players[].available_actions[]) mas nunca vem preenchido na
+        #   prática — confirmado empiricamente com reclamações reais das
+        #   2 contas. Por isso prazo_resposta é digitado por quem lê o
+        #   texto que o próprio ML manda no chat ("você tem até o dia X
+        #   para responder"). Negativo = já venceu.
+        if self.prazo_resposta is None:
+            return None
+        return (self.prazo_resposta - date.today()).days
+
+    @property
+    def status_prazo_resposta(self):
+        # * [EXPLICAÇÃO] → 'vencido'/'hoje'/'proximo' (até 2 dias) ficam
+        #   marcados como urgentes (ver prazo_urgente) — usados no badge
+        #   da lista, no alerta do grupo "Em acompanhamento" e no filtro
+        #   "Só prazo vencendo". 'ok' (3+ dias) e None (sem prazo
+        #   registrado) não geram alerta nenhum.
+        dias = self.dias_ate_prazo_resposta
+        if dias is None:
+            return None
+        if dias < 0:
+            return 'vencido'
+        if dias == 0:
+            return 'hoje'
+        if dias <= 2:  # janela de "próximo" -- ajustável
+            return 'proximo'
+        return 'ok'
+
+    @property
+    def dias_desde_vencimento_prazo(self):
+        # * [EXPLICAÇÃO] → só preenchido quando já venceu -- versão
+        #   positiva de dias_ate_prazo_resposta, pra não mostrar "-3
+        #   dias" pro usuário no badge.
+        dias = self.dias_ate_prazo_resposta
+        if dias is None or dias >= 0:
+            return None
+        return -dias
+
+    @property
+    def prazo_urgente(self):
+        return self.status_prazo_resposta in ('vencido', 'hoje', 'proximo')

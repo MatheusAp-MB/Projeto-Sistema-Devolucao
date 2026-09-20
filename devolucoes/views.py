@@ -842,6 +842,10 @@ def _serializar_mediacao(obj, tipo):
         'reembolsado_filtro': obj.reembolsado_filtro,
         'data_abertura_mediacao': obj.data_abertura_mediacao,
         'data_finalizacao_mediacao': obj.data_finalizacao_mediacao,
+        'status_prazo_resposta': obj.status_prazo_resposta,
+        'dias_ate_prazo_resposta': obj.dias_ate_prazo_resposta,
+        'dias_desde_vencimento_prazo': obj.dias_desde_vencimento_prazo,
+        'prazo_urgente': obj.prazo_urgente,
     }
 
 
@@ -941,6 +945,12 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
     contagem_encontrados = contagem_por_categoria(encontrados)
     contagem_acompanhamento = contagem_por_categoria(mediacoes_abertas)
 
+    # * [EXPLICACAO] -> contador de alerta pro grupo "Em acompanhamento"
+    #   e pro card extra do Painel Geral -- soma quem esta vencido, vence
+    #   hoje ou vence nos proximos 2 dias (ver Devolucao.prazo_urgente /
+    #   MediacaoAvulsa.prazo_urgente). Decisao de Matheus, 20/09/2026.
+    contagem_prazo_urgente_acompanhamento = sum(1 for m in mediacoes_abertas if m['prazo_urgente'])
+
     mediacao_selecionada = None
     tipo_selecionado = None
     claim_previsualizado = None
@@ -1035,6 +1045,7 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
         'encontrados': encontrados,
         'contagem_encontrados': contagem_encontrados,
         'contagem_acompanhamento': contagem_acompanhamento,
+        'contagem_prazo_urgente_acompanhamento': contagem_prazo_urgente_acompanhamento,
         'mediacao_selecionada': mediacao_selecionada,
         'tipo_selecionado': tipo_selecionado,
         'claim_previsualizado': claim_previsualizado,
@@ -1102,9 +1113,20 @@ def iniciar_varredura_mediacoes(request):
     select_for_update()), 1 só por vez entre os 2 botões de varredura.
     Sempre POST, sempre AJAX (a tela faz polling em
     status_varredura_mediacoes enquanto isso roda). Decisão de Matheus,
-    20/09/2026 -- ver vault 'Redesenho do Painel de Mediações'."""
+    20/09/2026 -- ver vault 'Redesenho do Painel de Mediações'.
+
+    [ATENÇÃO] → get_or_create(pk=1) logo abaixo: bug real encontrado em
+    20/09/2026 -- a base samvale tinha a tabela criada mas nunca a linha
+    singleton semeada (a migration marca "já apliquei" por base e nunca
+    repete o RunPython, então só rodar `migrate` de novo não resolve).
+    Em vez de depender da migration ter semeado certo em toda base
+    (inclusive futuras, na máquina da Ana), a própria view garante a
+    linha na hora -- autossuficiente, sem exigir nenhum comando manual
+    nunca mais."""
     if request.method != 'POST':
         return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    StatusVarreduraMediacoes.objects.get_or_create(pk=1)
 
     linhas = StatusVarreduraMediacoes.objects.filter(pk=1, rodando=False).update(
         rodando=True, tipo_execucao=StatusVarreduraMediacoes.TIPO_COMPLETA,
@@ -1123,9 +1145,16 @@ def iniciar_atualizacao_acompanhados(request):
     """Mesmo mecanismo de iniciar_varredura_mediacoes, mas só atualiza
     devolução física + mensagens dos itens já marcados
     esta_acompanhando=True (não busca reclamações novas) -- tipicamente
-    ~6 itens, no extremo ~25 (dado por Matheus, 20/09/2026)."""
+    ~6 itens, no extremo ~25 (dado por Matheus, 20/09/2026).
+
+    [ATENÇÃO] → get_or_create(pk=1) logo abaixo: mesmo motivo de
+    iniciar_varredura_mediacoes (ver docstring lá) -- garante a linha
+    singleton sozinha, sem depender de migration ter semeado certo em
+    toda base."""
     if request.method != 'POST':
         return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    StatusVarreduraMediacoes.objects.get_or_create(pk=1)
 
     linhas = StatusVarreduraMediacoes.objects.filter(pk=1, rodando=False).update(
         rodando=True, tipo_execucao=StatusVarreduraMediacoes.TIPO_ACOMPANHADOS,
@@ -1216,6 +1245,42 @@ def deixar_de_acompanhar_claim(request, claim_id):
         messages.success(request, f'Pedido {cache.numero_pedido} não está mais em acompanhamento.')
 
     return redirect('mediacoes_ml')
+
+
+def definir_prazo_resposta(request, devolucao_id=None, avulsa_id=None):
+    """Salva, edita ou limpa a data-limite pra responder a mediação no
+    Mercado Livre -- controle manual (Ana lê no texto da própria
+    mensagem do ML, "você tem até o dia X para responder", e registra
+    aqui), porque o campo equivalente da API (due_date, dentro de
+    players[].available_actions[]) nunca vem preenchido na prática
+    (confirmado empiricamente, 20/09/2026 -- ver checkpoint no vault).
+    Mesmo padrão POST+redirect de acompanhar_claim/
+    deixar_de_acompanhar_claim -- sem AJAX, recarrega a página inteira.
+    Decisão de Matheus, 20/09/2026."""
+    if devolucao_id:
+        mediacao = get_object_or_404(Devolucao, pk=devolucao_id)
+        nome_url = 'mediacoes_ml_devolucao'
+        url_id = devolucao_id
+    else:
+        mediacao = get_object_or_404(MediacaoAvulsa, pk=avulsa_id)
+        nome_url = 'mediacoes_ml_avulsa'
+        url_id = avulsa_id
+
+    if request.method == 'POST':
+        valor = request.POST.get('prazo_resposta', '').strip()
+        if valor:
+            try:
+                mediacao.prazo_resposta = date.fromisoformat(valor)
+                mediacao.save(update_fields=['prazo_resposta'])
+                messages.success(request, 'Prazo de resposta salvo.')
+            except ValueError:
+                messages.error(request, 'Data inválida.')
+        else:
+            mediacao.prazo_resposta = None
+            mediacao.save(update_fields=['prazo_resposta'])
+            messages.success(request, 'Prazo de resposta removido.')
+
+    return redirect(nome_url, url_id)
 
 
 def _pecas_para_conferencia(devolucao):

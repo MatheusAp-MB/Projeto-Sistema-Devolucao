@@ -445,6 +445,15 @@
                                 <div class="consultar-pedido-chat-bolha consultar-pedido-chat-bolha--{{ msg.papel }}">
                                     {{ msg.texto_html|safe }}
                                 </div>
+                                {% if msg.anexos %}
+                                <div class="consultar-pedido-chat-anexos">
+                                    {% for anexo in msg.anexos %}
+                                    <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="consultar-pedido-chat-anexo" title="Abrir imagem anexada (abre em nova guia — pede login do Mercado Livre se você ainda não estiver logado)">
+                                        <i class="fas fa-image"></i>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                             </div>
                         </div>
                         {% endfor %}

@@ -257,6 +257,16 @@ body {
     margin-top: 4px;
 }
 
+.med-stat-card--alerta {
+    border-color: #f3b4b4;
+    background: #fdf4f4;
+}
+
+.med-stat-card--alerta .med-stat-numero,
+.med-stat-card--alerta .med-stat-legenda {
+    color: var(--cor-negativo);
+}
+
 .med-btn-icone {
     width: 30px;
     height: 30px;
@@ -677,6 +687,51 @@ span.med-item-acao--fixa:hover {
     color: var(--cor-texto-muted);
 }
 
+/* ===== prazo de resposta (mediação ML) -- badges de urgência na
+   sidebar (mesma paleta de dp-badge--mediacao-aberta/--aguardando) e o
+   mini-formulário editável no detalhe (input + botão, reaproveitando
+   .med-btn-icone). O badge grande do detalhe usa .vd-badge/
+   .vd-badge-prazo, já existentes em layout_visualizar_devolucao.css --
+   nada novo lá. Decisão de Matheus, 20/09/2026. ===== */
+
+.dp-badge--prazo-vencido {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #fde8e8;
+    color: var(--cor-negativo);
+}
+
+.dp-badge--prazo-proximo {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.med-prazo-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+.med-prazo-input {
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 13px;
+    font-family: inherit;
+    color: #333;
+    background-color: #fff;
+}
+
+.med-prazo-input:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
+}
+
 /* ===== conversa do Mercado Livre no detalhe -- bolhas ML (esquerda,
    vermelho)/Cliente (esquerda, neutro)/Você (direita, azul), mesma
    classificação de integracao_mercado_livre -- decisão de Matheus,
@@ -723,6 +778,27 @@ span.med-item-acao--fixa:hover {
     justify-content: center;
 }
 
+/* [ATENÇÃO] → código de cores por papel (ml/você/cliente) padronizado
+   com a tela Consultar Pedido em 20/09/2026 — decisão de Matheus.
+   Tokens --cor-papel-* vêm de layout_global.css. */
+.med-msg--ml .med-msg-iniciais {
+    background: var(--cor-papel-ml-forte);
+    border-color: var(--cor-papel-ml-forte);
+    color: #fff;
+}
+
+.med-msg--voce .med-msg-iniciais {
+    background: var(--cor-papel-voce-forte);
+    border-color: var(--cor-papel-voce-forte);
+    color: #fff;
+}
+
+.med-msg--cliente .med-msg-iniciais {
+    background: var(--cor-papel-cliente-forte);
+    border-color: var(--cor-papel-cliente-forte);
+    color: #fff;
+}
+
 .med-msg-bolha {
     background: #fff;
     border: 1px solid var(--cor-borda);
@@ -732,13 +808,18 @@ span.med-item-acao--fixa:hover {
 }
 
 .med-msg--voce .med-msg-bolha {
-    background: #e7f0fa;
-    border-color: #cfe0f2;
+    background: var(--cor-papel-voce-bg);
+    border-color: var(--cor-papel-voce-borda);
 }
 
 .med-msg--ml .med-msg-bolha {
-    background: #fde8e8;
-    border-color: #f6cccc;
+    background: var(--cor-papel-ml-bg);
+    border-color: var(--cor-papel-ml-borda);
+}
+
+.med-msg--cliente .med-msg-bolha {
+    background: var(--cor-papel-cliente-bg);
+    border-color: var(--cor-papel-cliente-borda);
 }
 
 .med-msg-topo {
@@ -751,8 +832,11 @@ span.med-item-acao--fixa:hover {
 .med-msg-rotulo {
     font-size: 10.5px;
     font-weight: 700;
-    color: #333;
 }
+
+.med-msg--ml .med-msg-rotulo { color: var(--cor-papel-ml-forte); }
+.med-msg--voce .med-msg-rotulo { color: var(--cor-papel-voce-forte); }
+.med-msg--cliente .med-msg-rotulo { color: var(--cor-papel-cliente-forte); }
 
 .med-msg-data {
     font-size: 10px;

@@ -294,8 +294,27 @@
 
 // Chips de filtro por categoria (Reclamacao/+Mediacao/+Devolucao/+
 // Mediacao+Devolucao) -- independentes por grupo (Encontrados/Em
-// Acompanhamento), mesmo padrao validado no mockup aprovado.
+// Acompanhamento), mesmo padrao validado no mockup aprovado. O toggle
+// "Só prazo vencendo" (só existe no grupo "acompanhamento") compõe
+// (E lógico) com o chip de categoria ativo daquele mesmo grupo --
+// refeito em função compartilhada (aplicarFiltrosDoGrupo) pra não
+// duplicar a lógica de combinação entre o clique no chip e o clique no
+// toggle. Estado do toggle não é persistido no sessionStorage (decisão
+// de escopo, 20/09/2026) -- sempre começa desligado ao recarregar.
 (function () {
+    function aplicarFiltrosDoGrupo(grupoChips, lista, nomeGrupo) {
+        var chipAtivo = grupoChips.querySelector('.dp-chip-filtro--ativa');
+        var filtro = chipAtivo ? chipAtivo.getAttribute('data-filtro') : 'todas';
+        var togglePrazo = document.getElementById('toggle-prazo-vencendo');
+        var soPrazoVencendo = nomeGrupo === 'acompanhamento' && togglePrazo && togglePrazo.classList.contains('dp-chip-filtro--ativa');
+        lista.querySelectorAll('.med-item, .med-enc-item').forEach(function (item) {
+            var combinacao = item.getAttribute('data-combinacao');
+            var passaCategoria = !combinacao || filtro === 'todas' || combinacao === filtro; // sem categoria ainda -- sempre passa, nunca escondido pelo filtro
+            var passaPrazo = !soPrazoVencendo || item.getAttribute('data-prazo-urgente') === '1';
+            item.style.display = (passaCategoria && passaPrazo) ? '' : 'none';
+        });
+    }
+
     document.querySelectorAll('[data-chips]').forEach(function (grupoChips) {
         var nomeGrupo = grupoChips.getAttribute('data-chips');
         var lista = document.querySelector('[data-lista="' + nomeGrupo + '"]');
@@ -304,15 +323,22 @@
             chip.addEventListener('click', function () {
                 grupoChips.querySelectorAll('.dp-chip-filtro').forEach(function (c) { c.classList.remove('dp-chip-filtro--ativa'); });
                 chip.classList.add('dp-chip-filtro--ativa');
-                var filtro = chip.getAttribute('data-filtro');
-                lista.querySelectorAll('.med-item, .med-enc-item').forEach(function (item) {
-                    var combinacao = item.getAttribute('data-combinacao');
-                    if (!combinacao) return; // sem categoria ainda -- sempre visivel, nunca escondido pelo filtro
-                    item.style.display = (filtro === 'todas' || combinacao === filtro) ? '' : 'none';
-                });
+                aplicarFiltrosDoGrupo(grupoChips, lista, nomeGrupo);
             });
         });
     });
+
+    var togglePrazoVencendo = document.getElementById('toggle-prazo-vencendo');
+    if (togglePrazoVencendo) {
+        var grupoAcompanhamento = document.querySelector('[data-chips="acompanhamento"]');
+        var listaAcompanhamento = document.querySelector('[data-lista="acompanhamento"]');
+        togglePrazoVencendo.addEventListener('click', function () {
+            togglePrazoVencendo.classList.toggle('dp-chip-filtro--ativa');
+            if (grupoAcompanhamento && listaAcompanhamento) {
+                aplicarFiltrosDoGrupo(grupoAcompanhamento, listaAcompanhamento, 'acompanhamento');
+            }
+        });
+    }
 })();
 
 // Lembrar onde o usuario estava na lista ao trocar de conversa --

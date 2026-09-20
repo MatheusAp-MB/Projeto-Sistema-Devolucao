@@ -87,9 +87,12 @@
     margin-top: 20px;
 }
 
-.consultar-pedido-chat-avatar--ml { background: var(--cor-primaria-clara); }
-.consultar-pedido-chat-avatar--cliente { background: #b0298c; }
-.consultar-pedido-chat-avatar--voce { background: var(--cor-positivo); }
+/* [ATENÇÃO] → código de cores por papel (ml/você/cliente) padronizado
+   com o painel de Mediações ML em 20/09/2026 — decisão de Matheus.
+   Tokens --cor-papel-* vêm de layout_global.css. */
+.consultar-pedido-chat-avatar--ml { background: var(--cor-papel-ml-forte); }
+.consultar-pedido-chat-avatar--cliente { background: var(--cor-papel-cliente-forte); }
+.consultar-pedido-chat-avatar--voce { background: var(--cor-papel-voce-forte); }
 
 .consultar-pedido-chat-corpo {
     display: flex;
@@ -110,9 +113,9 @@
 }
 
 .consultar-pedido-chat-nome { font-weight: 700; }
-.consultar-pedido-chat-nome--ml { color: var(--cor-primaria-clara); }
-.consultar-pedido-chat-nome--cliente { color: #b0298c; }
-.consultar-pedido-chat-nome--voce { color: var(--cor-positivo); }
+.consultar-pedido-chat-nome--ml { color: var(--cor-papel-ml-forte); }
+.consultar-pedido-chat-nome--cliente { color: var(--cor-papel-cliente-forte); }
+.consultar-pedido-chat-nome--voce { color: var(--cor-papel-voce-forte); }
 
 .consultar-pedido-chat-bolha {
     padding: 10px 14px;
@@ -129,9 +132,35 @@
 .consultar-pedido-chat-msg--esq .consultar-pedido-chat-bolha { border-top-left-radius: 4px; }
 .consultar-pedido-chat-msg--dir .consultar-pedido-chat-bolha { border-top-right-radius: 4px; }
 
-.consultar-pedido-chat-bolha--ml { background: #e9f2fa; }
-.consultar-pedido-chat-bolha--cliente { background: #f8e9f4; }
-.consultar-pedido-chat-bolha--voce { background: #e6f4ea; }
+.consultar-pedido-chat-bolha--ml { background: var(--cor-papel-ml-bg); border: 1px solid var(--cor-papel-ml-borda); }
+.consultar-pedido-chat-bolha--cliente { background: var(--cor-papel-cliente-bg); border: 1px solid var(--cor-papel-cliente-borda); }
+.consultar-pedido-chat-bolha--voce { background: var(--cor-papel-voce-bg); border: 1px solid var(--cor-papel-voce-borda); }
+
+.consultar-pedido-chat-anexos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.consultar-pedido-chat-anexo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: #fff;
+    border: 1px solid var(--cor-borda);
+    color: var(--cor-texto-muted);
+    font-size: 12px;
+}
+
+.consultar-pedido-chat-anexo:hover {
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria-clara);
+    text-decoration: none;
+}
 
 /* Lista de desambiguação — buyer.id / Pack ID com mais de 1 pedido */
 .lista-pedidos-desambiguacao {

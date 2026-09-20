@@ -20,6 +20,24 @@
     --cor-positivo:        #2d7a4f;
     --cor-negativo:        #dc3545;
     --cor-alerta:          #f59e0b;
+
+    /* [ATENÇÃO] → código de cores por papel do chat de mediação (ml/você/
+       cliente), padronizado entre Mediações ML e Consultar Pedido em
+       20/09/2026 — decisão de Matheus. -bg/-borda são a bolha (tom
+       clarinho); -forte é o avatar e o nome do remetente (reaproveita
+       cores que já existem no sistema, não inventa cor nova pro azul e
+       pro cinza). */
+    --cor-papel-ml-bg:          #fdf3d7;
+    --cor-papel-ml-borda:       #f0dfa0;
+    --cor-papel-ml-forte:       var(--cor-alerta);
+
+    --cor-papel-voce-bg:        #e7f0fa;
+    --cor-papel-voce-borda:     #cfe0f2;
+    --cor-papel-voce-forte:     var(--cor-primaria-clara);
+
+    --cor-papel-cliente-bg:     #f1f2f4;
+    --cor-papel-cliente-borda:  #dde0e3;
+    --cor-papel-cliente-forte:  var(--cor-texto-muted);
 }
 
 * {
