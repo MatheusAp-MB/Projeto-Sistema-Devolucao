@@ -13,11 +13,18 @@
     var campoBusca = document.getElementById('busca-mediacoes');
     var nota = document.getElementById('med-nota-outras-abas');
 
+    function normalizarTexto(str) {
+        return (str || '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+    }
+
     function itensQueBatem(painel, termo) {
         var itens = Array.prototype.slice.call(painel.querySelectorAll('.med-item, .med-enc-item'));
         if (!termo) return itens;
         return itens.filter(function (item) {
-            return item.getAttribute('data-busca').indexOf(termo) !== -1;
+            return normalizarTexto(item.getAttribute('data-busca')).indexOf(termo) !== -1;
         });
     }
 
@@ -33,7 +40,7 @@
     }
 
     function atualizarTudo(trocarSeNecessario) {
-        var termo = campoBusca.value.trim().toLowerCase();
+        var termo = normalizarTexto(campoBusca.value.trim());
         var resultadosPorAba = {};
 
         abas.forEach(function (aba) {
@@ -304,6 +311,151 @@
                     item.style.display = (filtro === 'todas' || combinacao === filtro) ? '' : 'none';
                 });
             });
+        });
+    });
+})();
+
+// Lembrar onde o usuario estava na lista ao trocar de conversa --
+// cada clique em item da lista recarrega a pagina inteira (navegacao
+// normal do Django), entao aqui a gente guarda o estado do lado
+// cliente (busca, chip ativo, grupo expandido, ordenacao, rolagem) no
+// sessionStorage logo antes de sair, e devolve tudo assim que a
+// proxima pagina carrega -- sempre disparando os mesmos
+// eventos/cliques que os handlers acima ja escutam, pra nao duplicar
+// a logica de filtro em dois lugares.
+(function () {
+    var CHAVE = 'med_estado_lista';
+
+    function salvarEstadoAntesDeSair() {
+        try {
+            var estado = { chips: {}, ordenacao: {}, scrollListas: {} };
+
+            var campo = document.getElementById('busca-mediacoes');
+            estado.busca = campo ? campo.value : '';
+            estado.scrollY = window.scrollY;
+
+            document.querySelectorAll('[data-chips]').forEach(function (grupoChips) {
+                var ativo = grupoChips.querySelector('.dp-chip-filtro--ativa');
+                if (ativo) estado.chips[grupoChips.getAttribute('data-chips')] = ativo.getAttribute('data-filtro');
+            });
+
+            var grupoEncontrados = document.querySelector('.med-grupo[data-grupo="encontrados"]');
+            estado.grupoEncontradosAberto = grupoEncontrados ? grupoEncontrados.getAttribute('data-recolhido') === 'false' : false;
+
+            document.querySelectorAll('.med-select-ordenacao').forEach(function (select) {
+                estado.ordenacao[select.getAttribute('data-ordena-lista')] = select.value;
+            });
+
+            document.querySelectorAll('.med-lista-scroll[data-lista]').forEach(function (container) {
+                estado.scrollListas[container.getAttribute('data-lista')] = container.scrollTop;
+            });
+
+            sessionStorage.setItem(CHAVE, JSON.stringify(estado));
+        } catch (erro) {
+            // sessionStorage indisponivel (modo privado, etc.) -- a tela
+            // continua funcionando normal, so sem lembrar o estado.
+        }
+    }
+
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('a.med-item-link, a.med-item')) {
+            salvarEstadoAntesDeSair();
+        }
+    });
+
+    var estadoBruto;
+    try {
+        estadoBruto = sessionStorage.getItem(CHAVE);
+    } catch (erro) {
+        return;
+    }
+    if (!estadoBruto) return;
+
+    var estado;
+    try {
+        estado = JSON.parse(estadoBruto);
+    } catch (erro) {
+        return;
+    }
+    sessionStorage.removeItem(CHAVE);
+
+    if (estado.chips) {
+        Object.keys(estado.chips).forEach(function (nomeGrupo) {
+            var grupoChips = document.querySelector('[data-chips="' + nomeGrupo + '"]');
+            if (!grupoChips) return;
+            var chip = grupoChips.querySelector('.dp-chip-filtro[data-filtro="' + estado.chips[nomeGrupo] + '"]');
+            if (chip) chip.click();
+        });
+    }
+
+    if (estado.grupoEncontradosAberto) {
+        var botaoToggle = document.querySelector('[data-toggle-grupo="encontrados"]');
+        var grupoEncontrados = document.querySelector('.med-grupo[data-grupo="encontrados"]');
+        if (botaoToggle && grupoEncontrados && grupoEncontrados.getAttribute('data-recolhido') !== 'false') {
+            botaoToggle.click();
+        }
+    }
+
+    if (estado.ordenacao) {
+        Object.keys(estado.ordenacao).forEach(function (nomeLista) {
+            var select = document.querySelector('.med-select-ordenacao[data-ordena-lista="' + nomeLista + '"]');
+            if (!select) return;
+            select.value = estado.ordenacao[nomeLista];
+            select.dispatchEvent(new Event('change'));
+        });
+    }
+
+    var campoBuscaRestaurar = document.getElementById('busca-mediacoes');
+    if (campoBuscaRestaurar && estado.busca) {
+        campoBuscaRestaurar.value = estado.busca;
+        campoBuscaRestaurar.dispatchEvent(new Event('input'));
+    }
+
+    requestAnimationFrame(function () {
+        if (estado.scrollListas) {
+            Object.keys(estado.scrollListas).forEach(function (nomeLista) {
+                var container = document.querySelector('.med-lista-scroll[data-lista="' + nomeLista + '"]');
+                if (container) container.scrollTop = estado.scrollListas[nomeLista];
+            });
+        }
+        if (typeof estado.scrollY === 'number') {
+            window.scrollTo(0, estado.scrollY);
+        }
+    });
+})();
+
+
+// Ordenação client-side por lista (Encontrados / Em acompanhamento) --
+// não refaz consulta nenhuma, só reordena os nós que já estão na
+// página. "recentes"/"antigas" usa a ordem que o servidor já manda
+// (mais recente primeiro) e a inversa dela; "nome" ordena pelo
+// data-produto de cada item.
+(function () {
+    var listasOrdenaveis = Array.prototype.slice.call(document.querySelectorAll('.med-lista-scroll[data-lista]'));
+    var ordemOriginalPorLista = {};
+
+    listasOrdenaveis.forEach(function (container) {
+        var nomeLista = container.getAttribute('data-lista');
+        ordemOriginalPorLista[nomeLista] = Array.prototype.slice.call(container.querySelectorAll('.med-item, .med-enc-item'));
+    });
+
+    document.querySelectorAll('.med-select-ordenacao').forEach(function (select) {
+        var nomeLista = select.getAttribute('data-ordena-lista');
+        var container = document.querySelector('.med-lista-scroll[data-lista="' + nomeLista + '"]');
+        if (!container) return;
+
+        select.addEventListener('change', function () {
+            var base = ordemOriginalPorLista[nomeLista] || [];
+            var itens = base.slice();
+            if (select.value === 'antigas') {
+                itens.reverse();
+            } else if (select.value === 'nome') {
+                itens.sort(function (a, b) {
+                    return (a.getAttribute('data-produto') || '').localeCompare(b.getAttribute('data-produto') || '');
+                });
+            }
+            var ancora = container.querySelector('.med-lista-vazia-busca') || null;
+            itens.forEach(function (item) { container.insertBefore(item, ancora); });
         });
     });
 })();

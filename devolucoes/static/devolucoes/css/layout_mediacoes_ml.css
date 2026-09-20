@@ -102,9 +102,11 @@
     font-size: 13px;
     font-weight: 600;
     color: #333;
-    white-space: nowrap;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.3;
 }
 
 .med-item-rodape {
@@ -206,6 +208,19 @@
     text-align: center;
     padding: 24px 0;
     font-style: italic;
+}
+
+.med-select-ordenacao {
+    border: 1px solid var(--cor-borda);
+    background: #fff;
+    color: #444;
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    margin: 10px 0 4px;
 }
 
 /* ===== modal "adicionar mediação manualmente" — mesmo padrão
@@ -527,6 +542,10 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
+}
+
+.med-item-acao i {
+    font-size: 13px;
 }
 
 .med-item-acao:hover {

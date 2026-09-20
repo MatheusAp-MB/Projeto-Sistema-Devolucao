@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup — Mediações ML v2 (proposta)</title>
+<style>
+    :root {
+        --cor-primaria: #1a3a5c;
+        --cor-primaria-clara: #2e7bb5;
+        --cor-texto-claro: #ffffff;
+        --cor-texto-muted: #6c757d;
+        --cor-fundo-pagina: #e9edf4;
+        --cor-fundo-card: #ffffff;
+        --cor-borda: #dee2e6;
+        --cor-positivo: #2d7a4f;
+        --cor-negativo: #dc3545;
+        --cor-alerta: #f59e0b;
+        --sidebar-largura: 260px;
+        --toolbar-altura: 60px;
+    }
+    * { box-sizing: border-box; }
+    body {
+        margin: 0;
+        font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--cor-fundo-pagina);
+        color: #222;
+    }
+
+    /* ===== blocos de explicação do mockup (não fazem parte da UI real) ===== */
+    .mock-intro, .mock-secao-header { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+    .mock-intro { padding-top: 32px; }
+    .mock-intro h1 { font-size: 21px; color: var(--cor-primaria); margin: 0 0 8px; }
+    .mock-intro p { color: #444; line-height: 1.55; font-size: 14px; margin: 0 0 12px; }
+    .mock-nota {
+        background: #fff8e6; border: 1px dashed #e0b84a; border-radius: 8px;
+        padding: 10px 14px; font-size: 12.5px; color: #7a5c00;
+    }
+    .mock-secao-header { margin-top: 44px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+    .mock-secao-header .num {
+        width: 24px; height: 24px; border-radius: 50%; background: var(--cor-primaria);
+        color: #fff; display: flex; align-items: center; justify-content: center;
+        font-size: 12px; font-weight: 700; flex-shrink: 0;
+    }
+    .mock-secao-header h2 { font-size: 15px; color: var(--cor-primaria); margin: 0; }
+    .mock-secao-header .desc { font-size: 12.5px; color: var(--cor-texto-muted); margin-left: 4px; }
+
+    /* ===== 1. PRAZO ESTRUTURADO — pill de urgência (lista + detalhe) ===== */
+    .med-prazo-pill {
+        display: inline-flex; align-items: center; gap: 6px;
+        padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700;
+        white-space: nowrap;
+    }
+    .med-prazo-pill--ok { background: #e6f4ea; color: var(--cor-positivo); }
+    .med-prazo-pill--atencao { background: #fef3e2; color: var(--cor-alerta); }
+    .med-prazo-pill--vencido { background: #fde8e8; color: var(--cor-negativo); }
+    .med-prazo-pill i { font-size: 10px; }
+
+    /* ===== badges de categoria (iguais aos reais, .dp-badge--categ-*) ===== */
+    .dp-badge { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+    .dp-badge--categ-mediacao { background: #fde8e8; color: var(--cor-negativo); }
+    .dp-badge--categ-devolucao { background: #e7f0fa; color: var(--cor-primaria-clara); }
+
+    /* ===== indicador "mensagem nova" (item em negrito + ponto azul) ===== */
+    .med-item-titulo-linha { display: flex; align-items: center; gap: 6px; }
+    .med-dot-novo { width: 8px; height: 8px; border-radius: 50%; background: var(--cor-primaria-clara); flex-shrink: 0; }
+    .med-item--tem-novo .med-item-titulo { font-weight: 800; color: #000; }
+
+    /* ===== shell (sidebar + toolbar + grid), nomes iguais aos reais ===== */
+    .app-shell { display: flex; background: var(--cor-fundo-pagina); }
+    .sidebar {
+        width: var(--sidebar-largura); min-width: var(--sidebar-largura);
+        background: var(--cor-primaria); min-height: 560px; padding-top: 8px;
+    }
+    .sidebar-logo { color: #fff; font-weight: 700; font-size: 15px; padding: 16px 20px 20px; }
+    .sidebar-item { display: block; padding: 11px 22px; color: #c9d6e4; text-decoration: none; font-size: 13.5px; }
+    .sidebar-item--ativo { background: rgba(255,255,255,.08); color: #fff; font-weight: 700; border-left: 3px solid var(--cor-primaria-clara); padding-left: 19px; }
+    .conteudo-principal { flex: 1; display: flex; flex-direction: column; }
+    .toolbar { height: var(--toolbar-altura); background: var(--cor-primaria); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; }
+    .toolbar-titulo { color: #fff; font-weight: 700; font-size: 16px; }
+    .badge-empresa-magazine { background: #1F4E78; color: #fff; font-size: 11px; font-weight: 700; padding: 5px 12px; border-radius: 6px; text-transform: uppercase; }
+
+    .med-shell { display: grid; grid-template-columns: 420px 1fr; gap: 18px; padding: 20px; }
+    .vd-cartao { background: var(--cor-fundo-card); border: 1px solid var(--cor-borda); border-radius: 10px; padding: 18px; }
+    .vd-cartao-titulo { font-size: 15px; font-weight: 700; color: var(--cor-primaria); margin-bottom: 4px; }
+
+    /* ===== itens da lista ===== */
+    .med-lista { display: flex; flex-direction: column; gap: 9px; margin-top: 12px; }
+    .med-item { display: flex; gap: 10px; align-items: flex-start; padding: 10px; border: 1px solid var(--cor-borda); border-radius: 8px; background: #fff; }
+    .med-item--selecionada { border-color: var(--cor-primaria-clara); background: #eaf2fa; }
+    .med-item-foto { width: 40px; height: 40px; border-radius: 6px; background: #eef1f5; flex-shrink: 0; }
+    .med-item-corpo { flex: 1; min-width: 0; }
+    .med-item-titulo { font-size: 13.5px; font-weight: 600; color: #222; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .med-item-sub { font-size: 12px; color: var(--cor-texto-muted); margin: 2px 0 6px; }
+    .med-item-badges { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+
+    /* ===== 2. ROLAGEM INTERNA no grupo "Em acompanhamento" ===== */
+    .med-grupo-titulo { font-size: 12px; font-weight: 700; color: var(--cor-primaria); text-transform: uppercase; letter-spacing: .03em; margin: 16px 0 8px; }
+    .med-lista-scroll--acompanhamento {
+        max-height: 300px;
+        overflow-y: auto;
+        padding-right: 4px;
+        display: flex; flex-direction: column; gap: 9px;
+    }
+
+    /* ===== detalhe (cabeçalho + botões, com 3. Excluir em estilo de perigo) ===== */
+    .med-detalhe-topo { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+    .med-detalhe-titulo { font-size: 19px; font-weight: 700; color: #1a1a1a; margin: 0 0 6px; }
+    .med-detalhe-sub { font-size: 13px; color: var(--cor-texto-muted); }
+    .med-detalhe-acoes-linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
+    .vd-btn {
+        border: 1px solid var(--cor-borda); background: #fff; color: #333;
+        padding: 8px 14px; border-radius: 6px; font-size: 13px; font-weight: 600;
+        cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    }
+    .vd-btn:hover { border-color: var(--cor-primaria-clara); color: var(--cor-primaria-clara); }
+    .vd-btn--perigo { border-color: var(--cor-negativo); color: var(--cor-negativo); }
+    .vd-btn--perigo:hover { background: var(--cor-negativo); color: #fff; }
+
+    /* ===== 4. mobile — sidebar colapsada por padrão ===== */
+    .phone-frame-wrap { max-width: 980px; margin: 0 auto; padding: 0 24px 60px; display: flex; justify-content: center; }
+    .phone-frame {
+        width: 390px; border: 10px solid #222; border-radius: 30px; overflow: hidden;
+        box-shadow: 0 12px 30px rgba(0,0,0,.25); background: #fff; position: relative;
+    }
+    .mobile-toolbar { height: 54px; background: var(--cor-primaria); display: flex; align-items: center; gap: 12px; padding: 0 14px; }
+    .mobile-hamburger {
+        width: 34px; height: 34px; border-radius: 7px; border: 1px solid rgba(255,255,255,.3);
+        background: rgba(255,255,255,.08); color: #fff; display: flex; align-items: center; justify-content: center;
+        cursor: pointer; font-size: 15px; flex-shrink: 0;
+    }
+    .mobile-toolbar-titulo { color: #fff; font-weight: 700; font-size: 14.5px; }
+    .mobile-corpo { position: relative; min-height: 420px; background: var(--cor-fundo-pagina); }
+    .mobile-conteudo { padding: 14px; }
+    .sidebar-mobile {
+        position: absolute; top: 0; left: 0; height: 100%; width: 0; overflow: hidden;
+        background: var(--cor-primaria); z-index: 20; transition: width .2s ease;
+    }
+    .sidebar-mobile.aberta { width: 210px; }
+    .sidebar-mobile .sidebar-item { white-space: nowrap; }
+    .mobile-backdrop {
+        position: absolute; inset: 0; background: rgba(20,30,40,.4); z-index: 10;
+        display: none;
+    }
+    .sidebar-mobile.aberta ~ .mobile-backdrop { display: block; }
+</style>
+</head>
+<body>
+
+<div class="mock-intro">
+    <h1>Mockup — Mediações ML v2 (proposta)</h1>
+    <p>Sketch estático das 4 mudanças prioritárias da análise de UI/UX. Não é código pra aplicar direto — é pra você reagir antes de eu transformar o que for aprovado em diff real (Localize/Substitua) nos arquivos de verdade.</p>
+    <div class="mock-nota">Cores, fontes e nomes de classe reaproveitam os tokens reais do sistema (<code>--cor-primaria</code>, <code>--cor-negativo</code> etc.) — só a estrutura ao redor foi simplificada pra caber num arquivo único.</div>
+</div>
+
+<div class="mock-secao-header"><span class="num">1</span><h2>Prazo estruturado</h2><span class="desc">— pill de urgência na lista e no topo do detalhe, em vez de só dentro do texto da mensagem do ML</span></div>
+
+<div class="app-shell">
+    <div class="sidebar">
+        <div class="sidebar-logo">Sistema de Devoluções</div>
+        <a class="sidebar-item">Consultar Pedido</a>
+        <a class="sidebar-item">Nova Devolução</a>
+        <a class="sidebar-item">Devoluções</a>
+        <a class="sidebar-item sidebar-item--ativo">Mediações ML</a>
+        <a class="sidebar-item">Produtos</a>
+        <a class="sidebar-item">Peças</a>
+        <a class="sidebar-item">Marcas</a>
+    </div>
+    <div class="conteudo-principal">
+        <div class="toolbar">
+            <span class="toolbar-titulo">Mediações ML</span>
+            <span class="badge-empresa-magazine">Magazine Brasileiro</span>
+        </div>
+        <div class="med-shell">
+            <div class="vd-cartao">
+                <div class="vd-cartao-titulo">Mediações</div>
+                <div class="med-lista">
+                    <div class="med-item">
+                        <div class="med-item-foto"></div>
+                        <div class="med-item-corpo">
+                            <div class="med-item-titulo-linha">
+                                <span class="med-item-titulo">Mouse Gamer RGB</span>
+                            </div>
+                            <div class="med-item-sub">Pedido 2000018012938475 — Carlos Eduardo</div>
+                            <div class="med-item-badges">
+                                <span class="dp-badge dp-badge--categ-mediacao">Mediação</span>
+                                <span class="med-prazo-pill med-prazo-pill--ok"><i class="fas fa-circle"></i>4 dias úteis</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="med-item med-item--tem-novo">
+                        <div class="med-item-foto"></div>
+                        <div class="med-item-corpo">
+                            <div class="med-item-titulo-linha">
+                                <span class="med-dot-novo"></span>
+                                <span class="med-item-titulo">Teclado Mecânico ABNT2</span>
+                            </div>
+                            <div class="med-item-sub">Pedido 2000017890123456 — Fernanda Lima</div>
+                            <div class="med-item-badges">
+                                <span class="dp-badge dp-badge--categ-devolucao">Devolução</span>
+                                <span class="med-prazo-pill med-prazo-pill--atencao"><i class="fas fa-circle"></i>1 dia útil</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="med-item med-item--selecionada med-item--tem-novo">
+                        <div class="med-item-foto"></div>
+                        <div class="med-item-corpo">
+                            <div class="med-item-titulo-linha">
+                                <span class="med-dot-novo"></span>
+                                <span class="med-item-titulo">Smartwatch Esportivo à Prova D'Água...</span>
+                            </div>
+                            <div class="med-item-sub">Pedido 2000017955102234 — Beatriz Fernandes</div>
+                            <div class="med-item-badges">
+                                <span class="dp-badge dp-badge--categ-mediacao">Mediação</span>
+                                <span class="med-prazo-pill med-prazo-pill--vencido"><i class="fas fa-circle"></i>Vencido há 1 dia</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="vd-cartao">
+                <div class="med-detalhe-topo">
+                    <div>
+                        <div class="med-detalhe-titulo">Smartwatch Esportivo à Prova D'Água com Monitor Cardíaco X200 Pro Max</div>
+                        <div class="med-detalhe-sub">Pedido 2000017955102234 &nbsp;·&nbsp; Beatriz Fernandes</div>
+                    </div>
+                    <span class="med-prazo-pill med-prazo-pill--vencido" style="font-size:13px;padding:6px 14px;"><i class="fas fa-triangle-exclamation"></i>Prazo vencido há 1 dia</span>
+                </div>
+                <div class="med-detalhe-acoes-linha">
+                    <a class="vd-btn">Ver pedido no ML</a>
+                    <a class="vd-btn">Ver reclamação no ML</a>
+                    <a class="vd-btn">Ver mediação no ML</a>
+                    <button class="vd-btn vd-btn--perigo">Excluir mediação avulsa</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="mock-nota" style="max-width:980px;margin:14px auto 0;">Item 3 do topo: o botão "Excluir" agora usa a mesma cor de alerta (<code>--cor-negativo</code>) que já existe no sistema em <code>.dp-btn--perigo</code>, deixando a ação destrutiva visualmente diferente das 3 ações neutras de "abrir no ML".</div>
+
+<div class="mock-secao-header"><span class="num">2</span><h2>Rolagem interna em "Em acompanhamento"</h2><span class="desc">— mesmo tratamento que "Encontrados" já tem, evitando que a página inteira estique</span></div>
+
+<div style="max-width:980px;margin:0 auto;padding:0 24px;">
+    <div class="vd-cartao" style="max-width:420px;">
+        <div class="med-grupo-titulo">Em acompanhamento (8)</div>
+        <div class="med-lista-scroll--acompanhamento">
+            <div class="med-item"><div class="med-item-foto"></div><div class="med-item-corpo"><div class="med-item-titulo">Mouse Gamer RGB</div><div class="med-item-sub">Carlos Eduardo</div><span class="med-prazo-pill med-prazo-pill--ok"><i class="fas fa-circle"></i>4 dias</span></div></div>
+            <div class="med-item"><div class="med-item-foto"></div><div class="med-item-corpo"><div class="med-item-titulo">Teclado Mecânico ABNT2</div><div class="med-item-sub">Fernanda Lima</div><span class="med-prazo-pill med-prazo-pill--atencao"><i class="fas fa-circle"></i>1 dia</span></div></div>
+            <div class="med-item"><div class="med-item-foto"></div><div class="med-item-corpo"><div class="med-item-titulo">Fone de Ouvido Bluetooth TWS</div><div class="med-item-sub">Ricardo Souza</div><span class="med-prazo-pill med-prazo-pill--ok"><i class="fas fa-circle"></i>5 dias</span></div></div>
+            <div class="med-item"><div class="med-item-foto"></div><div class="med-item-corpo"><div class="med-item-titulo">Carregador Portátil 20000mAh</div><div class="med-item-sub">Juliana Costa</div><span class="med-prazo-pill med-prazo-pill--vencido"><i class="fas fa-circle"></i>Vencido</span></div></div>
+            <div class="med-item"><div class="med-item-foto"></div><div class="med-item-corpo"><div class="med-item-titulo">Suporte para Celular Veicular</div><div class="med-item-sub">Paulo Henrique</div><span class="med-prazo-pill med-prazo-pill--ok"><i class="fas fa-circle"></i>3 dias</span></div></div>
+            <div class="med-item"><div class="med-item-foto"></div><div class="med-item-corpo"><div class="med-item-titulo">Cabo HDMI 2.0 4K 3 metros</div><div class="med-item-sub">cliente não informado</div><span class="med-prazo-pill med-prazo-pill--atencao"><i class="fas fa-circle"></i>2 dias</span></div></div>
+            <div class="med-item"><div class="med-item-foto"></div><div class="med-item-corpo"><div class="med-item-titulo">Controle Remoto TV</div><div class="med-item-sub">Ana Cristina Souza</div><span class="med-prazo-pill med-prazo-pill--ok"><i class="fas fa-circle"></i>4 dias</span></div></div>
+            <div class="med-item"><div class="med-item-foto"></div><div class="med-item-corpo"><div class="med-item-titulo">Fonte de Alimentação Chaveada Bivolt 12V 5A</div><div class="med-item-sub">Marcos Vinícius</div><span class="med-prazo-pill med-prazo-pill--ok"><i class="fas fa-circle"></i>5 dias</span></div></div>
+        </div>
+    </div>
+</div>
+<div class="mock-nota" style="max-width:980px;margin:14px auto 0;">Repare que o card não cresce mais que ~300px de altura — role dentro da caixa acima pra ver os 8 itens. Isso é só <code>max-height + overflow-y: auto</code>, igual ao que já existe em <code>.med-lista-scroll[data-lista="encontrados"]</code>.</div>
+
+<div class="mock-secao-header"><span class="num">3</span><h2>Mobile — sidebar escondida por padrão</h2><span class="desc">— clique no ☰ abaixo pra simular o comportamento</span></div>
+
+<div class="phone-frame-wrap">
+    <div class="phone-frame">
+        <div class="mobile-toolbar">
+            <button class="mobile-hamburger" onclick="document.getElementById('mock-sidebar-mobile').classList.toggle('aberta')">☰</button>
+            <span class="mobile-toolbar-titulo">Mediações ML</span>
+        </div>
+        <div class="mobile-corpo">
+            <div class="sidebar-mobile" id="mock-sidebar-mobile">
+                <a class="sidebar-item" style="padding-top:16px;">Consultar Pedido</a>
+                <a class="sidebar-item">Nova Devolução</a>
+                <a class="sidebar-item">Devoluções</a>
+                <a class="sidebar-item sidebar-item--ativo">Mediações ML</a>
+                <a class="sidebar-item">Produtos</a>
+                <a class="sidebar-item">Peças</a>
+                <a class="sidebar-item">Marcas</a>
+            </div>
+            <div class="mobile-backdrop" onclick="document.getElementById('mock-sidebar-mobile').classList.remove('aberta')"></div>
+            <div class="mobile-conteudo">
+                <div class="vd-cartao">
+                    <div class="med-detalhe-titulo" style="font-size:15px;">Smartwatch Esportivo à Prova D'Água...</div>
+                    <div class="med-detalhe-sub">Pedido 2000017955102234</div>
+                    <div style="margin-top:10px;"><span class="med-prazo-pill med-prazo-pill--vencido"><i class="fas fa-triangle-exclamation"></i>Vencido há 1 dia</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="mock-nota" style="max-width:980px;margin:14px auto 60px;">Aqui a sidebar começa fechada (<code>width:0</code>) e vira uma camada sobreposta ao abrir — sem empurrar o conteúdo, sem cortar texto. É a ideia de automatizar o toggle <code>.sidebar-oculta</code> que já existe, abaixo de algum breakpoint.</div>
+
+</body>
+</html>

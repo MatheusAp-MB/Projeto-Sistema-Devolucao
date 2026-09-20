@@ -87,16 +87,22 @@
                             <button type="button" class="dp-chip-filtro" data-filtro="devolucao">+ Devolução ({{ contagem_encontrados.devolucao }})</button>
                             <button type="button" class="dp-chip-filtro" data-filtro="mediacao-devolucao">+ Mediação + Devolução ({{ contagem_encontrados.mediacao_devolucao }})</button>
                         </div>
+                        <select class="med-select-ordenacao" data-ordena-lista="encontrados">
+                            <option value="recentes">Mais recentes primeiro</option>
+                            <option value="antigas">Mais antigas primeiro</option>
+                            <option value="nome">Nome do produto (A-Z)</option>
+                        </select>
                         <div class="med-lista-scroll" data-lista="encontrados">
                             {% for item in encontrados %}
                             <div class="med-enc-item{% if claim_previsualizado.claim_id == item.claim_id %} med-item--selecionada{% endif %}"
                                  data-combinacao="{{ item.categoria_slug }}"
+                                 data-produto="{{ item.nome_produto|lower }}"
                                  data-busca="{{ item.nome_cliente|lower }} {{ item.numero_pedido|lower }} {{ item.nome_produto|lower }}">
                                 <a href="{% url 'mediacoes_ml_encontrado' item.claim_id %}" class="med-item-link">
                                     <span class="med-item-foto"><i class="fas fa-comments"></i></span>
                                     <span class="med-item-corpo">
                                         <span class="med-item-topo">
-                                            <span class="med-item-produto">{{ item.nome_produto|default:"Produto não informado" }}</span>
+                                            <span class="med-item-produto" title="{{ item.nome_produto|default:'Produto não informado' }}">{{ item.nome_produto|default:"Produto não informado" }}</span>
                                         </span>
                                         <span class="med-item-rodape">
                                             <span class="med-item-pedido">Pedido {{ item.numero_pedido }} — {{ item.nome_cliente|default:"cliente não informado" }}</span>
@@ -116,7 +122,7 @@
                                 <form method="post" action="{% url 'acompanhar_claim' item.claim_id %}" class="dp-form-inline">
                                     {% csrf_token %}
                                     <button type="submit" class="med-item-acao" title="Acompanhar este item">
-                                        <i class="fas fa-star"></i>
+                                        <i class="far fa-star"></i>
                                     </button>
                                 </form>
                             </div>
@@ -139,17 +145,23 @@
                         <button type="button" class="dp-chip-filtro" data-filtro="devolucao">+ Devolução ({{ contagem_acompanhamento.devolucao }})</button>
                         <button type="button" class="dp-chip-filtro" data-filtro="mediacao-devolucao">+ Mediação + Devolução ({{ contagem_acompanhamento.mediacao_devolucao }})</button>
                     </div>
+                    <select class="med-select-ordenacao" data-ordena-lista="acompanhamento">
+                        <option value="recentes">Mais recentes primeiro</option>
+                        <option value="antigas">Mais antigas primeiro</option>
+                        <option value="nome">Nome do produto (A-Z)</option>
+                    </select>
                     <div class="med-lista-scroll" data-lista="acompanhamento">
                         {% for item in mediacoes_abertas %}
                         <div class="med-item{% if tipo_selecionado == item.tipo and mediacao_selecionada.id == item.id %} med-item--selecionada{% endif %}"
                              data-busca="{{ item.nome_cliente|lower }} {{ item.numero_pedido|lower }} {{ item.nome_produto|lower }}"
+                             data-produto="{{ item.nome_produto|lower }}"
                              {% if item.categoria_slug %}data-combinacao="{{ item.categoria_slug }}"{% endif %}>
                             <a href="{% if item.tipo == 'devolucao' %}{% url 'mediacoes_ml_devolucao' item.id %}{% else %}{% url 'mediacoes_ml_avulsa' item.id %}{% endif %}"
                                class="med-item-link">
                                 <span class="med-item-foto"><i class="fas fa-comments"></i></span>
                                 <span class="med-item-corpo">
                                     <span class="med-item-topo">
-                                        <span class="med-item-produto">{{ item.nome_produto|default:"Produto não informado" }}</span>
+                                        <span class="med-item-produto" title="{{ item.nome_produto|default:'Produto não informado' }}">{{ item.nome_produto|default:"Produto não informado" }}</span>
                                     </span>
                                     <span class="med-item-rodape">
                                         <span class="med-item-pedido">Pedido {{ item.numero_pedido }} — {{ item.nome_cliente|default:"cliente não informado" }}</span>
@@ -175,11 +187,11 @@
                             </form>
                             {% elif item.tipo == 'devolucao' %}
                             <span class="med-item-acao med-item-acao--fixa" title="Mediação vinculada a uma devolução — sempre acompanhada aqui">
-                                <i class="fas fa-star"></i>
+                                <i class="far fa-star"></i>
                             </span>
                             {% else %}
                             <span class="med-item-acao med-item-acao--fixa" title="Ainda não vinculada a uma reclamação do Mercado Livre">
-                                <i class="fas fa-star"></i>
+                                <i class="far fa-star"></i>
                             </span>
                             {% endif %}
                         </div>
@@ -202,7 +214,7 @@
                     <span class="med-item-foto"><i class="fas fa-comments"></i></span>
                     <span class="med-item-corpo">
                         <span class="med-item-topo">
-                            <span class="med-item-produto">{{ item.nome_produto|default:"Produto não informado" }}</span>
+                            <span class="med-item-produto" title="{{ item.nome_produto|default:'Produto não informado' }}">{{ item.nome_produto|default:"Produto não informado" }}</span>
                         </span>
                         <span class="med-item-rodape">
                             <span class="med-item-pedido">Pedido {{ item.numero_pedido }} — {{ item.nome_cliente|default:"cliente não informado" }}</span>
@@ -416,7 +428,7 @@
                     <form method="post" action="{% url 'acompanhar_claim' claim_previsualizado.claim_id %}" class="dp-form-inline">
                         {% csrf_token %}
                         <button type="submit" class="vd-btn dp-btn--principal">
-                            <i class="fas fa-star"></i> Acompanhar este item
+                            <i class="far fa-star"></i> Acompanhar este item
                         </button>
                     </form>
                 </div>
