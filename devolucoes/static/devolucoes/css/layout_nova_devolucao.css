@@ -226,7 +226,7 @@
     width: 36px;
     height: 36px;
     border-radius: 6px;
-    object-fit: cover;
+    object-fit: contain;
     flex-shrink: 0;
     background-color: var(--cor-fundo-pagina);
 }
@@ -278,7 +278,7 @@
     width: 56px;
     height: 56px;
     border-radius: 8px;
-    object-fit: cover;
+    object-fit: contain;
     flex-shrink: 0;
 }
 

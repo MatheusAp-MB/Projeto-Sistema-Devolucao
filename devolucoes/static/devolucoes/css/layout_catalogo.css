@@ -113,7 +113,7 @@
 .catalogo-peca-foto img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
 }
 
@@ -331,7 +331,7 @@
     display: block;
     width: 96px;
     height: 96px;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .catalogo-preview-nome-arquivo {
@@ -496,7 +496,7 @@
 .catalogo-resultado-peca-foto img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .catalogo-resultado-peca-info {
@@ -685,7 +685,7 @@
 .catalogo-peca-card-foto img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
 }
 

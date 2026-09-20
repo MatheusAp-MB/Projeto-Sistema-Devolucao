@@ -97,7 +97,7 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
 
     .bloco-rotulo { font-size: 9px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); margin: 0 0 6px 0; }
 
-    .produto-foto, .produto-foto-vazia { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex-shrink: 0; }
+    .produto-foto, .produto-foto-vazia { width: 44px; height: 44px; border-radius: 8px; object-fit: contain; flex-shrink: 0; }
     .produto-foto-vazia { background: #e3e8ec; border: 1px solid var(--borda); }
     .produto-nome { font-size: 13px; font-weight: 700; margin: 0 0 2px 0; }
     .produto-marca { font-size: 11px; color: var(--muted); margin: 0; }
@@ -135,7 +135,7 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
     table.pecas td.nome { font-weight: 700; }
     .nome-linha { display: flex; align-items: center; gap: 8px; }
     table.pecas td.nota { color: var(--muted); font-style: italic; }
-    .peca-foto, .peca-foto-vazia { width: 32px; height: 32px; border-radius: 6px; object-fit: cover; }
+    .peca-foto, .peca-foto-vazia { width: 32px; height: 32px; border-radius: 6px; object-fit: contain; }
     .peca-foto-vazia { background: #e3e8ec; border: 1px solid var(--borda); }
 
     /* Evita cortar uma linha ao meio numa quebra de página, e repete o
@@ -162,7 +162,7 @@ nesse relatório, pensada pra abrir numa aba nova a partir do botão
         page-break-inside: avoid;
     }
     .peca-card-topo { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
-    .peca-card-foto, .peca-card-foto-vazia { width: 56px; height: 56px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+    .peca-card-foto, .peca-card-foto-vazia { width: 56px; height: 56px; border-radius: 6px; object-fit: contain; flex-shrink: 0; }
     .peca-card-foto-vazia { background: #e3e8ec; border: 1px solid var(--borda); }
     .peca-card-info { min-width: 0; }
     .peca-card-nome { font-size: 12px; font-weight: 700; margin: 0 0 5px 0; }

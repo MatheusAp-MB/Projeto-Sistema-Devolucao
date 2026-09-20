@@ -48,7 +48,7 @@
 .produto-form-foto-uploader img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     position: absolute;
     inset: 0;
 }
@@ -637,7 +637,7 @@
 .gaveta-vinculo-resultado-foto img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
 }
 
 .gaveta-vinculo-resultado-info {
