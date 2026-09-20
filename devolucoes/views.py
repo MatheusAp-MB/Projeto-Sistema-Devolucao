@@ -32,8 +32,8 @@ from core.empresa import obter_alias_banco_ativo
 
 from .models import (
     Compatibilidade, ConferenciaPeca, Devolucao, FotoConferenciaPeca,
-    FotoObservacaoGeral, FotoReclamacaoCliente, GrupoFornecedor, Marca, Peca,
-    Produto,
+    FotoObservacaoGeral, FotoReclamacaoCliente, GrupoFornecedor, Marca,
+    ModeloAnotacao, Peca, Produto,
 )
 from .reorganizacao_fotos import reorganizar_fotos_devolucao
 
@@ -882,6 +882,7 @@ def conferir_devolucao(request, devolucao_id):
             'pecas': _pecas_para_conferencia(devolucao),
             'destino_choices': Devolucao.DESTINO_CHOICES,
             'fotos_observacao_geral': devolucao.fotos_observacao_geral.all(),
+            'modelos_anotacao': list(ModeloAnotacao.objects.values_list('texto', flat=True)),
             'pagina_ativa': 'devolucoes_pendentes',
         })
 
@@ -955,6 +956,7 @@ def conferir_devolucao(request, devolucao_id):
         'pecas': _pecas_para_conferencia(devolucao),
         'destino_choices': Devolucao.DESTINO_CHOICES,
         'fotos_observacao_geral': devolucao.fotos_observacao_geral.all(),
+        'modelos_anotacao': list(ModeloAnotacao.objects.values_list('texto', flat=True)),
         'pagina_ativa': 'devolucoes_pendentes',
     }
     return render(request, 'devolucoes/conferir_devolucao.html', contexto)
@@ -2001,6 +2003,58 @@ def excluir_grupo_fornecedor(request, grupo_id):
         messages.success(request, f'Grupo "{nome}" excluído.')
 
     return redirect('marcas_grupos')
+
+
+def modelos_anotacao(request):
+    contexto = {
+        'modelos': ModeloAnotacao.objects.all(),
+        'pagina_ativa': 'modelos_anotacao',
+    }
+    return render(request, 'devolucoes/modelos_anotacao.html', contexto)
+
+
+def cadastrar_modelo_anotacao(request):
+    if request.method == 'POST':
+        texto = request.POST.get('texto', '').strip()
+
+        if not texto:
+            messages.error(request, 'Texto do modelo é obrigatório.')
+        elif ModeloAnotacao.objects.filter(texto=texto).exists():
+            messages.error(request, f'Já existe um modelo "{texto}".')
+        else:
+            ModeloAnotacao.objects.create(texto=texto)
+            messages.success(request, f'Modelo "{texto}" cadastrado.')
+
+    return redirect('modelos_anotacao')
+
+
+def editar_modelo_anotacao(request, modelo_id):
+    modelo = get_object_or_404(ModeloAnotacao, pk=modelo_id)
+
+    if request.method == 'POST':
+        texto = request.POST.get('texto', '').strip()
+
+        if texto:
+            if ModeloAnotacao.objects.exclude(pk=modelo.pk).filter(texto=texto).exists():
+                messages.error(request, f'Já existe outro modelo "{texto}".')
+                return redirect('modelos_anotacao')
+
+            modelo.texto = texto
+            modelo.save()
+            messages.success(request, f'Modelo "{texto}" atualizado.')
+
+    return redirect('modelos_anotacao')
+
+
+def excluir_modelo_anotacao(request, modelo_id):
+    modelo = get_object_or_404(ModeloAnotacao, pk=modelo_id)
+
+    if request.method == 'POST':
+        texto = modelo.texto
+        modelo.delete()
+        messages.success(request, f'Modelo "{texto}" excluído.')
+
+    return redirect('modelos_anotacao')
 
 
 def manutencao_reorganizar_fotos(request):

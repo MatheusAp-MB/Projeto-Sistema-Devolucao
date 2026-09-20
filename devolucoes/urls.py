@@ -50,6 +50,11 @@ urlpatterns = [
     path('marcas-grupos/grupo/<int:grupo_id>/editar/', views.editar_grupo_fornecedor, name='editar_grupo_fornecedor'),
     path('marcas-grupos/grupo/<int:grupo_id>/excluir/', views.excluir_grupo_fornecedor, name='excluir_grupo_fornecedor'),
 
+    path('modelos-anotacao/', views.modelos_anotacao, name='modelos_anotacao'),
+    path('modelos-anotacao/cadastrar/', views.cadastrar_modelo_anotacao, name='cadastrar_modelo_anotacao'),
+    path('modelos-anotacao/<int:modelo_id>/editar/', views.editar_modelo_anotacao, name='editar_modelo_anotacao'),
+    path('modelos-anotacao/<int:modelo_id>/excluir/', views.excluir_modelo_anotacao, name='excluir_modelo_anotacao'),
+
     # [ATENÇÃO] → ferramenta de manutenção pontual (reorganizar fotos que já
     # existiam antes da mudança de upload_to) — de propósito SEM link em
     # nenhuma tela/sidebar, só acessível digitando o endereço direto, pra não

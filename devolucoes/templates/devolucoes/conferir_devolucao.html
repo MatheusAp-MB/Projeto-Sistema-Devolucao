@@ -86,7 +86,11 @@
 
                     <details class="cf-anotacao" {% if item.anotacao %}open{% endif %}>
                         <summary><i class="fas fa-plus"></i> Anotação</summary>
-                        <textarea name="anotacao_{{ item.peca.id }}" rows="2" placeholder="Ex: veio arranhada, veio a peça errada...">{{ item.anotacao }}</textarea>
+                        <div class="cf-anotacao-campo">
+                            <textarea name="anotacao_{{ item.peca.id }}" rows="2" class="js-anotacao-autocomplete"
+                                      placeholder="Ex: veio arranhada, veio a peça errada..." autocomplete="off">{{ item.anotacao }}</textarea>
+                            <div class="anotacao-sugestoes" hidden></div>
+                        </div>
                     </details>
 
                     <div class="cf-fotos">
@@ -170,8 +174,11 @@
             <i class="fas fa-floppy-disk"></i> {% if ja_conferida %}Salvar alterações{% else %}Salvar conferência{% endif %}
         </button>
     </form>
+
+    {{ modelos_anotacao|json_script:"dados-modelos-anotacao" }}
 {% endblock %}
 
 {% block scripts %}
 <script src="{% static 'devolucoes/js/script_conferir_devolucao.js' %}"></script>
+<script src="{% static 'devolucoes/js/script_autocomplete_anotacao.js' %}"></script>
 {% endblock %}

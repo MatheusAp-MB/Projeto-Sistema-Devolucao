@@ -8,3 +8,4 @@ from .conferencia_peca import ConferenciaPeca
 from .foto_conferencia_peca import FotoConferenciaPeca
 from .foto_reclamacao_cliente import FotoReclamacaoCliente
 from .foto_observacao_geral import FotoObservacaoGeral
+from .modelo_anotacao import ModeloAnotacao

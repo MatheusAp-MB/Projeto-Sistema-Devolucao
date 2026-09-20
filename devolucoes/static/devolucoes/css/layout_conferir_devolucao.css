@@ -500,3 +500,65 @@
 .cf-salvar:hover {
     background-color: var(--cor-primaria-clara);
 }
+
+/* Autocomplete do campo "Anotação" da peça — a caixa de sugestões
+   flutua sobre o textarea (position: relative no wrapper novo
+   .cf-anotacao-campo; a regra ".cf-anotacao textarea" já existente
+   continua valendo do mesmo jeito por ser seletor descendente). */
+.cf-anotacao-campo {
+    position: relative;
+}
+
+.anotacao-sugestoes {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    background: #ffffff;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(26, 58, 92, 0.14);
+    max-height: 190px;
+    overflow-y: auto;
+    z-index: 20;
+}
+
+.anotacao-sugestoes[hidden] {
+    display: none;
+}
+
+.anotacao-sugestao {
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #212529;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.anotacao-sugestao i {
+    color: #c3cbd4;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+.anotacao-sugestao:hover,
+.anotacao-sugestao.destacada {
+    background: #f0f6fb;
+    color: var(--cor-primaria);
+}
+
+.anotacao-sugestao mark {
+    background: #fff2b8;
+    color: inherit;
+    border-radius: 2px;
+}
+
+.anotacao-sugestoes-vazio {
+    padding: 10px 12px;
+    font-size: 12px;
+    color: var(--cor-texto-muted);
+    font-style: italic;
+}

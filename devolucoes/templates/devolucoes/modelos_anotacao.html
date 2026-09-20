@@ -1,0 +1,55 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Modelos de anotação{% endblock %}
+{% block toolbar_titulo %}Modelos de anotação{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_modelos_anotacao.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+    <div class="modelos-anotacao-pagina">
+        <div class="modelos-anotacao-cartao">
+            <div class="modelos-anotacao-cabecalho">
+                <div class="modelos-anotacao-cabecalho-titulo">
+                    <i class="fas fa-list-check"></i>
+                    <p class="modelos-anotacao-titulo">Modelos de anotação</p>
+                    <span class="modelos-anotacao-contagem">{{ modelos|length }}</span>
+                </div>
+                <button type="button" id="botao-novo-modelo-anotacao" class="modelos-anotacao-botao-novo">+ Novo modelo</button>
+            </div>
+
+            <form method="post" action="{% url 'cadastrar_modelo_anotacao' %}" id="form-novo-modelo-anotacao" class="modelos-anotacao-form-novo" hidden>
+                {% csrf_token %}
+                <input type="text" name="texto" placeholder="Ex: riscado, veio quebrado, faltou acessório..." required>
+                <button type="submit">Salvar</button>
+            </form>
+
+            {% if modelos %}
+                <div class="modelos-anotacao-lista">
+                    {% for modelo in modelos %}
+                        <div class="modelos-anotacao-linha">
+                            <div class="modelos-anotacao-linha-icone"><i class="fas fa-tag"></i></div>
+                            <form method="post" action="{% url 'editar_modelo_anotacao' modelo.id %}" class="modelos-anotacao-form-linha">
+                                {% csrf_token %}
+                                <input type="text" name="texto" value="{{ modelo.texto }}" required>
+                                <button type="submit" class="modelos-anotacao-botao-salvar">Salvar</button>
+                            </form>
+                            <form method="post" action="{% url 'excluir_modelo_anotacao' modelo.id %}" class="modelos-anotacao-form-excluir">
+                                {% csrf_token %}
+                                <button type="submit" class="modelos-anotacao-botao-excluir" data-nome="{{ modelo.texto }}">Excluir</button>
+                            </form>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="modelos-anotacao-vazio">Nenhum modelo cadastrado ainda.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{% static 'devolucoes/js/script_modelos_anotacao.js' %}"></script>
+{% endblock %}

@@ -4,6 +4,10 @@
 {% block titulo %}Peças{% endblock %}
 {% block toolbar_titulo %}Peças{% endblock %}
 
+{% block toolbar_acoes %}
+<a href="{% url 'modelos_anotacao' %}" class="gaveta-botao-modelos-anotacao"><i class="fas fa-list-check"></i> Modelos de anotação</a>
+{% endblock %}
+
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'devolucoes/css/layout_produto_form.css' %}">
 <link rel="stylesheet" href="{% static 'devolucoes/css/layout_gaveta_pecas.css' %}">
