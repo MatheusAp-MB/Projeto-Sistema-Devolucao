@@ -568,6 +568,7 @@
 
         var arquivosSelecionados = [];
         var claimId = caixa.getAttribute('data-claim-id');
+        var statusEnvio = caixa.parentElement ? caixa.parentElement.querySelector('[data-resposta-status]') : null;
 
         btnAnexar.addEventListener('click', function () { input.click(); });
 
@@ -624,6 +625,7 @@
             controles.forEach(function (el) { el.disabled = true; });
             var iconeOriginal = btnEnviar.innerHTML;
             btnEnviar.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            if (statusEnvio) statusEnvio.hidden = false;
 
             fetch('/mediacoes/claim/' + claimId + '/enviar-mensagem/', {
                 method: 'POST',
@@ -642,10 +644,12 @@
                 window.alert((r.dados && r.dados.erro) || 'Não deu pra enviar -- tente de novo.');
                 controles.forEach(function (el) { el.disabled = false; });
                 btnEnviar.innerHTML = iconeOriginal;
+                if (statusEnvio) statusEnvio.hidden = true;
             }).catch(function () {
                 window.alert('Não deu pra enviar -- confira a internet e tente de novo.');
                 controles.forEach(function (el) { el.disabled = false; });
                 btnEnviar.innerHTML = iconeOriginal;
+                if (statusEnvio) statusEnvio.hidden = true;
             });
         });
     });

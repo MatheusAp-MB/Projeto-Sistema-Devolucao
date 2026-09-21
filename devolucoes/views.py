@@ -1215,7 +1215,7 @@ def enviar_mensagem_chat_mediacao(request, claim_id):
 
     cache = ClaimMercadoLivre.objects.filter(claim_id=claim_id).first()
     if not cache:
-        return HttpResponse(status=404)
+        return JsonResponse({'erro': 'Reclamação não encontrada no cache local -- atualize a página e tente de novo.'}, status=404)
 
     mensagem = (request.POST.get('mensagem') or '').strip()
     arquivos_recebidos = request.FILES.getlist('anexos')
