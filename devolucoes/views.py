@@ -31,6 +31,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 
+from api_mercado_livre.core.auth.gerenciador_token import FalhaAutenticacao
 from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
 from integracao_mercado_livre.views import CONTA_POR_EMPRESA
 
@@ -964,29 +965,43 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
         #   claim_id fica salvo pra sempre na Devolucao/MediacaoAvulsa e
         #   essa busca nunca mais roda pra esse pedido -- as próximas
         #   aberturas já caem direto no bloco de baixo.
-        if not mediacao_selecionada.claim_id and conta:
-            cache_resolvida = resolver_claim_por_numero_pedido(conta, mediacao_selecionada.numero_pedido)
-            if cache_resolvida:
-                mediacao_selecionada.claim_id = cache_resolvida.claim_id
-                mediacao_selecionada.save(update_fields=['claim_id'])
+        #
+        # * [CORREÇÃO 21/09/2026] → resolver_claim_por_numero_pedido e
+        #   atualizar_e_formatar_mensagens já tratam ErroAPI/
+        #   ErroAutenticacaoAPI sozinhas (devolvem None/sucesso=False),
+        #   mas nenhuma das duas captura FalhaAutenticacao (token do ML
+        #   expirado/revogado, renovação falhou) -- sem essa barreira
+        #   aqui, essa exceção subia sem tratamento nenhum até o Django e
+        #   virava página de erro crua pra Ana bem na tela que ela mais
+        #   usa. Cai no mesmo estado "não foi possível atualizar agora"
+        #   que a tela já trata (mensagens_falhou), sem derrubar
+        #   sidebar/dashboard junto.
+        try:
+            if not mediacao_selecionada.claim_id and conta:
+                cache_resolvida = resolver_claim_por_numero_pedido(conta, mediacao_selecionada.numero_pedido)
+                if cache_resolvida:
+                    mediacao_selecionada.claim_id = cache_resolvida.claim_id
+                    mediacao_selecionada.save(update_fields=['claim_id'])
 
-        # * [EXPLICAÇÃO] → busca síncrona de mensagens toda vez que Ana
-        #   abre o chat de um item -- validado em
-        #   cronometrar_refresh_individual.py (~0,63s médio, isolado),
-        #   decisão de Matheus 20/09/2026: não precisa do mecanismo de
-        #   segundo plano usado pelas 2 varreduras, só pro refresh de 1
-        #   chat. Sem claim_id (nem salvo, nem resolvido agora) não tem
-        #   como buscar -- fica None mesmo.
-        if mediacao_selecionada.claim_id:
-            cache_da_conversa = ClaimMercadoLivre.objects.filter(pk=mediacao_selecionada.claim_id).first()
-            if cache_da_conversa and conta:
-                mensagens_chat, sucesso = atualizar_e_formatar_mensagens(
-                    conta, cache_da_conversa, mediacao_selecionada.nome_cliente, desde=visualizada_em_anterior,
-                )
-                mensagens_falhou = not sucesso
-                if sucesso:
-                    mediacao_selecionada.mediacao_atualizada_em = timezone.now()
-                    mediacao_selecionada.save(update_fields=['mediacao_atualizada_em'])
+            # * [EXPLICAÇÃO] → busca síncrona de mensagens toda vez que Ana
+            #   abre o chat de um item -- validado em
+            #   cronometrar_refresh_individual.py (~0,63s médio, isolado),
+            #   decisão de Matheus 20/09/2026: não precisa do mecanismo de
+            #   segundo plano usado pelas 2 varreduras, só pro refresh de 1
+            #   chat. Sem claim_id (nem salvo, nem resolvido agora) não tem
+            #   como buscar -- fica None mesmo.
+            if mediacao_selecionada.claim_id:
+                cache_da_conversa = ClaimMercadoLivre.objects.filter(pk=mediacao_selecionada.claim_id).first()
+                if cache_da_conversa and conta:
+                    mensagens_chat, sucesso = atualizar_e_formatar_mensagens(
+                        conta, cache_da_conversa, mediacao_selecionada.nome_cliente, desde=visualizada_em_anterior,
+                    )
+                    mensagens_falhou = not sucesso
+                    if sucesso:
+                        mediacao_selecionada.mediacao_atualizada_em = timezone.now()
+                        mediacao_selecionada.save(update_fields=['mediacao_atualizada_em'])
+        except FalhaAutenticacao:
+            mensagens_falhou = True
 
     # * [EXPLICACAO] -> categoria (Reclamacao/+Mediacao/+Devolucao/+
     #   Mediacao+Devolucao), última mensagem (pra ordenar "Em

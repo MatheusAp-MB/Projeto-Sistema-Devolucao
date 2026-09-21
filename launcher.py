@@ -108,6 +108,29 @@ def abrir_navegador(icone=None, item=None):
     abrir_tela_de_carregamento()
 
 
+def abrir_tela_de_erro(detalhe):
+    # * [CORREÇÃO 21/09/2026] → mostrada quando o sistema nem consegue
+    #   começar a subir (ex: MySQL fora do ar na hora da migração, no
+    #   __main__ abaixo). Sem isso, o processo simplesmente encerrava
+    #   sem abrir nada -- o build é --noconsole, não existe janela
+    #   nenhuma pra mostrar o erro, então quem clicasse no ícone não
+    #   tinha nenhuma pista do que tinha acontecido. Mesmo mecanismo de
+    #   arquivo temp + webbrowser.open já usado em
+    #   abrir_tela_de_carregamento, mas sem redirecionar pra URL do
+    #   sistema -- ele nem chegou a subir.
+    caminho_modelo = caminho_recurso("launcher_recursos/erro_inicializacao.html")
+    with open(caminho_modelo, "r", encoding="utf-8") as f:
+        html = f.read()
+
+    html = html.replace("__DETALHE__", json.dumps(str(detalhe)))
+
+    caminho_temp = os.path.join(tempfile.gettempdir(), "sistema_devolucoes_erro.html")
+    with open(caminho_temp, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    webbrowser.open(Path(caminho_temp).as_uri())
+
+
 def criar_imagem_icone():
     caminho = caminho_recurso("launcher_recursos/icone_app.ico")
     return Image.open(caminho).convert("RGBA").resize((64, 64), Image.LANCZOS)
@@ -134,8 +157,17 @@ if __name__ == "__main__":
         abrir_navegador()
         sys.exit(0)
 
-    for alias in ("magazine", "samvale"):
-        call_command("migrate", database=alias, verbosity=0)
+    # * [CORREÇÃO 21/09/2026] → antes, uma falha aqui (ex: MySQL não
+    #   estava rodando ainda) derrubava o processo inteiro sem nenhum
+    #   aviso -- build --noconsole não tem janela pra mostrar o erro.
+    #   Agora cai numa telinha explicando o que houve, em vez de morrer
+    #   silenciosamente.
+    try:
+        for alias in ("magazine", "samvale"):
+            call_command("migrate", database=alias, verbosity=0)
+    except Exception as erro:
+        abrir_tela_de_erro(erro)
+        sys.exit(1)
 
     threading.Thread(target=rodar_servidor, daemon=True).start()
     abrir_tela_de_carregamento()
