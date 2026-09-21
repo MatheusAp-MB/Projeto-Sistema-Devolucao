@@ -673,8 +673,8 @@ span.med-item-acao--fixa:hover {
    outro significado aqui ===== */
 
 .dp-badge--categ-mediacao {
-    background: #fde8e8;
-    color: var(--cor-negativo);
+    background: #e7f0fa;
+    color: var(--cor-primaria);
 }
 
 .dp-badge--categ-devolucao {
@@ -683,6 +683,28 @@ span.med-item-acao--fixa:hover {
 }
 
 .dp-badge--categ-reclamacao {
+    background: #eceef1;
+    color: var(--cor-texto-muted);
+}
+
+/* [ATENÇÃO] -> ".dp-badge--mediacao-aberta" é uma classe COMPARTILHADA
+   (definida em layout_devolucoes_pendentes.css, também usada na tela
+   Devoluções Pendentes) -- por isso o vermelho reservado só pra prazo
+   (melhoria 3 da auditoria) é sobrescrito aqui, escopado só dentro de
+   .med-shell (esta tela), em vez de mudar a regra compartilhada e
+   afetar Devoluções Pendentes sem necessidade -- a auditoria original
+   olhou só a tela de Mediações. Decisão de Matheus, 21/09/2026. */
+.med-shell .dp-badge--mediacao-aberta {
+    background: #eceef1;
+    color: var(--cor-texto-muted);
+}
+
+.dp-badge--prazo-ok {
+    background: #e6f4ea;
+    color: var(--cor-positivo);
+}
+
+.dp-badge--sem-prazo {
     background: #eceef1;
     color: var(--cor-texto-muted);
 }
@@ -887,6 +909,325 @@ span.med-item-acao--fixa:hover {
     border-color: var(--cor-primaria-clara);
     color: var(--cor-primaria-clara);
     text-decoration: none;
+}
+
+/* ===== "Em acompanhamento" como um chat -- linha topo (produto + hora
+   da última mensagem), preview de 1 linha da última mensagem, e o ponto
+   vermelho de "mensagem não vista" no ícone do item (melhoria 6 da
+   auditoria + ordenação por chat de hoje). Decisão de Matheus,
+   21/09/2026. ===== */
+
+.med-item-topo-linha {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    min-width: 0;
+}
+
+.med-item-topo-linha .med-item-produto {
+    -webkit-line-clamp: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.med-item-hora {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--cor-texto-muted);
+    white-space: nowrap;
+}
+
+.med-item-hora--nova {
+    color: var(--cor-negativo);
+    font-weight: 700;
+}
+
+.med-item-ultima-msg {
+    display: block;
+    font-size: 11.5px;
+    color: #515151;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.med-item-ultima-msg b {
+    color: #333;
+    font-weight: 600;
+}
+
+.med-item-sem-conversa {
+    display: block;
+    font-size: 11.5px;
+    color: var(--cor-texto-muted);
+    font-style: italic;
+}
+
+.med-item-nao-lida {
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--cor-negativo);
+    border: 2px solid var(--cor-fundo-card);
+}
+
+/* ===== destaque de mensagem nova no chat do detalhe (melhoria 6) ===== */
+
+.med-pill-nova {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: var(--cor-negativo);
+    color: #fff;
+    font-size: 9px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    margin-left: 4px;
+}
+
+.med-msg-bolha--nova {
+    border-width: 1.5px;
+    border-color: var(--cor-negativo);
+}
+
+/* ===== "Tentar novamente" quando o claim_id nunca resolve (melhoria 8)
+   -- mesmo mecanismo de retry que já existe pra atualização de
+   mensagens, só que explícito nesse estado também. ===== */
+
+.med-conversa-pendente--retry {
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+
+.med-btn-retry {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    border: 1px solid var(--cor-primaria-clara);
+    background: #fff;
+    color: var(--cor-primaria-clara);
+    cursor: pointer;
+}
+
+.med-btn-retry:hover {
+    background: var(--cor-primaria-clara);
+    color: #fff;
+    text-decoration: none;
+}
+
+/* ===== Painel Geral com cards clicáveis (melhoria 5 + expansão de hoje
+   pra 6 indicadores) ===== */
+
+.med-stat-card--btn {
+    display: block;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    background: #fff;
+    transition: transform .12s, box-shadow .12s;
+}
+
+.med-stat-card--btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px -6px rgba(20, 30, 40, .25);
+    border-color: var(--cor-primaria-clara);
+    text-decoration: none;
+}
+
+.med-stat-card--alerta {
+    cursor: pointer;
+    display: block;
+    text-align: left;
+    width: 100%;
+    font: inherit;
+    transition: transform .12s, box-shadow .12s;
+}
+
+.med-stat-card--alerta:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px -6px rgba(220, 53, 69, .35);
+}
+
+.med-stat-card--atencao {
+    border-color: #e9cf8a;
+    background: #fef8ec;
+    display: block;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    font: inherit;
+    transition: transform .12s, box-shadow .12s;
+}
+
+.med-stat-card--atencao:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px -6px rgba(217, 164, 6, .3);
+}
+
+.med-stat-card--atencao .med-stat-numero,
+.med-stat-card--atencao .med-stat-legenda {
+    color: #92400e;
+}
+
+.med-stat-cta {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--cor-primaria-clara);
+    margin-top: 6px;
+}
+
+.med-stat-card--alerta .med-stat-cta {
+    color: var(--cor-negativo);
+}
+
+.med-stat-card--atencao .med-stat-cta {
+    color: #92400e;
+}
+
+/* ===== campo de resposta visual (anexo de foto com pré-visualização
+   real, client-side -- envio ainda não implementado nesta tela) ===== */
+
+.med-resposta-caixa {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    margin-top: 13px;
+    padding-top: 13px;
+    border-top: 1px solid var(--cor-borda);
+}
+
+.med-resposta-corpo {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.med-resposta-input {
+    flex: 1;
+    min-width: 0;
+    resize: none;
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font: inherit;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: #333;
+    background: var(--cor-fundo-pagina);
+}
+
+.med-resposta-input:focus {
+    outline: none;
+    border-color: var(--cor-primaria-clara);
+    background: #fff;
+}
+
+.med-resposta-anexar,
+.med-resposta-enviar {
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.med-resposta-anexar {
+    background: var(--cor-fundo-pagina);
+    border: 1px solid var(--cor-borda);
+    color: var(--cor-texto-muted);
+}
+
+.med-resposta-anexar:hover {
+    color: var(--cor-primaria-clara);
+    border-color: var(--cor-primaria-clara);
+}
+
+.med-resposta-enviar {
+    background: var(--cor-primaria);
+    color: #fff;
+}
+
+.med-resposta-enviar:hover {
+    background: var(--cor-primaria-clara);
+}
+
+.med-resposta-anexos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.med-resposta-anexos[hidden] {
+    display: none;
+}
+
+.med-resposta-anexo {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--cor-borda);
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.med-resposta-anexo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.med-resposta-anexo-remover {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, .65);
+    color: #fff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    font-size: 9px;
+}
+
+.med-resposta-nota {
+    font-size: 10px;
+    color: var(--cor-texto-muted);
+    margin-top: 6px;
+    text-align: right;
 }
 
 @media (max-width: 980px) {

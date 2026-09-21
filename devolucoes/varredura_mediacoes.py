@@ -13,6 +13,7 @@
 
 import bleach
 import os
+import re
 
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -507,6 +508,73 @@ def _formatar_data_mensagem(valor_iso):
     return instante.strftime("%d/%m/%Y %H:%M")
 
 
+def _instante_mensagem(valor_iso):
+    """Converte o date_created bruto (string ISO da API, com timezone) num
+    datetime timezone-aware de verdade -- usado tanto pra achar a
+    mensagem mais recente (calcular_ultima_mensagem) quanto pra decidir
+    se uma mensagem é "nova" (comparação com mediacao_visualizada_em).
+    Mesmo parse de _formatar_data_mensagem, só que devolvendo o datetime
+    cru em vez de string formatada -- aqui o destino é comparação, não
+    exibição. None em qualquer valor ausente ou não-parseável (nunca
+    derruba a tela por causa de 1 data malformada). Decisão de Matheus,
+    21/09/2026."""
+    if not valor_iso or not isinstance(valor_iso, str):
+        return None
+    try:
+        return datetime.fromisoformat(valor_iso)
+    except ValueError:
+        return None
+
+
+def _resumo_mensagem(texto_bruto):
+    """Versão curta (sem HTML, truncada em ~90 caracteres) de message,
+    pra pré-visualização de 1 linha na lista "Em acompanhamento" (estilo
+    chat) -- a versão completa e sanitizada pra exibição continua sendo
+    _preparar_mensagem_html, usada só no detalhe. Aqui é só texto pra
+    lista, então um strip básico de tag HTML (mensagens do mediador às
+    vezes vêm com <p>/<br>) já basta, sem precisar de bleach."""
+    if not texto_bruto:
+        return '(sem texto — mensagem só com anexo)'
+    sem_tags = re.sub(r'<[^>]+>', ' ', texto_bruto)
+    sem_tags = ' '.join(sem_tags.split())
+    if len(sem_tags) > 90:
+        sem_tags = sem_tags[:90].rstrip() + '…'
+    return sem_tags or '(sem texto — mensagem só com anexo)'
+
+
+def calcular_ultima_mensagem(mensagens_brutas, cache):
+    """A partir de mensagens já cacheadas (cache.mensagens, SEM nenhuma
+    chamada nova de API -- mesmo espírito de formatar_mensagens_em_cache)
+    ou recém buscadas, acha a mensagem mais recente e devolve
+    (instante, quem_mandou, resumo) -- quem_mandou é 'ml'/'voce'/
+    'cliente', mesmo critério de _formatar_mensagens logo abaixo.
+    (None, None, None) quando não existe mensagem nenhuma ainda (claim
+    nunca sincronizado, ou reclamação sem nenhuma mensagem de fato).
+
+    [DECISÃO 21/09/2026] -> usado tanto pra ordenar "Em acompanhamento"
+    como um chat (mais recente primeiro) quanto pro indicador de
+    mensagem nova na lista -- e de propósito só LÊ o que já está
+    cacheado, nunca busca nada novo aqui: todo item de "Em
+    acompanhamento" tem esta_acompanhando=True no ClaimMercadoLivre
+    correspondente (casamento automático da varredura), e
+    executar_atualizacao_acompanhados (botão "Atualizar itens em
+    acompanhamento") já busca e grava cache.mensagens pra TODO item
+    nesse estado -- por isso não precisa de nenhum campo novo no banco
+    nem de nenhuma chamada de API extra pra essa ordenação existir."""
+    if not mensagens_brutas:
+        return None, None, None
+    mais_recente = max(mensagens_brutas, key=lambda m: m.get('date_created') or '')
+    instante = _instante_mensagem(mais_recente.get('date_created'))
+    sender = mais_recente.get('sender_role')
+    if sender == 'mediator':
+        quem = 'ml'
+    elif cache.meu_papel is not None and sender == cache.meu_papel:
+        quem = 'voce'
+    else:
+        quem = 'cliente'
+    return instante, quem, _resumo_mensagem(mais_recente.get('message'))
+
+
 def _preparar_mensagem_html(texto):
     """Prepara o campo 'message' de uma mensagem da claim pra exibição segura
     no template com |safe: se já vier com HTML (parágrafo, negrito, link —
@@ -559,13 +627,23 @@ def _url_anexo_mensagem(cache, conta, anexo):
     )
 
 
-def _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta):
+def _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta, desde=None):
     """Extraído de atualizar_e_formatar_mensagens -- só formatação
-    (papel/rótulo/iniciais/data/texto_html/anexos), sem nenhuma chamada
-    de API nova (attachments já vem dentro de mensagens_brutas).
+    (papel/rótulo/iniciais/data/texto_html/anexos/nova), sem nenhuma
+    chamada de API nova (attachments já vem dentro de mensagens_brutas).
     Reaproveitado tanto por quem busca mensagens frescas quanto por quem
     só formata o que já está em cache.mensagens (pré-visualização de
-    'Encontrados pelo Sistema', decisão de Matheus 20/09/2026)."""
+    'Encontrados pelo Sistema', decisão de Matheus 20/09/2026).
+
+    'desde' (opcional) é o mediacao_visualizada_em ANTERIOR à abertura
+    atual da tela (capturado por quem chama, antes de sobrescrever com
+    "agora") -- uma mensagem vira 'nova' quando não é nossa E é mais
+    recente que 'desde' (ou 'desde' é None, 1ª vez que essa mediação é
+    aberta). Sem 'desde', nenhuma mensagem é marcada como nova -- é o
+    caso da pré-visualização de 'Encontrados pelo Sistema', que ainda
+    não é uma mediação acompanhada de verdade. Decisão de Matheus,
+    21/09/2026 -- fecha a promessa de indicador de mensagem nova que a
+    própria tela já fazia."""
     iniciais_cliente = (nome_cliente or '').strip()[:1].upper() or 'CL'
     mensagens_ordenadas = sorted(mensagens_brutas, key=lambda m: m.get('date_created') or '')
 
@@ -585,6 +663,9 @@ def _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta):
             if url:
                 anexos.append({'url': url})
 
+        instante_msg = _instante_mensagem(m.get('date_created'))
+        nova = bool(desde and papel != 'voce' and instante_msg and instante_msg > desde)
+
         resultado.append({
             'papel': papel,
             'rotulo': rotulo,
@@ -592,17 +673,19 @@ def _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta):
             'data': _formatar_data_mensagem(m.get('date_created')),
             'texto_html': _preparar_mensagem_html(m.get('message')),
             'anexos': anexos,
+            'nova': nova,
         })
     return resultado
 
 
-def atualizar_e_formatar_mensagens(conta, cache, nome_cliente):
+def atualizar_e_formatar_mensagens(conta, cache, nome_cliente, desde=None):
     """Busca mensagens frescas da claim (1 chamada síncrona) e já devolve
-    formatadas pra exibição (papel/rótulo/iniciais/data/texto_html). Em
-    caso de falha na busca, cai pro que já estava salvo na cache (pode
+    formatadas pra exibição (papel/rótulo/iniciais/data/texto_html/nova).
+    Em caso de falha na busca, cai pro que já estava salvo na cache (pode
     ser None, se nunca buscou com sucesso antes) -- nunca perde o que já
-    tinha por causa de 1 chamada que falhou agora. Devolve
-    (mensagens_formatadas_ou_None, sucesso)."""
+    tinha por causa de 1 chamada que falhou agora. 'desde' só é usado pra
+    marcar mensagens como 'nova' (ver _formatar_mensagens) -- passa
+    direto. Devolve (mensagens_formatadas_ou_None, sucesso)."""
     mensagens_brutas = _buscar_mensagens_da_reclamacao(conta, cache.claim_id)
     sucesso = mensagens_brutas is not None
 
@@ -616,10 +699,10 @@ def atualizar_e_formatar_mensagens(conta, cache, nome_cliente):
     if not mensagens_brutas:
         return ([] if sucesso else None), sucesso
 
-    return _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta), sucesso
+    return _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta, desde=desde), sucesso
 
 
-def formatar_mensagens_em_cache(cache, nome_cliente, conta):
+def formatar_mensagens_em_cache(cache, nome_cliente, conta, desde=None):
     """Formata só o que já está salvo em cache.mensagens -- SEM nenhuma
     chamada nova a API. Usado na pré-visualização de um item 'Encontrados
     pelo Sistema' (decisão de Matheus, 20/09/2026): a varredura já pagou
@@ -627,7 +710,10 @@ def formatar_mensagens_em_cache(cache, nome_cliente, conta):
     outra chamada -- só quando Ana clicar em 'Atualizar' de propósito é
     que atualizar_e_formatar_mensagens (acima) entra em ação. Devolve
     sempre uma lista (nunca None) -- vazia quando não tem nada em cache
-    ainda."""
+    ainda. 'desde' segue o mesmo contrato de _formatar_mensagens (sem uso
+    hoje -- pré-visualização não é mediação acompanhada, não tem
+    'visualizada_em' pra comparar -- existe só pra manter a assinatura
+    igual à de atualizar_e_formatar_mensagens)."""
     if not cache.mensagens:
         return []
-    return _formatar_mensagens(cache.mensagens, cache, nome_cliente, conta)
+    return _formatar_mensagens(cache.mensagens, cache, nome_cliente, conta, desde=desde)

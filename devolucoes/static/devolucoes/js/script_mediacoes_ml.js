@@ -302,16 +302,36 @@
 // toggle. Estado do toggle não é persistido no sessionStorage (decisão
 // de escopo, 20/09/2026) -- sempre começa desligado ao recarregar.
 (function () {
+    // * [EXPLICACAO] -> "Encontrados pelo sistema" continua filtrando por
+    //   categoria (Reclamacao/+Mediacao/+Devolucao/+Mediacao+Devolucao),
+    //   igual sempre foi. "Em acompanhamento" agora tem um conjunto
+    //   diferente de chips (Todas/Só prazo vencendo/Só sem prazo/Última
+    //   mensagem do ML ou Cliente/Última mensagem nossa) -- mutuamente
+    //   exclusivos entre si (não combinam com categoria, que nem mais
+    //   aparece como chip nesse grupo), lendo os data-* que a view já
+    //   calcula por item (data-prazo-urgente, data-sem-prazo,
+    //   data-ultimo-de). Mockup aprovado por Matheus, 21/09/2026.
     function aplicarFiltrosDoGrupo(grupoChips, lista, nomeGrupo) {
         var chipAtivo = grupoChips.querySelector('.dp-chip-filtro--ativa');
         var filtro = chipAtivo ? chipAtivo.getAttribute('data-filtro') : 'todas';
-        var togglePrazo = document.getElementById('toggle-prazo-vencendo');
-        var soPrazoVencendo = nomeGrupo === 'acompanhamento' && togglePrazo && togglePrazo.classList.contains('dp-chip-filtro--ativa');
+
+        if (nomeGrupo === 'acompanhamento') {
+            lista.querySelectorAll('.med-item').forEach(function (item) {
+                var ultimoDe = item.getAttribute('data-ultimo-de');
+                var passa = filtro === 'todas'
+                    || (filtro === 'urgente' && item.getAttribute('data-prazo-urgente') === '1')
+                    || (filtro === 'semprazo' && item.getAttribute('data-sem-prazo') === '1')
+                    || (filtro === 'contraparte' && ultimoDe && ultimoDe !== 'voce')
+                    || (filtro === 'nossa' && ultimoDe === 'voce');
+                item.style.display = passa ? '' : 'none';
+            });
+            return;
+        }
+
         lista.querySelectorAll('.med-item, .med-enc-item').forEach(function (item) {
             var combinacao = item.getAttribute('data-combinacao');
             var passaCategoria = !combinacao || filtro === 'todas' || combinacao === filtro; // sem categoria ainda -- sempre passa, nunca escondido pelo filtro
-            var passaPrazo = !soPrazoVencendo || item.getAttribute('data-prazo-urgente') === '1';
-            item.style.display = (passaCategoria && passaPrazo) ? '' : 'none';
+            item.style.display = passaCategoria ? '' : 'none';
         });
     }
 
@@ -328,17 +348,7 @@
         });
     });
 
-    var togglePrazoVencendo = document.getElementById('toggle-prazo-vencendo');
-    if (togglePrazoVencendo) {
-        var grupoAcompanhamento = document.querySelector('[data-chips="acompanhamento"]');
-        var listaAcompanhamento = document.querySelector('[data-lista="acompanhamento"]');
-        togglePrazoVencendo.addEventListener('click', function () {
-            togglePrazoVencendo.classList.toggle('dp-chip-filtro--ativa');
-            if (grupoAcompanhamento && listaAcompanhamento) {
-                aplicarFiltrosDoGrupo(grupoAcompanhamento, listaAcompanhamento, 'acompanhamento');
-            }
-        });
-    }
+    window.aplicarFiltrosDoGrupoMediacoes = aplicarFiltrosDoGrupo;
 })();
 
 // Lembrar onde o usuario estava na lista ao trocar de conversa --
@@ -482,6 +492,94 @@
             }
             var ancora = container.querySelector('.med-lista-vazia-busca') || null;
             itens.forEach(function (item) { container.insertBefore(item, ancora); });
+        });
+    });
+})();
+
+// Cliques nos cards do Painel Geral -- cada card só filtra/expande o que
+// já está na mesma página (lista + detalhe convivem lado a lado, Painel
+// Geral só aparece quando nada está selecionado) -- nenhum precisa de
+// navegação nova, só filtro + scroll (menos "Mensagens novas não
+// vistas", que já é um <a href> de verdade pro item, resolvido no
+// template). Mockup aprovado por Matheus, 21/09/2026.
+(function () {
+    document.querySelectorAll('[data-ir-painel]').forEach(function (botao) {
+        botao.addEventListener('click', function () {
+            var alvo = botao.getAttribute('data-ir-painel');
+
+            if (alvo === 'encerradas') {
+                var abaEncerradas = document.querySelector('.dp-aba-btn[data-aba="encerradas"]');
+                if (abaEncerradas) abaEncerradas.click();
+                var painelEncerradas = document.querySelector('.dp-tab-panel[data-painel="encerradas"]');
+                if (painelEncerradas) painelEncerradas.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+
+            var abaAbertas = document.querySelector('.dp-aba-btn[data-aba="abertas"]');
+            if (abaAbertas && !abaAbertas.classList.contains('dp-aba-btn--ativa')) abaAbertas.click();
+
+            if (alvo === 'encontrados') {
+                var grupoEncontrados = document.querySelector('.med-grupo[data-grupo="encontrados"]');
+                if (grupoEncontrados && grupoEncontrados.getAttribute('data-recolhido') !== 'false') {
+                    var toggle = grupoEncontrados.querySelector('[data-toggle-grupo]');
+                    if (toggle) toggle.click();
+                }
+                if (grupoEncontrados) grupoEncontrados.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                return;
+            }
+
+            // 'todas' / 'urgente' / 'semprazo' -- clica o chip
+            // correspondente do grupo "Em acompanhamento" (mesma lógica
+            // de sempre, só disparada por outro elemento) e rola até a
+            // lista.
+            var grupoChips = document.querySelector('[data-chips="acompanhamento"]');
+            var chip = grupoChips ? grupoChips.querySelector('.dp-chip-filtro[data-filtro="' + alvo + '"]') : null;
+            if (chip) chip.click();
+            var listaAcompanhamento = document.querySelector('[data-lista="acompanhamento"]');
+            if (listaAcompanhamento) listaAcompanhamento.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+})();
+
+// Campo de resposta (visual) -- anexo de foto com pré-visualização real,
+// client-side, sem nenhum upload. Envio (com ou sem foto) ainda não
+// implementado nesta tela -- o botão de enviar não tem nenhum handler de
+// propósito (clicar nele não faz nada, mesmo comportamento do mockup
+// aprovado). Decisão de Matheus, 21/09/2026.
+(function () {
+    document.querySelectorAll('.med-resposta-caixa').forEach(function (caixa) {
+        var btnAnexar = caixa.querySelector('.med-resposta-anexar');
+        var input = caixa.querySelector('.med-resposta-file-input');
+        var tira = caixa.querySelector('.med-resposta-anexos');
+        if (!btnAnexar || !input || !tira) return;
+
+        btnAnexar.addEventListener('click', function () { input.click(); });
+
+        input.addEventListener('change', function () {
+            Array.prototype.forEach.call(input.files, function (arquivo) {
+                if (arquivo.type.indexOf('image/') !== 0) return;
+                var url = URL.createObjectURL(arquivo);
+                var item = document.createElement('span');
+                item.className = 'med-resposta-anexo';
+                var img = document.createElement('img');
+                img.src = url;
+                img.alt = 'Anexo';
+                var remover = document.createElement('button');
+                remover.type = 'button';
+                remover.className = 'med-resposta-anexo-remover';
+                remover.title = 'Remover anexo';
+                remover.innerHTML = '<i class="fas fa-xmark"></i>';
+                remover.addEventListener('click', function () {
+                    URL.revokeObjectURL(url);
+                    item.remove();
+                    tira.hidden = tira.children.length === 0;
+                });
+                item.appendChild(img);
+                item.appendChild(remover);
+                tira.appendChild(item);
+            });
+            tira.hidden = tira.children.length === 0;
+            input.value = '';
         });
     });
 })();

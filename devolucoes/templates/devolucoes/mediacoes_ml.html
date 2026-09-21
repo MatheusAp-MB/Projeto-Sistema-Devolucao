@@ -145,37 +145,41 @@
                         </span>
                         {% endif %}
                     </div>
+                    <span class="med-grupo-subtitulo">ordenada pela mensagem mais recente (enviada ou recebida) — sem conversa ainda fica por último</span>
                     <div class="dp-filtro-secundario" data-chips="acompanhamento">
                         <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todas">Todas ({{ contagem_acompanhamento.todas }})</button>
-                        <button type="button" class="dp-chip-filtro" data-filtro="reclamacao">Só reclamação ({{ contagem_acompanhamento.reclamacao }})</button>
-                        <button type="button" class="dp-chip-filtro" data-filtro="mediacao">+ Mediação ({{ contagem_acompanhamento.mediacao }})</button>
-                        <button type="button" class="dp-chip-filtro" data-filtro="devolucao">+ Devolução ({{ contagem_acompanhamento.devolucao }})</button>
-                        <button type="button" class="dp-chip-filtro" data-filtro="mediacao-devolucao">+ Mediação + Devolução ({{ contagem_acompanhamento.mediacao_devolucao }})</button>
+                        <button type="button" class="dp-chip-filtro" data-filtro="urgente"><i class="fas fa-triangle-exclamation"></i> Só prazo vencendo</button>
+                        <button type="button" class="dp-chip-filtro" data-filtro="semprazo"><i class="fas fa-circle-info"></i> Só sem prazo</button>
+                        <button type="button" class="dp-chip-filtro" data-filtro="contraparte"><i class="fas fa-comments"></i> Última mensagem do ML ou Cliente</button>
+                        <button type="button" class="dp-chip-filtro" data-filtro="nossa"><i class="fas fa-check"></i> Última mensagem nossa</button>
                     </div>
-                    <div class="dp-filtro-secundario">
-                        <button type="button" class="dp-chip-filtro" id="toggle-prazo-vencendo">
-                            <i class="fas fa-triangle-exclamation"></i> Só prazo vencendo
-                        </button>
-                    </div>
-                    <select class="med-select-ordenacao" data-ordena-lista="acompanhamento">
-                        <option value="recentes">Mais recentes primeiro</option>
-                        <option value="antigas">Mais antigas primeiro</option>
-                        <option value="nome">Nome do produto (A-Z)</option>
-                    </select>
                     <div class="med-lista-scroll" data-lista="acompanhamento">
                         {% for item in mediacoes_abertas %}
                         <div class="med-item{% if tipo_selecionado == item.tipo and mediacao_selecionada.id == item.id %} med-item--selecionada{% endif %}"
                              data-busca="{{ item.nome_cliente|lower }} {{ item.numero_pedido|lower }} {{ item.nome_produto|lower }}"
                              data-produto="{{ item.nome_produto|lower }}"
                              data-prazo-urgente="{% if item.prazo_urgente %}1{% else %}0{% endif %}"
+                             data-sem-prazo="{% if item.status_prazo_resposta is None %}1{% else %}0{% endif %}"
+                             data-ultimo-de="{{ item.ultima_mensagem_de|default:'' }}"
                              {% if item.categoria_slug %}data-combinacao="{{ item.categoria_slug }}"{% endif %}>
                             <a href="{% if item.tipo == 'devolucao' %}{% url 'mediacoes_ml_devolucao' item.id %}{% else %}{% url 'mediacoes_ml_avulsa' item.id %}{% endif %}"
                                class="med-item-link">
-                                <span class="med-item-foto"><i class="fas fa-comments"></i></span>
+                                <span class="med-item-foto">
+                                    <i class="fas fa-comments"></i>
+                                    {% if item.mensagem_nao_lida %}<span class="med-item-nao-lida" title="Mensagem do Mercado Livre ou do cliente ainda não vista"></span>{% endif %}
+                                </span>
                                 <span class="med-item-corpo">
-                                    <span class="med-item-topo">
+                                    <span class="med-item-topo-linha">
                                         <span class="med-item-produto" title="{{ item.nome_produto|default:'Produto não informado' }}">{{ item.nome_produto|default:"Produto não informado" }}</span>
+                                        {% if item.ultima_mensagem_em %}
+                                        <span class="med-item-hora{% if item.mensagem_nao_lida %} med-item-hora--nova{% endif %}">{{ item.ultima_mensagem_em|date:"d/m H:i" }}</span>
+                                        {% endif %}
                                     </span>
+                                    {% if item.ultima_mensagem_texto %}
+                                    <span class="med-item-ultima-msg"><b>{% if item.ultima_mensagem_de == 'ml' %}Mercado Livre{% elif item.ultima_mensagem_de == 'voce' %}Você{% else %}Cliente{% endif %}:</b> {{ item.ultima_mensagem_texto }}</span>
+                                    {% else %}
+                                    <span class="med-item-sem-conversa">{% if item.claim_id %}Sem mensagens nessa conversa ainda{% else %}Sem conversa ainda — reclamação não vinculada ainda{% endif %}</span>
+                                    {% endif %}
                                     <span class="med-item-rodape">
                                         <span class="med-item-pedido">Pedido {{ item.numero_pedido }} — {{ item.nome_cliente|default:"cliente não informado" }}</span>
                                         {% if item.categoria_slug == 'mediacao' %}
@@ -194,6 +198,10 @@
                                         <span class="dp-badge dp-badge--prazo-vencido"><i class="fas fa-triangle-exclamation"></i> Vence hoje</span>
                                         {% elif item.status_prazo_resposta == 'proximo' %}
                                         <span class="dp-badge dp-badge--prazo-proximo"><i class="fas fa-clock"></i> Vence em {{ item.dias_ate_prazo_resposta }} dia{{ item.dias_ate_prazo_resposta|pluralize }}</span>
+                                        {% elif item.status_prazo_resposta == 'ok' %}
+                                        <span class="dp-badge dp-badge--prazo-ok">Vence em {{ item.dias_ate_prazo_resposta }} dia{{ item.dias_ate_prazo_resposta|pluralize }}</span>
+                                        {% else %}
+                                        <span class="dp-badge dp-badge--sem-prazo">Sem prazo definido</span>
                                         {% endif %}
                                     </span>
                                 </span>
@@ -206,8 +214,8 @@
                                 </button>
                             </form>
                             {% elif item.tipo == 'devolucao' %}
-                            <span class="med-item-acao med-item-acao--fixa" title="Mediação vinculada a uma devolução — sempre acompanhada aqui">
-                                <i class="far fa-star"></i>
+                            <span class="med-item-acao med-item-acao--fixa" title="Mediação vinculada a uma devolução — sempre acompanhada aqui, não precisa clicar em nada">
+                                <i class="fas fa-lock"></i>
                             </span>
                             {% else %}
                             <span class="med-item-acao med-item-acao--fixa" title="Ainda não vinculada a uma reclamação do Mercado Livre">
@@ -400,9 +408,11 @@
                 {% endif %}
             </div>
             {% if not mediacao_selecionada.claim_id %}
-            <div class="med-conversa-pendente">
-                <i class="fas fa-circle-info"></i>
-                <span>Ainda não identificamos o ID da reclamação desse pedido — isso é preenchido automaticamente quando uma varredura completa encontra esse pedido no Mercado Livre.</span>
+            <div class="med-conversa-pendente med-conversa-pendente--retry">
+                <span><i class="fas fa-circle-info"></i> Ainda não identificamos o ID da reclamação desse pedido — isso é preenchido automaticamente quando uma varredura completa encontra esse pedido no Mercado Livre.</span>
+                <a href="{% if tipo_selecionado == 'devolucao' %}{% url 'mediacoes_ml_devolucao' mediacao_selecionada.id %}{% else %}{% url 'mediacoes_ml_avulsa' mediacao_selecionada.id %}{% endif %}" class="med-btn-retry">
+                    <i class="fas fa-arrows-rotate"></i> Tentar novamente
+                </a>
             </div>
             {% elif mensagens_falhou and not mensagens_chat %}
             <div class="med-conversa-pendente">
@@ -414,9 +424,9 @@
                 {% for msg in mensagens_chat %}
                 <div class="med-msg med-msg--{{ msg.papel }}">
                     <span class="med-msg-iniciais">{{ msg.iniciais }}</span>
-                    <div class="med-msg-bolha">
+                    <div class="med-msg-bolha{% if msg.nova %} med-msg-bolha--nova{% endif %}">
                         <div class="med-msg-topo">
-                            <span class="med-msg-rotulo">{{ msg.rotulo }}</span>
+                            <span class="med-msg-rotulo">{{ msg.rotulo }}{% if msg.nova %} <span class="med-pill-nova">Nova</span>{% endif %}</span>
                             <span class="med-msg-data">{{ msg.data }}</span>
                         </div>
                         <div class="med-msg-texto">{{ msg.texto_html|safe }}</div>
@@ -438,6 +448,22 @@
                 <i class="fas fa-circle-info"></i>
                 <span>Nenhuma mensagem nessa reclamação ainda.</span>
             </div>
+            {% endif %}
+            {% if mediacao_selecionada.claim_id %}
+            <div class="med-resposta-caixa">
+                <button type="button" class="med-resposta-anexar" title="Anexar foto">
+                    <i class="fas fa-paperclip"></i>
+                </button>
+                <input type="file" accept="image/*" multiple class="med-resposta-file-input" hidden>
+                <div class="med-resposta-corpo">
+                    <div class="med-resposta-anexos" hidden></div>
+                    <textarea class="med-resposta-input" rows="1" placeholder="Escreva sua resposta pro Mercado Livre..."></textarea>
+                </div>
+                <button type="button" class="med-resposta-enviar" title="Envio ainda não implementado nesta tela">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <p class="med-resposta-nota">Anexo é só pré-visualização local (clique no clipe e escolha uma foto) — envio, com ou sem foto, ainda não implementado nesta tela. Responda de verdade direto no Mercado Livre, pelos links acima.</p>
             {% endif %}
         </div>
         {% elif claim_previsualizado %}
@@ -502,9 +528,9 @@
                 {% for msg in mensagens_chat %}
                 <div class="med-msg med-msg--{{ msg.papel }}">
                     <span class="med-msg-iniciais">{{ msg.iniciais }}</span>
-                    <div class="med-msg-bolha">
+                    <div class="med-msg-bolha{% if msg.nova %} med-msg-bolha--nova{% endif %}">
                         <div class="med-msg-topo">
-                            <span class="med-msg-rotulo">{{ msg.rotulo }}</span>
+                            <span class="med-msg-rotulo">{{ msg.rotulo }}{% if msg.nova %} <span class="med-pill-nova">Nova</span>{% endif %}</span>
                             <span class="med-msg-data">{{ msg.data }}</span>
                         </div>
                         <div class="med-msg-texto">{{ msg.texto_html|safe }}</div>
@@ -532,24 +558,46 @@
         <div class="vd-cartao">
             <div class="vd-cartao-titulo">Painel Geral</div>
             <div class="med-stat-grid">
-                <div class="med-stat-card">
+                <button type="button" class="med-stat-card med-stat-card--btn" data-ir-painel="todas">
                     <div class="med-stat-numero">{{ mediacoes_abertas|length }}</div>
                     <div class="med-stat-legenda">Mediações em aberto</div>
-                </div>
-                <div class="med-stat-card">
+                    <div class="med-stat-cta"><i class="fas fa-chevron-right"></i> Ver lista completa</div>
+                </button>
+                <button type="button" class="med-stat-card med-stat-card--btn" data-ir-painel="encerradas">
                     <div class="med-stat-numero">{{ mediacoes_encerradas|length }}</div>
                     <div class="med-stat-legenda">Encerradas</div>
-                </div>
+                    <div class="med-stat-cta"><i class="fas fa-chevron-right"></i> Ver encerradas</div>
+                </button>
                 {% if contagem_prazo_urgente_acompanhamento %}
-                <div class="med-stat-card med-stat-card--alerta">
+                <button type="button" class="med-stat-card med-stat-card--alerta" data-ir-painel="urgente">
                     <div class="med-stat-numero">{{ contagem_prazo_urgente_acompanhamento }}</div>
                     <div class="med-stat-legenda">Com prazo urgente</div>
-                </div>
+                    <div class="med-stat-cta"><i class="fas fa-chevron-right"></i> Ver na lista</div>
+                </button>
                 {% endif %}
+                {% if contagem_sem_prazo_acompanhamento %}
+                <button type="button" class="med-stat-card med-stat-card--atencao" data-ir-painel="semprazo">
+                    <div class="med-stat-numero">{{ contagem_sem_prazo_acompanhamento }}</div>
+                    <div class="med-stat-legenda">Sem prazo definido</div>
+                    <div class="med-stat-cta"><i class="fas fa-chevron-right"></i> Ver na lista</div>
+                </button>
+                {% endif %}
+                {% if url_primeiro_nao_lido %}
+                <a href="{{ url_primeiro_nao_lido }}" class="med-stat-card med-stat-card--btn">
+                    <div class="med-stat-numero">{{ contagem_mensagens_novas_acompanhamento }}</div>
+                    <div class="med-stat-legenda">Mensagens novas não vistas</div>
+                    <div class="med-stat-cta"><i class="fas fa-chevron-right"></i> Abrir mediação</div>
+                </a>
+                {% endif %}
+                <button type="button" class="med-stat-card med-stat-card--btn" data-ir-painel="encontrados">
+                    <div class="med-stat-numero">{{ contagem_encontrados.todas }}</div>
+                    <div class="med-stat-legenda">Encontrados pelo sistema</div>
+                    <div class="med-stat-cta"><i class="fas fa-chevron-right"></i> Ver grupo</div>
+                </button>
             </div>
             <div class="med-home-dica">
                 <i class="fas fa-circle-info"></i>
-                <span>Selecione uma mediação na lista ao lado pra ver os dados completos. Indicador de mensagem nova entra numa próxima etapa, junto com a busca real de mensagens.</span>
+                <span>Clique em qualquer número acima pra ir direto ao que ele representa. Itens com <span class="med-item-nao-lida" style="position:static;display:inline-block;width:8px;height:8px;vertical-align:middle;"></span> na lista têm mensagem do Mercado Livre ou do cliente que você ainda não abriu.</span>
             </div>
         </div>
         {% endif %}

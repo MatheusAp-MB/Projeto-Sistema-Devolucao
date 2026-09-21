@@ -27,6 +27,7 @@ from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -42,9 +43,10 @@ from .models import (
 from .reorganizacao_fotos import reorganizar_fotos_devolucao
 from .varredura_mediacoes import (
     atualizar_e_formatar_mensagens, buscar_nome_cliente_e_produto,
-    categoria_slug, completar_avulsa_automaticamente, contagem_por_categoria,
-    executar_atualizacao_acompanhados, executar_varredura_completa,
-    formatar_mensagens_em_cache, resolver_claim_por_numero_pedido,
+    calcular_ultima_mensagem, categoria_slug, completar_avulsa_automaticamente,
+    contagem_por_categoria, executar_atualizacao_acompanhados,
+    executar_varredura_completa, formatar_mensagens_em_cache,
+    resolver_claim_por_numero_pedido,
 )
 
 
@@ -846,6 +848,7 @@ def _serializar_mediacao(obj, tipo):
         'dias_ate_prazo_resposta': obj.dias_ate_prazo_resposta,
         'dias_desde_vencimento_prazo': obj.dias_desde_vencimento_prazo,
         'prazo_urgente': obj.prazo_urgente,
+        'mediacao_visualizada_em': obj.mediacao_visualizada_em,
     }
 
 
@@ -896,11 +899,9 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
     avulsas_abertas = MediacaoAvulsa.objects.filter(data_finalizacao_mediacao__isnull=True).exclude(claim_id__in=claim_ids_desmarcados)
     avulsas_encerradas = MediacaoAvulsa.objects.filter(data_finalizacao_mediacao__isnull=False)
 
-    mediacoes_abertas = sorted(
+    mediacoes_abertas = (
         [_serializar_mediacao(d, 'devolucao') for d in devolucoes_abertas]
-        + [_serializar_mediacao(a, 'avulsa') for a in avulsas_abertas],
-        key=lambda m: m['data_abertura_mediacao'] or date.min,
-        reverse=True,
+        + [_serializar_mediacao(a, 'avulsa') for a in avulsas_abertas]
     )
     mediacoes_encerradas = sorted(
         [_serializar_mediacao(d, 'devolucao') for d in devolucoes_encerradas]
@@ -910,12 +911,27 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
     )
 
     # * [EXPLICACAO] -> categoria (Reclamacao/+Mediacao/+Devolucao/+
-    #   Mediacao+Devolucao) de cada item de "Em Acompanhamento" -- so
-    #   resolve pra quem ja tem claim_id (casado por uma varredura alguma
-    #   vez); quem ainda nao foi casado fica sem badge de categoria
-    #   (mostra o badge "Aberta" de sempre) em vez de arriscar uma
-    #   classificacao errada -- e continua sempre visivel nos 4 chips
-    #   (so item com categoria resolvida e escondido pelo filtro).
+    #   Mediacao+Devolucao), última mensagem (pra ordenar "Em
+    #   Acompanhamento" como um chat) e indicador de mensagem não lida de
+    #   cada item de "Em Acompanhamento" -- tudo a partir do MESMO
+    #   cache.mensagens que a varredura ("Atualizar itens em
+    #   acompanhamento") já busca pra todo item acompanhado, sem custo de
+    #   API extra nenhum aqui. Só resolve pra quem já tem claim_id (casado
+    #   por uma varredura alguma vez); quem ainda não foi casado fica sem
+    #   nada disso (mostra o badge "Aberta" de sempre, sem preview de
+    #   mensagem) em vez de arriscar uma classificação errada.
+    #
+    #   [DECISÃO 21/09/2026] -> "ordenar por última mensagem" NÃO precisa
+    #   de nenhum campo novo no banco nem de nenhuma chamada de API por
+    #   item aqui na view -- cache.mensagens (ClaimMercadoLivre) já é
+    #   populado pra TODO item com esta_acompanhando=True sempre que
+    #   "Atualizar itens em acompanhamento" roda
+    #   (executar_atualizacao_acompanhados, varredura_mediacoes.py), e
+    #   todo item que aparece aqui em "Em Acompanhamento" tem
+    #   esta_acompanhando=True no ClaimMercadoLivre correspondente
+    #   (casamento automático, ver executar_varredura_completa). Por isso
+    #   calcular_ultima_mensagem só LÊ o que já está cacheado -- zero
+    #   migration, zero custo novo.
     cache_por_claim_id = {
         c.claim_id: c
         for c in ClaimMercadoLivre.objects.filter(
@@ -925,6 +941,32 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
     for item in mediacoes_abertas:
         cache = cache_por_claim_id.get(item['claim_id'])
         item['categoria_slug'] = categoria_slug(cache.dados_brutos.get('stage'), cache.tem_devolucao_fisica) if cache else None
+
+        ultima_mensagem_em, ultima_mensagem_de, ultima_mensagem_texto = (
+            calcular_ultima_mensagem(cache.mensagens, cache) if cache else (None, None, None)
+        )
+        item['ultima_mensagem_em'] = ultima_mensagem_em
+        item['ultima_mensagem_de'] = ultima_mensagem_de
+        item['ultima_mensagem_texto'] = ultima_mensagem_texto
+        # * [EXPLICACAO] -> "não lida" só conta mensagem que NÃO foi
+        #   mandada por nós (ml ou cliente) e mais recente que a última
+        #   vez que essa mediação foi aberta aqui (mediacao_visualizada_em
+        #   nulo = nunca abriu, então qualquer mensagem existente conta).
+        item['mensagem_nao_lida'] = bool(
+            ultima_mensagem_de and ultima_mensagem_de != 'voce'
+            and (not item['mediacao_visualizada_em'] or (ultima_mensagem_em and ultima_mensagem_em > item['mediacao_visualizada_em']))
+        )
+
+    # * [EXPLICACAO] -> "Em acompanhamento" ordenada como um chat -- mais
+    #   recente primeiro pela ÚLTIMA MENSAGEM (enviada ou recebida), não
+    #   mais pela data de abertura da mediação. Item sem nenhuma mensagem
+    #   ainda (claim não resolvido, ou resolvido mas a varredura nunca
+    #   trouxe as mensagens) sempre fica por último, no fim da lista --
+    #   não tem "última mensagem" nenhuma pra comparar. Mockup aprovado
+    #   por Matheus, 21/09/2026.
+    mediacoes_abertas.sort(
+        key=lambda m: (0, -m['ultima_mensagem_em'].timestamp()) if m['ultima_mensagem_em'] else (1, 0)
+    )
 
     # * [EXPLICACAO] -> "Encontrados pelo Sistema" -- resultado bruto da
     #   ultima varredura, so o que ainda NAO esta em acompanhamento (quem
@@ -945,11 +987,25 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
     contagem_encontrados = contagem_por_categoria(encontrados)
     contagem_acompanhamento = contagem_por_categoria(mediacoes_abertas)
 
-    # * [EXPLICACAO] -> contador de alerta pro grupo "Em acompanhamento"
-    #   e pro card extra do Painel Geral -- soma quem esta vencido, vence
-    #   hoje ou vence nos proximos 2 dias (ver Devolucao.prazo_urgente /
-    #   MediacaoAvulsa.prazo_urgente). Decisao de Matheus, 20/09/2026.
+    # * [EXPLICACAO] -> contadores de alerta pro grupo "Em acompanhamento"
+    #   e pros cards do Painel Geral -- prazo urgente (vencido/hoje/
+    #   próximo, já existia), sem prazo definido nenhuma vez (novo) e
+    #   mensagem nova não vista (novo). Decisão de Matheus, 20 e
+    #   21/09/2026.
     contagem_prazo_urgente_acompanhamento = sum(1 for m in mediacoes_abertas if m['prazo_urgente'])
+    contagem_sem_prazo_acompanhamento = sum(1 for m in mediacoes_abertas if m['status_prazo_resposta'] is None)
+    contagem_mensagens_novas_acompanhamento = sum(1 for m in mediacoes_abertas if m['mensagem_nao_lida'])
+
+    # * [EXPLICACAO] -> URL da 1ª mediação com mensagem não lida (na mesma
+    #   ordem -- mais recente primeiro -- da lista acima), pro card
+    #   "Mensagens novas não vistas" do Painel Geral levar direto pra
+    #   ela. None quando não tem nenhuma -- o card nem aparece nesse caso
+    #   (ver template).
+    primeiro_item_nao_lido = next((m for m in mediacoes_abertas if m['mensagem_nao_lida']), None)
+    url_primeiro_nao_lido = None
+    if primeiro_item_nao_lido:
+        nome_url_nao_lido = 'mediacoes_ml_devolucao' if primeiro_item_nao_lido['tipo'] == 'devolucao' else 'mediacoes_ml_avulsa'
+        url_primeiro_nao_lido = reverse(nome_url_nao_lido, args=[primeiro_item_nao_lido['id']])
 
     mediacao_selecionada = None
     tipo_selecionado = None
@@ -970,9 +1026,15 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
     mensagens_chat = None
     mensagens_falhou = False
     if mediacao_selecionada:
-        # * [EXPLICAÇÃO] → marca como "visualizada agora" só de abrir a
-        #   tela — é o gatilho do indicador de mensagem nova (entra na
-        #   próxima etapa, quando a mensagem real existir pra comparar).
+        # * [EXPLICAÇÃO] → guarda a visualização ANTERIOR antes de
+        #   sobrescrever com "agora" -- é o que decide quais mensagens
+        #   recém-buscadas contam como "nova" pro destaque no chat (ver
+        #   _formatar_mensagens/desde, varredura_mediacoes.py). Nulo na
+        #   1ª vez que essa mediação é aberta -- nesse caso toda mensagem
+        #   que não é nossa conta como nova. Decisão de Matheus,
+        #   21/09/2026 -- fecha a promessa de indicador de mensagem nova
+        #   que a própria tela já fazia.
+        visualizada_em_anterior = mediacao_selecionada.mediacao_visualizada_em
         mediacao_selecionada.mediacao_visualizada_em = timezone.now()
         mediacao_selecionada.save(update_fields=['mediacao_visualizada_em'])
 
@@ -1002,7 +1064,9 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
         if mediacao_selecionada.claim_id:
             cache_da_conversa = ClaimMercadoLivre.objects.filter(pk=mediacao_selecionada.claim_id).first()
             if cache_da_conversa and conta:
-                mensagens_chat, sucesso = atualizar_e_formatar_mensagens(conta, cache_da_conversa, mediacao_selecionada.nome_cliente)
+                mensagens_chat, sucesso = atualizar_e_formatar_mensagens(
+                    conta, cache_da_conversa, mediacao_selecionada.nome_cliente, desde=visualizada_em_anterior,
+                )
                 mensagens_falhou = not sucesso
                 if sucesso:
                     mediacao_selecionada.mediacao_atualizada_em = timezone.now()
@@ -1046,6 +1110,9 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
         'contagem_encontrados': contagem_encontrados,
         'contagem_acompanhamento': contagem_acompanhamento,
         'contagem_prazo_urgente_acompanhamento': contagem_prazo_urgente_acompanhamento,
+        'contagem_sem_prazo_acompanhamento': contagem_sem_prazo_acompanhamento,
+        'contagem_mensagens_novas_acompanhamento': contagem_mensagens_novas_acompanhamento,
+        'url_primeiro_nao_lido': url_primeiro_nao_lido,
         'mediacao_selecionada': mediacao_selecionada,
         'tipo_selecionado': tipo_selecionado,
         'claim_previsualizado': claim_previsualizado,
