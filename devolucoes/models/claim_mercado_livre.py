@@ -27,8 +27,13 @@ class ClaimMercadoLivre(models.Model):
         help_text='Mesmo texto livre do MediacaoAvulsa.nome_produto — buscado junto do nome do cliente.',
     )
     meu_papel = models.CharField(
-        'Nosso papel nesta reclamação', max_length=20,
-        help_text='"respondent" ou "complainant" — vem de qual busca (players.role) encontrou o claim.',
+        'Nosso papel nesta reclamação', max_length=20, null=True, blank=True,
+        help_text='"respondent" ou "complainant" — vem de qual busca (players.role) encontrou o claim. '
+                   'Pode ficar None quando a resolução falha (API fora do ar na hora, ou o usuário não '
+                   'apareceu na lista de "players" do claim) — None aqui significa "não sabemos ainda", '
+                   'nunca deve ser tratado como equivalente a "complainant" (comprador). CORREÇÃO '
+                   '21/09/2026: antes esse campo não aceitava null, e uma resolução que falhasse tentava '
+                   'gravar None mesmo assim — IntegrityError, derrubando a tela de detalhe daquele pedido.',
     )
     dados_brutos = models.JSONField(
         'Dados brutos do claim',
@@ -39,6 +44,33 @@ class ClaimMercadoLivre(models.Model):
         help_text='True/False confirmado via GET /post-purchase/v2/claims/{id}/returns — None quando não deu pra confirmar (erro que não foi um 404 limpo).',
     )
     mensagens = models.JSONField('Mensagens da reclamação', null=True, blank=True)
+    # * [EXPLICACAO] -> CORREÇÃO 21/09/2026: os 3 campos abaixo são um
+    #   resumo denormalizado da mensagem mais recente dentro de
+    #   `mensagens` (mesmo formato que calcular_ultima_mensagem sempre
+    #   devolveu) -- calculados 1x só nos 3 lugares que gravam `mensagens`
+    #   de verdade (executar_varredura_completa, executar_atualizacao_
+    #   acompanhados e atualizar_e_formatar_mensagens, varredura_mediacoes
+    #   .py), em vez de recalculados do zero (desserializando o JSON
+    #   inteiro de `mensagens` e rodando max() nele) TODA VEZ que a tela
+    #   de Mediações ML renderiza a barra lateral "Em acompanhamento" --
+    #   que é o que a versão anterior fazia, pra CADA item acompanhado,
+    #   em TODA requisição (até só pra abrir o detalhe de 1 mediação,
+    #   já que a barra lateral sempre renderiza junto). Ler 3 colunas
+    #   leves é ordens de magnitude mais barato que reprocessar o
+    #   histórico inteiro de mensagens de cada claim aberto a cada
+    #   carregamento de página.
+    ultima_mensagem_em = models.DateTimeField(
+        'Data/hora da última mensagem', null=True, blank=True,
+        help_text='Denormalizado de mensagens -- ver comentário acima. Usado pra ordenar "Em acompanhamento" como um chat (mais recente primeiro) e pro indicador de mensagem não lida.',
+    )
+    ultima_mensagem_de = models.CharField(
+        'Quem mandou a última mensagem', max_length=10, null=True, blank=True,
+        help_text='"ml" / "voce" / "cliente", ou None quando não dá pra saber com certeza (ex: meu_papel ainda não resolvido) -- mesmo critério de _formatar_mensagens. Denormalizado de mensagens.',
+    )
+    ultima_mensagem_resumo = models.TextField(
+        'Resumo da última mensagem', null=True, blank=True,
+        help_text='Versão curta (sem HTML, truncada) do texto da última mensagem, pra pré-visualização de 1 linha na lista. Denormalizado de mensagens.',
+    )
     esta_acompanhando = models.BooleanField(
         'Está em acompanhamento?', default=False,
         help_text='Liga automaticamente (casa com Devolucao pelo numero_pedido) ou manualmente ("Acompanhar") — só desliga por ação explícita ("Deixar de acompanhar"), nunca reativa sozinha numa varredura futura.',

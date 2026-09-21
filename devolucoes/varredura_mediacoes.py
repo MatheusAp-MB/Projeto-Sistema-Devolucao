@@ -403,6 +403,8 @@ def executar_varredura_completa(empresa):
             #   funcao em acompanhar_claim.
             nome_cliente, nome_produto = buscar_nome_cliente_e_produto(conta, numero_pedido)
 
+            ultima_mensagem_em, ultima_mensagem_de, ultima_mensagem_resumo = calcular_ultima_mensagem(mensagens, papel)
+
             cache, _criado = ClaimMercadoLivre.objects.update_or_create(
                 claim_id=claim_id,
                 defaults={
@@ -414,6 +416,9 @@ def executar_varredura_completa(empresa):
                     'nome_cliente': nome_cliente,
                     'nome_produto': nome_produto,
                     'ultima_busca_em': timezone.now(),
+                    'ultima_mensagem_em': ultima_mensagem_em,
+                    'ultima_mensagem_de': ultima_mensagem_de,
+                    'ultima_mensagem_resumo': ultima_mensagem_resumo,
                 },
             )
 
@@ -475,10 +480,18 @@ def executar_atualizacao_acompanhados(empresa):
             if mensagens is None:
                 itens_nao_confirmados += 1
 
+            ultima_mensagem_em, ultima_mensagem_de, ultima_mensagem_resumo = calcular_ultima_mensagem(mensagens, cache.meu_papel)
+
             cache.tem_devolucao_fisica = tem_devolucao
             cache.mensagens = mensagens
             cache.ultima_busca_em = timezone.now()
-            cache.save(update_fields=['tem_devolucao_fisica', 'mensagens', 'ultima_busca_em'])
+            cache.ultima_mensagem_em = ultima_mensagem_em
+            cache.ultima_mensagem_de = ultima_mensagem_de
+            cache.ultima_mensagem_resumo = ultima_mensagem_resumo
+            cache.save(update_fields=[
+                'tem_devolucao_fisica', 'mensagens', 'ultima_busca_em',
+                'ultima_mensagem_em', 'ultima_mensagem_de', 'ultima_mensagem_resumo',
+            ])
 
             _atualizar_status(processados=indice, itens_nao_confirmados=itens_nao_confirmados)
 
@@ -560,7 +573,7 @@ def _resumo_mensagem(texto_bruto):
     return sem_tags or '(sem texto — mensagem só com anexo)'
 
 
-def calcular_ultima_mensagem(mensagens_brutas, cache):
+def calcular_ultima_mensagem(mensagens_brutas, meu_papel):
     """A partir de mensagens já cacheadas (cache.mensagens, SEM nenhuma
     chamada nova de API -- mesmo espírito de formatar_mensagens_em_cache)
     ou recém buscadas, acha a mensagem mais recente e devolve
@@ -610,9 +623,9 @@ def calcular_ultima_mensagem(mensagens_brutas, cache):
     sender = mais_recente.get('sender_role')
     if sender == 'mediator':
         quem = 'ml'
-    elif cache.meu_papel is None:
+    elif meu_papel is None:
         quem = None
-    elif sender == cache.meu_papel:
+    elif sender == meu_papel:
         quem = 'voce'
     else:
         quem = 'cliente'
@@ -734,9 +747,17 @@ def atualizar_e_formatar_mensagens(conta, cache, nome_cliente, desde=None):
     sucesso = mensagens_brutas is not None
 
     if sucesso:
+        ultima_mensagem_em, ultima_mensagem_de, ultima_mensagem_resumo = calcular_ultima_mensagem(mensagens_brutas, cache.meu_papel)
+
         cache.mensagens = mensagens_brutas
         cache.ultima_busca_em = timezone.now()
-        cache.save(update_fields=['mensagens', 'ultima_busca_em'])
+        cache.ultima_mensagem_em = ultima_mensagem_em
+        cache.ultima_mensagem_de = ultima_mensagem_de
+        cache.ultima_mensagem_resumo = ultima_mensagem_resumo
+        cache.save(update_fields=[
+            'mensagens', 'ultima_busca_em',
+            'ultima_mensagem_em', 'ultima_mensagem_de', 'ultima_mensagem_resumo',
+        ])
     else:
         mensagens_brutas = cache.mensagens
 

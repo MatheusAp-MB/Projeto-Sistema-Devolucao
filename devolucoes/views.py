@@ -43,7 +43,7 @@ from .models import (
 from .reorganizacao_fotos import reorganizar_fotos_devolucao
 from .varredura_mediacoes import (
     atualizar_e_formatar_mensagens, buscar_nome_cliente_e_produto,
-    calcular_ultima_mensagem, categoria_slug, completar_avulsa_automaticamente,
+    categoria_slug, completar_avulsa_automaticamente,
     contagem_por_categoria, executar_atualizacao_acompanhados,
     executar_varredura_completa, formatar_mensagens_em_cache,
     resolver_claim_por_numero_pedido,
@@ -910,103 +910,19 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
         reverse=True,
     )
 
-    # * [EXPLICACAO] -> categoria (Reclamacao/+Mediacao/+Devolucao/+
-    #   Mediacao+Devolucao), última mensagem (pra ordenar "Em
-    #   Acompanhamento" como um chat) e indicador de mensagem não lida de
-    #   cada item de "Em Acompanhamento" -- tudo a partir do MESMO
-    #   cache.mensagens que a varredura ("Atualizar itens em
-    #   acompanhamento") já busca pra todo item acompanhado, sem custo de
-    #   API extra nenhum aqui. Só resolve pra quem já tem claim_id (casado
-    #   por uma varredura alguma vez); quem ainda não foi casado fica sem
-    #   nada disso (mostra o badge "Aberta" de sempre, sem preview de
-    #   mensagem) em vez de arriscar uma classificação errada.
-    #
-    #   [DECISÃO 21/09/2026] -> "ordenar por última mensagem" NÃO precisa
-    #   de nenhum campo novo no banco nem de nenhuma chamada de API por
-    #   item aqui na view -- cache.mensagens (ClaimMercadoLivre) já é
-    #   populado pra TODO item com esta_acompanhando=True sempre que
-    #   "Atualizar itens em acompanhamento" roda
-    #   (executar_atualizacao_acompanhados, varredura_mediacoes.py), e
-    #   todo item que aparece aqui em "Em Acompanhamento" tem
-    #   esta_acompanhando=True no ClaimMercadoLivre correspondente
-    #   (casamento automático, ver executar_varredura_completa). Por isso
-    #   calcular_ultima_mensagem só LÊ o que já está cacheado -- zero
-    #   migration, zero custo novo.
-    cache_por_claim_id = {
-        c.claim_id: c
-        for c in ClaimMercadoLivre.objects.filter(
-            claim_id__in=[m['claim_id'] for m in mediacoes_abertas if m['claim_id']]
-        )
-    }
-    for item in mediacoes_abertas:
-        cache = cache_por_claim_id.get(item['claim_id'])
-        item['categoria_slug'] = categoria_slug(cache.dados_brutos.get('stage'), cache.tem_devolucao_fisica) if cache else None
-
-        ultima_mensagem_em, ultima_mensagem_de, ultima_mensagem_texto = (
-            calcular_ultima_mensagem(cache.mensagens, cache) if cache else (None, None, None)
-        )
-        item['ultima_mensagem_em'] = ultima_mensagem_em
-        item['ultima_mensagem_de'] = ultima_mensagem_de
-        item['ultima_mensagem_texto'] = ultima_mensagem_texto
-        # * [EXPLICACAO] -> "não lida" só conta mensagem que NÃO foi
-        #   mandada por nós (ml ou cliente) e mais recente que a última
-        #   vez que essa mediação foi aberta aqui (mediacao_visualizada_em
-        #   nulo = nunca abriu, então qualquer mensagem existente conta).
-        item['mensagem_nao_lida'] = bool(
-            ultima_mensagem_de and ultima_mensagem_de != 'voce'
-            and (not item['mediacao_visualizada_em'] or (ultima_mensagem_em and ultima_mensagem_em > item['mediacao_visualizada_em']))
-        )
-
-    # * [EXPLICACAO] -> "Em acompanhamento" ordenada como um chat -- mais
-    #   recente primeiro pela ÚLTIMA MENSAGEM (enviada ou recebida), não
-    #   mais pela data de abertura da mediação. Item sem nenhuma mensagem
-    #   ainda (claim não resolvido, ou resolvido mas a varredura nunca
-    #   trouxe as mensagens) sempre fica por último, no fim da lista --
-    #   não tem "última mensagem" nenhuma pra comparar. Mockup aprovado
-    #   por Matheus, 21/09/2026.
-    mediacoes_abertas.sort(
-        key=lambda m: (0, -m['ultima_mensagem_em'].timestamp()) if m['ultima_mensagem_em'] else (1, 0)
-    )
-
-    # * [EXPLICACAO] -> "Encontrados pelo Sistema" -- resultado bruto da
-    #   ultima varredura, so o que ainda NAO esta em acompanhamento (quem
-    #   ja esta, aparece do lado de "Em Acompanhamento" acima). Nunca
-    #   aparece em "Encerradas" -- a varredura so busca status "opened".
-    #   Decisao de Matheus, 20/09/2026.
-    encontrados = [
-        {
-            'claim_id': c.claim_id,
-            'numero_pedido': c.numero_pedido,
-            'nome_cliente': c.nome_cliente,
-            'nome_produto': c.nome_produto,
-            'categoria_slug': categoria_slug(c.dados_brutos.get('stage'), c.tem_devolucao_fisica),
-        }
-        for c in ClaimMercadoLivre.objects.filter(esta_acompanhando=False)
-    ]
-
-    contagem_encontrados = contagem_por_categoria(encontrados)
-    contagem_acompanhamento = contagem_por_categoria(mediacoes_abertas)
-
-    # * [EXPLICACAO] -> contadores de alerta pro grupo "Em acompanhamento"
-    #   e pros cards do Painel Geral -- prazo urgente (vencido/hoje/
-    #   próximo, já existia), sem prazo definido nenhuma vez (novo) e
-    #   mensagem nova não vista (novo). Decisão de Matheus, 20 e
-    #   21/09/2026.
-    contagem_prazo_urgente_acompanhamento = sum(1 for m in mediacoes_abertas if m['prazo_urgente'])
-    contagem_sem_prazo_acompanhamento = sum(1 for m in mediacoes_abertas if m['status_prazo_resposta'] is None)
-    contagem_mensagens_novas_acompanhamento = sum(1 for m in mediacoes_abertas if m['mensagem_nao_lida'])
-
-    # * [EXPLICACAO] -> URL da 1ª mediação com mensagem não lida (na mesma
-    #   ordem -- mais recente primeiro -- da lista acima), pro card
-    #   "Mensagens novas não vistas" do Painel Geral levar direto pra
-    #   ela. None quando não tem nenhuma -- o card nem aparece nesse caso
-    #   (ver template).
-    primeiro_item_nao_lido = next((m for m in mediacoes_abertas if m['mensagem_nao_lida']), None)
-    url_primeiro_nao_lido = None
-    if primeiro_item_nao_lido:
-        nome_url_nao_lido = 'mediacoes_ml_devolucao' if primeiro_item_nao_lido['tipo'] == 'devolucao' else 'mediacoes_ml_avulsa'
-        url_primeiro_nao_lido = reverse(nome_url_nao_lido, args=[primeiro_item_nao_lido['id']])
-
+    # * [EXPLICACAO] -> CORREÇÃO 21/09/2026: este bloco (resolução de
+    #   mediacao_selecionada + refresh síncrono de mensagens do chat
+    #   aberto) rodava DEPOIS da montagem da barra lateral "Em
+    #   Acompanhamento" logo abaixo -- então, quando essa mesma
+    #   requisição buscava mensagens novas (ou resolvia um claim_id que
+    #   ainda faltava), o registro de ClaimMercadoLivre já tinha sido
+    #   lido (cache_por_claim_id) e a barra lateral montada ANTES dessa
+    #   atualização acontecer -- Ana via a mensagem nova só no detalhe do
+    #   chat aberto, mas a prévia/negrito da barra lateral continuava
+    #   mostrando o estado de antes até a próxima requisição. Movido pra
+    #   antes da leitura de cache_por_claim_id, na mesma ordem em que a
+    #   tela renderiza (detalhe é decidido primeiro, barra lateral usa o
+    #   resultado), pra essa mesma requisição já refletir tudo.
     mediacao_selecionada = None
     tipo_selecionado = None
     claim_previsualizado = None
@@ -1071,6 +987,103 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
                 if sucesso:
                     mediacao_selecionada.mediacao_atualizada_em = timezone.now()
                     mediacao_selecionada.save(update_fields=['mediacao_atualizada_em'])
+
+    # * [EXPLICACAO] -> categoria (Reclamacao/+Mediacao/+Devolucao/+
+    #   Mediacao+Devolucao), última mensagem (pra ordenar "Em
+    #   Acompanhamento" como um chat) e indicador de mensagem não lida de
+    #   cada item de "Em Acompanhamento" -- lidos direto de
+    #   ClaimMercadoLivre (categoria recalculada na hora a partir de
+    #   dados_brutos/tem_devolucao_fisica; última mensagem já vem
+    #   denormalizada nos campos ultima_mensagem_em/de/resumo -- ver
+    #   comentário no model). Só resolve pra quem já tem claim_id (casado
+    #   por uma varredura alguma vez); quem ainda não foi casado fica sem
+    #   nada disso (mostra o badge "Aberta" de sempre, sem preview de
+    #   mensagem) em vez de arriscar uma classificação errada.
+    #
+    #   [CORREÇÃO 21/09/2026] -> antes, "última mensagem" era recalculada
+    #   AQUI chamando calcular_ultima_mensagem(cache.mensagens, cache)
+    #   pra CADA item de "Em acompanhamento", em TODA requisição desta
+    #   tela -- reprocessando do zero o JSON inteiro de cache.mensagens
+    #   (que pode acumular centenas de mensagens) e rodando max() nele,
+    #   até só pra abrir o detalhe de 1 mediação (a barra lateral sempre
+    #   renderiza junto). Agora os 3 campos (ultima_mensagem_em/de/
+    #   resumo) são calculados 1x só, nos 3 lugares que gravam mensagens
+    #   de verdade (executar_varredura_completa,
+    #   executar_atualizacao_acompanhados e atualizar_e_formatar_mensagens,
+    #   varredura_mediacoes.py) e lidos já prontos aqui -- ordens de
+    #   magnitude mais barato, ao custo de 3 colunas a mais em
+    #   ClaimMercadoLivre (migration 0023).
+    cache_por_claim_id = {
+        c.claim_id: c
+        for c in ClaimMercadoLivre.objects.filter(
+            claim_id__in=[m['claim_id'] for m in mediacoes_abertas if m['claim_id']]
+        )
+    }
+    for item in mediacoes_abertas:
+        cache = cache_por_claim_id.get(item['claim_id'])
+        item['categoria_slug'] = categoria_slug(cache.dados_brutos.get('stage'), cache.tem_devolucao_fisica) if cache else None
+
+        item['ultima_mensagem_em'] = cache.ultima_mensagem_em if cache else None
+        item['ultima_mensagem_de'] = cache.ultima_mensagem_de if cache else None
+        item['ultima_mensagem_texto'] = cache.ultima_mensagem_resumo if cache else None
+        # * [EXPLICACAO] -> "não lida" só conta mensagem que NÃO foi
+        #   mandada por nós (ml ou cliente) e mais recente que a última
+        #   vez que essa mediação foi aberta aqui (mediacao_visualizada_em
+        #   nulo = nunca abriu, então qualquer mensagem existente conta).
+        item['mensagem_nao_lida'] = bool(
+            item['ultima_mensagem_de'] and item['ultima_mensagem_de'] != 'voce'
+            and (not item['mediacao_visualizada_em'] or (item['ultima_mensagem_em'] and item['ultima_mensagem_em'] > item['mediacao_visualizada_em']))
+        )
+
+    # * [EXPLICACAO] -> "Em acompanhamento" ordenada como um chat -- mais
+    #   recente primeiro pela ÚLTIMA MENSAGEM (enviada ou recebida), não
+    #   mais pela data de abertura da mediação. Item sem nenhuma mensagem
+    #   ainda (claim não resolvido, ou resolvido mas a varredura nunca
+    #   trouxe as mensagens) sempre fica por último, no fim da lista --
+    #   não tem "última mensagem" nenhuma pra comparar. Mockup aprovado
+    #   por Matheus, 21/09/2026.
+    mediacoes_abertas.sort(
+        key=lambda m: (0, -m['ultima_mensagem_em'].timestamp()) if m['ultima_mensagem_em'] else (1, 0)
+    )
+
+    # * [EXPLICACAO] -> "Encontrados pelo Sistema" -- resultado bruto da
+    #   ultima varredura, so o que ainda NAO esta em acompanhamento (quem
+    #   ja esta, aparece do lado de "Em Acompanhamento" acima). Nunca
+    #   aparece em "Encerradas" -- a varredura so busca status "opened".
+    #   Decisao de Matheus, 20/09/2026.
+    encontrados = [
+        {
+            'claim_id': c.claim_id,
+            'numero_pedido': c.numero_pedido,
+            'nome_cliente': c.nome_cliente,
+            'nome_produto': c.nome_produto,
+            'categoria_slug': categoria_slug(c.dados_brutos.get('stage'), c.tem_devolucao_fisica),
+        }
+        for c in ClaimMercadoLivre.objects.filter(esta_acompanhando=False)
+    ]
+
+    contagem_encontrados = contagem_por_categoria(encontrados)
+    contagem_acompanhamento = contagem_por_categoria(mediacoes_abertas)
+
+    # * [EXPLICACAO] -> contadores de alerta pro grupo "Em acompanhamento"
+    #   e pros cards do Painel Geral -- prazo urgente (vencido/hoje/
+    #   próximo, já existia), sem prazo definido nenhuma vez (novo) e
+    #   mensagem nova não vista (novo). Decisão de Matheus, 20 e
+    #   21/09/2026.
+    contagem_prazo_urgente_acompanhamento = sum(1 for m in mediacoes_abertas if m['prazo_urgente'])
+    contagem_sem_prazo_acompanhamento = sum(1 for m in mediacoes_abertas if m['status_prazo_resposta'] is None)
+    contagem_mensagens_novas_acompanhamento = sum(1 for m in mediacoes_abertas if m['mensagem_nao_lida'])
+
+    # * [EXPLICACAO] -> URL da 1ª mediação com mensagem não lida (na mesma
+    #   ordem -- mais recente primeiro -- da lista acima), pro card
+    #   "Mensagens novas não vistas" do Painel Geral levar direto pra
+    #   ela. None quando não tem nenhuma -- o card nem aparece nesse caso
+    #   (ver template).
+    primeiro_item_nao_lido = next((m for m in mediacoes_abertas if m['mensagem_nao_lida']), None)
+    url_primeiro_nao_lido = None
+    if primeiro_item_nao_lido:
+        nome_url_nao_lido = 'mediacoes_ml_devolucao' if primeiro_item_nao_lido['tipo'] == 'devolucao' else 'mediacoes_ml_avulsa'
+        url_primeiro_nao_lido = reverse(nome_url_nao_lido, args=[primeiro_item_nao_lido['id']])
 
     # * [EXPLICAÇÃO] → pré-visualização de "Encontrados pelo Sistema" --
     #   diferente do bloco acima: NUNCA faz busca nova por padrão, só
