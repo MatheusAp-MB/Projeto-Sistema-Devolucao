@@ -433,8 +433,8 @@
                         {% if msg.anexos %}
                         <div class="med-msg-anexos">
                             {% for anexo in msg.anexos %}
-                            <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="med-msg-anexo" title="Abrir imagem anexada (tenta abrir direto; se não conseguir, cai no Mercado Livre em nova guia)">
-                                <i class="fas fa-image"></i>
+                            <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="med-msg-anexo" title="Ver imagem anexada" data-fotos-id="med-msg-{{ forloop.parentloop.counter }}" data-titulo="Anexo de {{ msg.rotulo }}" data-subtitulo="{{ msg.data }}">
+                                <img src="{{ anexo.url }}" alt="Anexo de {{ msg.rotulo }}" class="med-msg-anexo-img" loading="lazy">
                             </a>
                             {% endfor %}
                         </div>
@@ -537,8 +537,8 @@
                         {% if msg.anexos %}
                         <div class="med-msg-anexos">
                             {% for anexo in msg.anexos %}
-                            <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="med-msg-anexo" title="Abrir imagem anexada (tenta abrir direto; se não conseguir, cai no Mercado Livre em nova guia)">
-                                <i class="fas fa-image"></i>
+                            <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="med-msg-anexo" title="Ver imagem anexada" data-fotos-id="med-msg-{{ forloop.parentloop.counter }}" data-titulo="Anexo de {{ msg.rotulo }}" data-subtitulo="{{ msg.data }}">
+                                <img src="{{ anexo.url }}" alt="Anexo de {{ msg.rotulo }}" class="med-msg-anexo-img" loading="lazy">
                             </a>
                             {% endfor %}
                         </div>

@@ -583,3 +583,29 @@
         });
     });
 })();
+
+// Miniatura de anexo de mensagem (Mediacoes ML) abrindo no modal de
+// fotos global (mesmo componente da tela de Pecas/Conferencia de
+// Devolucao) -- so quando a miniatura carrega de verdade. Decisao de
+// Matheus, 21/09/2026: o link por tras (proxy_anexo_mediacao) pode
+// cair num redirect pro link antigo com cookie de sessao do ML quando
+// a API do anexo falha -- clique normal (navegacao de pagina inteira)
+// sempre funciona nesse caso, mas carregar como <img src> pode ser
+// bloqueado por SameSite (mesmo motivo documentado em
+// url_anexo_mensagem_fallback, varredura_mediacoes.py). Por isso so
+// liga o modal (card-fotos-item) depois que a miniatura prova que
+// carregou -- se nao carregar, o link continua um link normal e o
+// clique cai no fallback de sempre (abrir o ML em nova guia).
+(function () {
+    function ativarLightbox(img) {
+        img.closest('a').classList.add('card-fotos-item');
+    }
+
+    document.querySelectorAll('.med-msg-anexo-img').forEach(function (img) {
+        if (img.complete && img.naturalWidth > 0) {
+            ativarLightbox(img);
+        } else {
+            img.addEventListener('load', function () { ativarLightbox(img); });
+        }
+    });
+})();
