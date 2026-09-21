@@ -609,3 +609,84 @@
         }
     });
 })();
+
+// Trava (com senha) da caixa de resposta do chat de Mediacoes ML --
+// botao unico que liga/desliga. Liberar pede senha (valida no
+// servidor, hardcoded, decisao de Matheus 21/09/2026: sem CRUD, sem
+// .env); travar nao pede nada, e sempre a direcao segura. Qualquer
+// falha (senha errada, erro de rede/servidor) mantem travado -- nunca
+// libera sozinho.
+(function () {
+    var caixaTrava = document.querySelector('[data-trava-chat]');
+    if (!caixaTrava) return;
+
+    var status = caixaTrava.querySelector('.med-trava-chat-status');
+    var btn = caixaTrava.querySelector('[data-trava-btn]');
+    var caixaResposta = document.querySelector('[data-resposta-caixa]');
+    var controles = caixaResposta ? Array.prototype.slice.call(
+        caixaResposta.querySelectorAll('.med-resposta-anexar, .med-resposta-input, .med-resposta-enviar')
+    ) : [];
+
+    var URL_LIBERAR = '/mediacoes/chat/liberar/';
+    var URL_TRAVAR = '/mediacoes/chat/travar/';
+
+    function obterCsrfTokenTrava() {
+        var campo = document.querySelector('input[name=csrfmiddlewaretoken]');
+        return campo ? campo.value : '';
+    }
+
+    function aplicarEstadoTrava(liberado) {
+        caixaTrava.setAttribute('data-liberado', liberado ? 'true' : 'false');
+        caixaTrava.classList.toggle('med-trava-chat--liberado', liberado);
+        status.innerHTML = liberado
+            ? '<i class="fas fa-lock-open"></i> Chat liberado'
+            : '<i class="fas fa-lock"></i> Chat travado';
+        btn.textContent = liberado ? 'Travar' : 'Liberar';
+        controles.forEach(function (el) { el.disabled = !liberado; });
+    }
+
+    function chamarTrava(url, corpo) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': obterCsrfTokenTrava(),
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: corpo || '',
+        }).then(function (resposta) {
+            return resposta.json().then(function (dados) { return { status: resposta.status, dados: dados }; });
+        });
+    }
+
+    btn.addEventListener('click', function () {
+        var liberadoAgora = caixaTrava.getAttribute('data-liberado') === 'true';
+
+        if (liberadoAgora) {
+            chamarTrava(URL_TRAVAR).then(function (r) {
+                if (r.status === 200 && r.dados.ok) {
+                    aplicarEstadoTrava(false);
+                } else {
+                    window.alert('Não deu pra confirmar com o servidor que travou -- tente de novo.');
+                }
+            }).catch(function () {
+                window.alert('Não deu pra confirmar com o servidor que travou -- tente de novo.');
+            });
+            return;
+        }
+
+        var senha = window.prompt('Senha pra liberar o chat:');
+        if (senha === null) return;
+
+        chamarTrava(URL_LIBERAR, 'senha=' + encodeURIComponent(senha)).then(function (r) {
+            if (r.status === 200 && r.dados.ok) {
+                aplicarEstadoTrava(true);
+            } else {
+                aplicarEstadoTrava(false);
+                window.alert((r.dados && r.dados.erro) || 'Senha incorreta.');
+            }
+        }).catch(function () {
+            aplicarEstadoTrava(false);
+        });
+    });
+})();

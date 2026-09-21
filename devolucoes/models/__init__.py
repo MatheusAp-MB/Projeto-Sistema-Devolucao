@@ -12,3 +12,4 @@ from .modelo_anotacao import ModeloAnotacao
 from .mediacao_avulsa import MediacaoAvulsa
 from .claim_mercado_livre import ClaimMercadoLivre
 from .status_varredura_mediacoes import StatusVarreduraMediacoes
+from .trava_chat_mediacao import TravaChatMediacao

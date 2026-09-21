@@ -1112,6 +1112,54 @@ span.med-item-acao--fixa:hover {
     color: #92400e;
 }
 
+/* ===== trava (senha) da caixa de resposta -- decisao de Matheus,
+   21/09/2026: interruptor simples, individual por empresa. Travado e
+   sempre o padrao seguro (cor neutra); liberado usa a cor de alerta
+   (nao verde) -- destravado e o estado que pede atencao, nao o "tudo
+   certo". ===== */
+
+.med-trava-chat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 13px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--cor-fundo-pagina);
+    border: 1px solid var(--cor-borda);
+    font-size: 11.5px;
+}
+
+.med-trava-chat-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--cor-texto-muted);
+    font-weight: 600;
+}
+
+.med-trava-chat--liberado .med-trava-chat-status {
+    color: var(--cor-alerta);
+}
+
+.med-trava-chat-btn {
+    flex-shrink: 0;
+    border: 1px solid var(--cor-borda);
+    background: var(--cor-fundo-card);
+    color: var(--cor-primaria);
+    border-radius: 6px;
+    padding: 5px 12px;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.med-trava-chat-btn:hover {
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria-clara);
+}
+
 /* ===== campo de resposta visual (anexo de foto com pré-visualização
    real, client-side -- envio ainda não implementado nesta tela) ===== */
 
@@ -1152,6 +1200,11 @@ span.med-item-acao--fixa:hover {
     background: #fff;
 }
 
+.med-resposta-input:disabled {
+    opacity: .6;
+    cursor: not-allowed;
+}
+
 .med-resposta-anexar,
 .med-resposta-enviar {
     flex-shrink: 0;
@@ -1174,6 +1227,12 @@ span.med-item-acao--fixa:hover {
 .med-resposta-anexar:hover {
     color: var(--cor-primaria-clara);
     border-color: var(--cor-primaria-clara);
+}
+
+.med-resposta-anexar:disabled,
+.med-resposta-enviar:disabled {
+    opacity: .45;
+    cursor: not-allowed;
 }
 
 .med-resposta-enviar {

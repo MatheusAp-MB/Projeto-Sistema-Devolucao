@@ -40,8 +40,14 @@ from .models import (
     ClaimMercadoLivre, Compatibilidade, ConferenciaPeca, Devolucao,
     FotoConferenciaPeca, FotoObservacaoGeral, FotoReclamacaoCliente,
     GrupoFornecedor, Marca, MediacaoAvulsa, ModeloAnotacao, Peca, Produto,
-    StatusVarreduraMediacoes,
+    StatusVarreduraMediacoes, TravaChatMediacao,
 )
+
+# * [EXPLICACAO] -> senha fixa da trava do chat de Mediacoes ML (ver
+#   liberar_chat_mediacao/travar_chat_mediacao abaixo) -- decisao de
+#   Matheus, 21/09/2026: sem .env, sem tela de CRUD, so essa constante
+#   mesmo. Trocar aqui e o unico jeito de mudar a senha.
+SENHA_TRAVA_CHAT_MEDIACAO = '2530'
 from .reorganizacao_fotos import reorganizar_fotos_devolucao
 from .varredura_mediacoes import (
     atualizar_e_formatar_mensagens, buscar_nome_cliente_e_produto,
@@ -1148,9 +1154,42 @@ def mediacoes_ml(request, devolucao_id=None, avulsa_id=None, claim_id=None):
         'aba_ativa': aba_ativa,
         'mensagens_chat': mensagens_chat,
         'mensagens_falhou': mensagens_falhou,
+        'trava_chat_liberada': TravaChatMediacao.objects.filter(pk=1, liberado=True).exists(),
         'pagina_ativa': 'mediacoes_ml',
     }
     return render(request, 'devolucoes/mediacoes_ml.html', contexto)
+
+
+def liberar_chat_mediacao(request):
+    """Libera a caixa de resposta do chat de Mediações ML (individual
+    por empresa -- cada uma tem sua própria linha de TravaChatMediacao,
+    via EmpresaRouter) -- exige a senha fixa (SENHA_TRAVA_CHAT_MEDIACAO).
+    Decisão de Matheus, 21/09/2026: trava simples, só pra evitar
+    acidente -- quando o envio de verdade pro Mercado Livre for
+    implementado nesta tela, ele passa a checar esse mesmo estado.
+
+    [ATENÇÃO] → qualquer falha aqui (senha errada, TravaChatMediacao sem
+    linha ainda) NUNCA libera -- só existe 1 caminho de sucesso, a senha
+    bater certinho com a constante."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    if request.POST.get('senha') != SENHA_TRAVA_CHAT_MEDIACAO:
+        return JsonResponse({'erro': 'Senha incorreta.'}, status=403)
+
+    TravaChatMediacao.objects.update_or_create(pk=1, defaults={'liberado': True})
+    return JsonResponse({'ok': True})
+
+
+def travar_chat_mediacao(request):
+    """Trava a caixa de resposta do chat de Mediações ML -- sempre
+    permitido, sem senha nenhuma (travar é sempre a direção segura, não
+    precisa de proteção). Decisão de Matheus, 21/09/2026."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    TravaChatMediacao.objects.update_or_create(pk=1, defaults={'liberado': False})
+    return JsonResponse({'ok': True})
 
 
 def adicionar_mediacao_avulsa(request):

@@ -450,16 +450,22 @@
             </div>
             {% endif %}
             {% if mediacao_selecionada.claim_id %}
-            <div class="med-resposta-caixa">
-                <button type="button" class="med-resposta-anexar" title="Anexar foto">
+            <div class="med-trava-chat{% if trava_chat_liberada %} med-trava-chat--liberado{% endif %}" data-trava-chat data-liberado="{% if trava_chat_liberada %}true{% else %}false{% endif %}">
+                <span class="med-trava-chat-status">
+                    {% if trava_chat_liberada %}<i class="fas fa-lock-open"></i> Chat liberado{% else %}<i class="fas fa-lock"></i> Chat travado{% endif %}
+                </span>
+                <button type="button" class="med-trava-chat-btn" data-trava-btn>{% if trava_chat_liberada %}Travar{% else %}Liberar{% endif %}</button>
+            </div>
+            <div class="med-resposta-caixa" data-resposta-caixa>
+                <button type="button" class="med-resposta-anexar" title="Anexar foto" {% if not trava_chat_liberada %}disabled{% endif %}>
                     <i class="fas fa-paperclip"></i>
                 </button>
                 <input type="file" accept="image/*" multiple class="med-resposta-file-input" hidden>
                 <div class="med-resposta-corpo">
                     <div class="med-resposta-anexos" hidden></div>
-                    <textarea class="med-resposta-input" rows="1" placeholder="Escreva sua resposta pro Mercado Livre..."></textarea>
+                    <textarea class="med-resposta-input" rows="1" placeholder="Escreva sua resposta pro Mercado Livre..." {% if not trava_chat_liberada %}disabled{% endif %}></textarea>
                 </div>
-                <button type="button" class="med-resposta-enviar" title="Envio ainda não implementado nesta tela">
+                <button type="button" class="med-resposta-enviar" title="Envio ainda não implementado nesta tela" {% if not trava_chat_liberada %}disabled{% endif %}>
                     <i class="fas fa-paper-plane"></i>
                 </button>
             </div>

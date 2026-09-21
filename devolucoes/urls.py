@@ -34,6 +34,8 @@ urlpatterns = [
     path('mediacoes/claim/<str:claim_id>/anexo/<str:filename>/', views.proxy_anexo_mediacao, name='proxy_anexo_mediacao'),
     path('mediacoes/devolucao/<int:devolucao_id>/prazo/', views.definir_prazo_resposta, name='definir_prazo_resposta_devolucao'),
     path('mediacoes/avulsa/<int:avulsa_id>/prazo/', views.definir_prazo_resposta, name='definir_prazo_resposta_avulsa'),
+    path('mediacoes/chat/liberar/', views.liberar_chat_mediacao, name='liberar_chat_mediacao'),
+    path('mediacoes/chat/travar/', views.travar_chat_mediacao, name='travar_chat_mediacao'),
 
     path('produtos/', views.produtos, name='produtos'),
     path('produtos/<int:produto_id>/', views.visualizar_produto, name='visualizar_produto'),
