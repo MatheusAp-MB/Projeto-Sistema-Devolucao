@@ -43,6 +43,15 @@ class Command(BaseCommand):
             # Django
             "--add-data", "launcher_recursos/loading.html;launcher_recursos",
             "--add-data", "launcher_recursos/icone_app.ico;launcher_recursos",
+
+            # [ATENÇÃO 21/09/2026] → faltava esse aqui. launcher.py usa
+            # esse HTML pra mostrar erro de inicialização (ex: MySQL fora
+            # do ar no boot) em vez de morrer em silêncio (build é
+            # --noconsole) -- sem ele empacotado, a PRÓPRIA tela de erro
+            # falha (FileNotFoundError) bem no caminho que deveria
+            # proteger, voltando pro exato problema que ela existe pra
+            # evitar.
+            "--add-data", "launcher_recursos/erro_inicializacao.html;launcher_recursos",
             "--add-data", "devolucoes/templates;devolucoes/templates",
             "--add-data", "devolucoes/static;devolucoes/static",
             "--add-data", "core/templates;core/templates",
