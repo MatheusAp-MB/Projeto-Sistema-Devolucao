@@ -86,7 +86,7 @@ def _log_seguro(logger, mensagem: str, dados: dict = None):
         logger.info(mensagem)
 
 
-def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict = None, json_body: dict = None, max_tentativas: int = 5, nome_log: str = "api", headers_extra: dict = None, espacador_ativo: bool = True):
+def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict = None, json_body: dict = None, max_tentativas: int = 5, nome_log: str = "api", headers_extra: dict = None, espacador_ativo: bool = True, arquivos: dict = None, codigos_sucesso: set = None):
     """
     Ponto único de chamada à API do ML.
 
@@ -104,9 +104,19 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
                    protecao.EspacadorChamadas) antes de cada tentativa — proteção proativa
                    contra rajada, além do backoff reativo que já existia. Passar False só faz
                    sentido pra um chamador que já tem seu próprio controle de espaçamento.
+    arquivos: dict pro upload multipart (ex: {"file": (nome, bytes, content_type)}), passado
+                   direto pro requests como files=. Mutuamente exclusivo com json_body na
+                   prática (o endpoint de anexo não usa corpo JSON). Default None preserva
+                   100% do comportamento anterior pra quem não especificar. Adicionado
+                   21/09/2026 pro envio de mensagem de mediação com foto.
+    codigos_sucesso: quais status HTTP contam como sucesso (set). Default None vira {200} --
+                   mesmo comportamento de sempre. Alguns endpoints do ML fogem do 200 (ex:
+                   actions/send-message devolve 201 "created") -- passar {200, 201} nesses
+                   casos. Adicionado 21/09/2026.
     """
     logger = _configurar_logger(pasta_logs, nome_log)
     url = f"{BASE_URL}{endpoint}"
+    codigos_sucesso = codigos_sucesso or {200}
 
     for tentativa in range(max_tentativas):
         token = obter_token_valido(conta)
@@ -122,7 +132,7 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
 
         try:
             resposta = requests.request(
-                metodo, url, headers=headers, params=params, json=json_body,
+                metodo, url, headers=headers, params=params, json=json_body, files=arquivos,
                 timeout=(TIMEOUT_CONEXAO_SEGUNDOS, TIMEOUT_LEITURA_SEGUNDOS),
             )
         except requests.exceptions.Timeout:
@@ -133,8 +143,8 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
                     f"Timeout esgotado após {max_tentativas} tentativas em {_mascarar_endpoint(endpoint)}")
             continue
 
-        if resposta.status_code == 200:
-            logger.info(f"OK {metodo} {_mascarar_endpoint(endpoint)} (200)")
+        if resposta.status_code in codigos_sucesso:
+            logger.info(f"OK {metodo} {_mascarar_endpoint(endpoint)} ({resposta.status_code})")
             return resposta
 
         if resposta.status_code == 206:
@@ -148,10 +158,10 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
             if espacador_ativo:
                 _espacador.aguardar(conta)
             resposta_retry = requests.request(
-                metodo, url, headers=headers, params=params, json=json_body,
+                metodo, url, headers=headers, params=params, json=json_body, files=arquivos,
                 timeout=(TIMEOUT_CONEXAO_SEGUNDOS, TIMEOUT_LEITURA_SEGUNDOS),
             )
-            if resposta_retry.status_code == 200:
+            if resposta_retry.status_code in codigos_sucesso:
                 logger.info(
                     f"OK na 2ª tentativa após 206 em {_mascarar_endpoint(endpoint)}")
                 return resposta_retry

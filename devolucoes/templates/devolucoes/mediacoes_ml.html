@@ -456,7 +456,7 @@
                 </span>
                 <button type="button" class="med-trava-chat-btn" data-trava-btn>{% if trava_chat_liberada %}Travar{% else %}Liberar{% endif %}</button>
             </div>
-            <div class="med-resposta-caixa" data-resposta-caixa>
+            <div class="med-resposta-caixa" data-resposta-caixa data-claim-id="{{ mediacao_selecionada.claim_id }}">
                 <button type="button" class="med-resposta-anexar" title="Anexar foto" {% if not trava_chat_liberada %}disabled{% endif %}>
                     <i class="fas fa-paperclip"></i>
                 </button>
@@ -465,11 +465,11 @@
                     <div class="med-resposta-anexos" hidden></div>
                     <textarea class="med-resposta-input" rows="1" placeholder="Escreva sua resposta pro Mercado Livre..." {% if not trava_chat_liberada %}disabled{% endif %}></textarea>
                 </div>
-                <button type="button" class="med-resposta-enviar" title="Envio ainda não implementado nesta tela" {% if not trava_chat_liberada %}disabled{% endif %}>
+                <button type="button" class="med-resposta-enviar" title="Enviar" {% if not trava_chat_liberada %}disabled{% endif %}>
                     <i class="fas fa-paper-plane"></i>
                 </button>
             </div>
-            <p class="med-resposta-nota">Anexo é só pré-visualização local (clique no clipe e escolha uma foto) — envio, com ou sem foto, ainda não implementado nesta tela. Responda de verdade direto no Mercado Livre, pelos links acima.</p>
+            <p class="med-resposta-nota">Envia de verdade pro Mercado Livre (texto e/ou até 10 fotos, JPG ou PNG, até 5MB cada). Com várias fotos pode levar alguns segundos.</p>
             {% endif %}
         </div>
         {% elif claim_previsualizado %}

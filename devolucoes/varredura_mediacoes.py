@@ -22,6 +22,7 @@ from zoneinfo import ZoneInfo
 from django.urls import reverse
 from django.utils import timezone
 
+from api_mercado_livre.core.auth.gerenciador_token import FalhaAutenticacao
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 from core.empresa import definir_empresa_ativa
 from integracao_mercado_livre.views import CONTA_POR_EMPRESA, PASTA_LOGS_ML
@@ -806,3 +807,152 @@ def formatar_mensagens_em_cache(cache, nome_cliente, conta, desde=None):
     if not cache.mensagens:
         return []
     return _formatar_mensagens(cache.mensagens, cache, nome_cliente, conta, desde=desde)
+
+
+# ─── ENVIO DE MENSAGEM (texto + anexo de foto) ────────────
+#
+# Decisão de Matheus, 21/09/2026: 1ª vez que esse sistema manda alguma
+# coisa PRA DENTRO de uma mediação do Mercado Livre (até aqui, só
+# lia). Fluxo documentado oficialmente em 2 passos: 1) sobe cada anexo
+# separado (POST .../attachments, multipart, 1 chamada por arquivo --
+# a API não tem endpoint de upload em lote) e guarda os nomes que a
+# API devolve; 2) manda a mensagem de verdade (POST
+# .../actions/send-message) citando esses nomes em "attachments".
+#
+# Escopo combinado com Matheus: só JPG/PNG (o pedido dele foi
+# especificamente "anexo de imagens") -- PDF fica de fora por ora.
+# Limite de 10 fotos por mensagem: a API não documenta um máximo, 10
+# foi o número que Matheus confirmou como "bom limite" depois de
+# perguntar sobre mandar 8 fotos numa mensagem só.
+#
+# [ATENÇÃO] → Matheus pediu pra deixar isso pronto hoje (21/09) mas
+# avisou que só vai testar de verdade amanhã, junto com a Ana -- nada
+# aqui rodou contra a API real ainda.
+
+EXTENSOES_ANEXO_PERMITIDAS = {
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.png': 'image/png',
+}
+TAMANHO_MAXIMO_ANEXO_BYTES = 5 * 1024 * 1024  # 5MB -- limite documentado da própria API do ML
+LIMITE_ANEXOS_POR_MENSAGEM = 10  # combinado com Matheus, 21/09/2026 -- API não documenta um máximo
+
+
+class ErroEnvioMensagem(Exception):
+    """Erro ao enviar mensagem/anexo de mediação -- a mensagem do erro
+    é sempre segura pra mostrar direto pra Ana (a view só repassa pro
+    JsonResponse), nunca um traceback técnico."""
+    pass
+
+
+def _sanitizar_nome_anexo(nome_original, indice):
+    """A API do ML só aceita nome de arquivo com [a-zA-Z0-9_-], até 125
+    caracteres, mais a extensão (doc oficial, 'Gerenciar mensagem de
+    uma reclamação'). Nome de foto de celular tem espaço, acento,
+    parênteses -- sanitiza pra não estourar 400 por causa do nome. O
+    índice no fim evita 2 anexos com o mesmo nome sanitizado colidindo
+    na mesma mensagem."""
+    base, extensao = os.path.splitext(nome_original)
+    extensao = extensao.lower()
+    base = re.sub(r'[^a-zA-Z0-9_-]', '_', base)[:80] or 'anexo'
+    return f"{base}_{indice}{extensao}"[:125]
+
+
+def _stage_atual_do_claim(conta, claim_id):
+    """Busca o stage (claim/dispute) direto na API, sem usar o cache --
+    usado só na hora de decidir receiver_role de uma mensagem nova, onde
+    um stage desatualizado (claim virou dispute depois da última
+    varredura) mandaria a mensagem pro destinatário errado. Devolve
+    None em qualquer falha -- quem chama cai pro dados_brutos em cache
+    nesse caso."""
+    try:
+        resposta = chamar_api(
+            "GET", f"/post-purchase/v1/claims/{claim_id}",
+            pasta_logs=PASTA_LOGS_ML, conta=conta,
+        )
+    except (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao):
+        return None
+    return resposta.json().get('stage')
+
+
+def determinar_receiver_role(conta, cache):
+    """Decide quem recebe a mensagem, a partir do stage (claim ou
+    dispute -- dispute troca o destinatário pra 'mediator', quem está
+    de fato arbitrando) e do nosso papel (cache.meu_papel, cacheado na
+    varredura). Busca o stage fresco na API antes de decidir (ver
+    _stage_atual_do_claim) -- só cai pro stage em cache (dados_brutos)
+    se a busca falhar. Devolve None se não der pra decidir com
+    segurança -- melhor recusar o envio do que arriscar mandar pro
+    destinatário errado."""
+    stage = _stage_atual_do_claim(conta, cache.claim_id)
+    if stage is None:
+        stage = (cache.dados_brutos or {}).get('stage')
+
+    if stage == 'dispute':
+        return 'mediator'
+
+    if cache.meu_papel == 'complainant':
+        return 'respondent'
+    if cache.meu_papel == 'respondent':
+        return 'complainant'
+    return None
+
+
+def enviar_mensagem_mediacao(conta, cache, mensagem, arquivos_anexo):
+    """Envia uma mensagem de resposta pra mediação -- os 2 passos
+    documentados oficialmente: sobe cada anexo separado primeiro (1
+    chamada por arquivo, a API não tem upload em lote) e só depois
+    manda a mensagem citando os nomes que a API devolveu em cada
+    upload. 'arquivos_anexo' é uma lista de tuplas (nome_original,
+    conteudo_bytes, content_type) -- já validada (extensão, tamanho,
+    quantidade) por quem chama; essa função não revalida nada disso.
+
+    Levanta ErroEnvioMensagem (mensagem segura pra mostrar pra Ana) em
+    qualquer falha, nos 2 passos -- nunca deixa a tela achar que
+    enviou quando não enviou. [ATENÇÃO] → se as fotos subirem mas a
+    mensagem falhar, avisa isso explicitamente no erro (pra não
+    arriscar reenviar as mesmas fotos duplicadas)."""
+    receiver_role = determinar_receiver_role(conta, cache)
+    if receiver_role is None:
+        raise ErroEnvioMensagem(
+            'Não deu pra descobrir com segurança quem deve receber essa mensagem '
+            '(papel do usuário na mediação não identificado). Atualize a mediação '
+            'e tente de novo.'
+        )
+
+    nomes_anexos_enviados = []
+    for indice, (nome_original, conteudo, content_type) in enumerate(arquivos_anexo, start=1):
+        nome_seguro = _sanitizar_nome_anexo(nome_original, indice)
+        try:
+            resposta = chamar_api(
+                "POST", f"/post-purchase/v1/claims/{cache.claim_id}/attachments",
+                pasta_logs=PASTA_LOGS_ML, conta=conta,
+                arquivos={'file': (nome_seguro, conteudo, content_type)},
+                codigos_sucesso={200, 201},
+            )
+        except (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao) as erro:
+            raise ErroEnvioMensagem(
+                f'Falha ao enviar a foto "{nome_original}" pro Mercado Livre. '
+                f'Nada foi enviado ainda -- tente de novo. ({erro})'
+            )
+        nomes_anexos_enviados.append(resposta.json().get('filename'))
+
+    try:
+        chamar_api(
+            "POST", f"/post-purchase/v1/claims/{cache.claim_id}/actions/send-message",
+            pasta_logs=PASTA_LOGS_ML, conta=conta,
+            json_body={
+                'receiver_role': receiver_role,
+                'message': mensagem,
+                'attachments': nomes_anexos_enviados,
+            },
+            codigos_sucesso={200, 201},
+        )
+    except (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao) as erro:
+        if nomes_anexos_enviados:
+            raise ErroEnvioMensagem(
+                'As fotos foram enviadas pro Mercado Livre, mas a mensagem de texto '
+                f'falhou ao enviar. Confira direto no Mercado Livre antes de tentar de '
+                f'novo, pra não duplicar foto. ({erro})'
+            )
+        raise ErroEnvioMensagem(f'Falha ao enviar a mensagem pro Mercado Livre. ({erro})')

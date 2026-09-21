@@ -52,9 +52,11 @@ from .reorganizacao_fotos import reorganizar_fotos_devolucao
 from .varredura_mediacoes import (
     atualizar_e_formatar_mensagens, buscar_nome_cliente_e_produto,
     categoria_slug, completar_avulsa_automaticamente,
-    contagem_por_categoria, executar_atualizacao_acompanhados,
-    executar_varredura_completa, formatar_mensagens_em_cache,
-    resolver_claim_por_numero_pedido, url_anexo_mensagem_fallback,
+    contagem_por_categoria, enviar_mensagem_mediacao, ErroEnvioMensagem,
+    executar_atualizacao_acompanhados, executar_varredura_completa,
+    EXTENSOES_ANEXO_PERMITIDAS, formatar_mensagens_em_cache,
+    LIMITE_ANEXOS_POR_MENSAGEM, resolver_claim_por_numero_pedido,
+    TAMANHO_MAXIMO_ANEXO_BYTES, url_anexo_mensagem_fallback,
 )
 
 
@@ -1189,6 +1191,66 @@ def travar_chat_mediacao(request):
         return JsonResponse({'erro': 'Método não permitido.'}, status=405)
 
     TravaChatMediacao.objects.update_or_create(pk=1, defaults={'liberado': False})
+    return JsonResponse({'ok': True})
+
+
+def enviar_mensagem_chat_mediacao(request, claim_id):
+    """Envia de verdade uma mensagem (texto e/ou até 10 fotos) pra uma
+    mediação, através da API do Mercado Livre -- 1ª vez que esta tela
+    manda alguma coisa pra dentro da mediação (até aqui só lia).
+    Decisão de Matheus, 21/09/2026, com limite de 10 anexos por
+    mensagem confirmado por ele mesmo.
+
+    [ATENÇÃO] → exige TravaChatMediacao liberada -- checado aqui de
+    novo, no servidor, e não só no botão desabilitado no HTML/JS (um
+    JS desligado ou um POST direto não pode furar a trava). Qualquer
+    falha na API (upload de foto ou envio da mensagem) devolve erro
+    amigável pro JS mostrar pra Ana -- nunca deixa a tela achar que
+    enviou quando não enviou de verdade."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    if not TravaChatMediacao.objects.filter(pk=1, liberado=True).exists():
+        return JsonResponse({'erro': 'Chat travado -- libere com a senha antes de enviar.'}, status=403)
+
+    cache = ClaimMercadoLivre.objects.filter(claim_id=claim_id).first()
+    if not cache:
+        return HttpResponse(status=404)
+
+    mensagem = (request.POST.get('mensagem') or '').strip()
+    arquivos_recebidos = request.FILES.getlist('anexos')
+
+    if not mensagem and not arquivos_recebidos:
+        return JsonResponse({'erro': 'Escreva uma mensagem ou anexe pelo menos uma foto.'}, status=400)
+
+    if len(arquivos_recebidos) > LIMITE_ANEXOS_POR_MENSAGEM:
+        return JsonResponse({
+            'erro': f'Máximo de {LIMITE_ANEXOS_POR_MENSAGEM} fotos por mensagem (você anexou {len(arquivos_recebidos)}).',
+        }, status=400)
+
+    arquivos_validados = []
+    for arquivo in arquivos_recebidos:
+        extensao = Path(arquivo.name).suffix.lower()
+        content_type = EXTENSOES_ANEXO_PERMITIDAS.get(extensao)
+        if not content_type:
+            return JsonResponse({
+                'erro': f'"{arquivo.name}" não é uma foto JPG ou PNG -- só essas 2 são aceitas.',
+            }, status=400)
+        if arquivo.size > TAMANHO_MAXIMO_ANEXO_BYTES:
+            return JsonResponse({
+                'erro': f'"{arquivo.name}" passa de 5MB -- reduza o tamanho e tente de novo.',
+            }, status=400)
+        arquivos_validados.append((arquivo.name, arquivo.read(), content_type))
+
+    conta = CONTA_POR_EMPRESA.get(obter_empresa_ativa())
+    if not conta:
+        return JsonResponse({'erro': 'Empresa ativa sem conta de Mercado Livre configurada.'}, status=400)
+
+    try:
+        enviar_mensagem_mediacao(conta, cache, mensagem, arquivos_validados)
+    except ErroEnvioMensagem as erro:
+        return JsonResponse({'erro': str(erro)}, status=502)
+
     return JsonResponse({'ok': True})
 
 

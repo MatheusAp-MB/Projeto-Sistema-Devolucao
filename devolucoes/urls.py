@@ -36,6 +36,7 @@ urlpatterns = [
     path('mediacoes/avulsa/<int:avulsa_id>/prazo/', views.definir_prazo_resposta, name='definir_prazo_resposta_avulsa'),
     path('mediacoes/chat/liberar/', views.liberar_chat_mediacao, name='liberar_chat_mediacao'),
     path('mediacoes/chat/travar/', views.travar_chat_mediacao, name='travar_chat_mediacao'),
+    path('mediacoes/claim/<str:claim_id>/enviar-mensagem/', views.enviar_mensagem_chat_mediacao, name='enviar_mensagem_chat_mediacao'),
 
     path('produtos/', views.produtos, name='produtos'),
     path('produtos/<int:produto_id>/', views.visualizar_produto, name='visualizar_produto'),

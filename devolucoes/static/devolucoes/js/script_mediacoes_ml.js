@@ -541,23 +541,44 @@
     });
 })();
 
-// Campo de resposta (visual) -- anexo de foto com pré-visualização real,
-// client-side, sem nenhum upload. Envio (com ou sem foto) ainda não
-// implementado nesta tela -- o botão de enviar não tem nenhum handler de
-// propósito (clicar nele não faz nada, mesmo comportamento do mockup
-// aprovado). Decisão de Matheus, 21/09/2026.
+// Campo de resposta -- anexo de foto com pré-visualização real,
+// client-side, e ENVIO DE VERDADE pro Mercado Livre (texto e/ou até
+// LIMITE_ANEXOS_MEDIACAO fotos). Decisão de Matheus, 21/09/2026 --
+// antes disso o campo era só visual (nada era retido/enviado); agora
+// os arquivos selecionados ficam guardados em arquivosSelecionados
+// (sincronizado com a pré-visualização) até o clique em enviar.
+//
+// [ATENÇÃO] → Matheus pediu pra deixar pronto hoje (21/09) mas avisou
+// que só vai testar de verdade amanhã, junto com a Ana.
 (function () {
+    var LIMITE_ANEXOS_MEDIACAO = 10;
+
+    function obterCsrfTokenResposta() {
+        var campo = document.querySelector('input[name=csrfmiddlewaretoken]');
+        return campo ? campo.value : '';
+    }
+
     document.querySelectorAll('.med-resposta-caixa').forEach(function (caixa) {
         var btnAnexar = caixa.querySelector('.med-resposta-anexar');
         var input = caixa.querySelector('.med-resposta-file-input');
         var tira = caixa.querySelector('.med-resposta-anexos');
-        if (!btnAnexar || !input || !tira) return;
+        var textarea = caixa.querySelector('.med-resposta-input');
+        var btnEnviar = caixa.querySelector('.med-resposta-enviar');
+        if (!btnAnexar || !input || !tira || !textarea || !btnEnviar) return;
+
+        var arquivosSelecionados = [];
+        var claimId = caixa.getAttribute('data-claim-id');
 
         btnAnexar.addEventListener('click', function () { input.click(); });
 
         input.addEventListener('change', function () {
             Array.prototype.forEach.call(input.files, function (arquivo) {
                 if (arquivo.type.indexOf('image/') !== 0) return;
+                if (arquivosSelecionados.length >= LIMITE_ANEXOS_MEDIACAO) {
+                    window.alert('Máximo de ' + LIMITE_ANEXOS_MEDIACAO + ' fotos por mensagem.');
+                    return;
+                }
+                arquivosSelecionados.push(arquivo);
                 var url = URL.createObjectURL(arquivo);
                 var item = document.createElement('span');
                 item.className = 'med-resposta-anexo';
@@ -571,6 +592,8 @@
                 remover.innerHTML = '<i class="fas fa-xmark"></i>';
                 remover.addEventListener('click', function () {
                     URL.revokeObjectURL(url);
+                    var indice = arquivosSelecionados.indexOf(arquivo);
+                    if (indice !== -1) arquivosSelecionados.splice(indice, 1);
                     item.remove();
                     tira.hidden = tira.children.length === 0;
                 });
@@ -580,6 +603,50 @@
             });
             tira.hidden = tira.children.length === 0;
             input.value = '';
+        });
+
+        if (!claimId) return;
+
+        btnEnviar.addEventListener('click', function () {
+            var mensagem = textarea.value.trim();
+            if (!mensagem && arquivosSelecionados.length === 0) {
+                window.alert('Escreva uma mensagem ou anexe pelo menos uma foto.');
+                return;
+            }
+
+            var formData = new FormData();
+            formData.append('mensagem', mensagem);
+            arquivosSelecionados.forEach(function (arquivo) {
+                formData.append('anexos', arquivo);
+            });
+
+            var controles = [btnAnexar, input, textarea, btnEnviar];
+            controles.forEach(function (el) { el.disabled = true; });
+            var iconeOriginal = btnEnviar.innerHTML;
+            btnEnviar.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            fetch('/mediacoes/claim/' + claimId + '/enviar-mensagem/', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': obterCsrfTokenResposta(),
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                body: formData,
+            }).then(function (resposta) {
+                return resposta.json().then(function (dados) { return { status: resposta.status, dados: dados }; });
+            }).then(function (r) {
+                if (r.status === 200 && r.dados.ok) {
+                    window.location.reload();
+                    return;
+                }
+                window.alert((r.dados && r.dados.erro) || 'Não deu pra enviar -- tente de novo.');
+                controles.forEach(function (el) { el.disabled = false; });
+                btnEnviar.innerHTML = iconeOriginal;
+            }).catch(function () {
+                window.alert('Não deu pra enviar -- confira a internet e tente de novo.');
+                controles.forEach(function (el) { el.disabled = false; });
+                btnEnviar.innerHTML = iconeOriginal;
+            });
         });
     });
 })();
