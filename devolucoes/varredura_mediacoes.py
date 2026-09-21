@@ -517,13 +517,31 @@ def _instante_mensagem(valor_iso):
     cru em vez de string formatada -- aqui o destino é comparação, não
     exibição. None em qualquer valor ausente ou não-parseável (nunca
     derruba a tela por causa de 1 data malformada). Decisão de Matheus,
-    21/09/2026."""
+    21/09/2026.
+
+    [CORREÇÃO 21/09/2026] -> datetime.fromisoformat aceita de boa uma
+    string ISO SEM timezone (ex: "2024-01-17T14:36:29", sem o "-04:00"
+    no final) e devolve um datetime "naive" sem reclamar nada -- e um
+    datetime naive comparado com mediacao_visualizada_em (timezone-aware,
+    USE_TZ=True no settings, ver "ultima_mensagem_em > ..." em views.py e
+    "instante_msg > desde" em _formatar_mensagens abaixo) explode com
+    TypeError, sem nenhum try/except em volta nos dois lugares -- ou
+    seja, 1 mensagem sem timezone na resposta do ML derrubava a tela de
+    Mediações ML INTEIRA (erro 500 pra todo mundo, não só o detalhe
+    daquela mediação). Nunca vimos isso acontecer na prática (API do ML
+    sempre manda offset até hoje), mas o próprio docstring acima já
+    prometia "nunca derruba a tela" -- assumir o fuso de Brasília quando
+    falta um timezone é o que faz essa promessa valer de verdade, em vez
+    de só cobrir o caso de data ilegível (ValueError)."""
     if not valor_iso or not isinstance(valor_iso, str):
         return None
     try:
-        return datetime.fromisoformat(valor_iso)
+        instante = datetime.fromisoformat(valor_iso)
     except ValueError:
         return None
+    if instante.tzinfo is None:
+        instante = instante.replace(tzinfo=FUSO_HORARIO_EXIBICAO_MSG)
+    return instante
 
 
 def _resumo_mensagem(texto_bruto):
@@ -547,9 +565,15 @@ def calcular_ultima_mensagem(mensagens_brutas, cache):
     chamada nova de API -- mesmo espírito de formatar_mensagens_em_cache)
     ou recém buscadas, acha a mensagem mais recente e devolve
     (instante, quem_mandou, resumo) -- quem_mandou é 'ml'/'voce'/
-    'cliente', mesmo critério de _formatar_mensagens logo abaixo.
-    (None, None, None) quando não existe mensagem nenhuma ainda (claim
-    nunca sincronizado, ou reclamação sem nenhuma mensagem de fato).
+    'cliente'/None (None quando não dá pra saber com certeza quem
+    mandou -- ver correção abaixo), mesmo critério de _formatar_mensagens
+    logo abaixo. (None, None, None) quando não existe mensagem nenhuma
+    ainda (claim nunca sincronizado, ou reclamação sem nenhuma mensagem
+    de fato) -- repare que isso é ambíguo com "tem mensagem mas
+    quem_mandou é desconhecido" só de olhar quem_mandou sozinho: nesse 2º
+    caso instante e resumo vêm preenchidos, só quem_mandou fica None;
+    quem usa o retorno distingue os 2 casos pelos 3 valores juntos, não
+    só por quem_mandou isolado.
 
     [DECISÃO 21/09/2026] -> usado tanto pra ordenar "Em acompanhamento"
     como um chat (mais recente primeiro) quanto pro indicador de
@@ -560,7 +584,25 @@ def calcular_ultima_mensagem(mensagens_brutas, cache):
     executar_atualizacao_acompanhados (botão "Atualizar itens em
     acompanhamento") já busca e grava cache.mensagens pra TODO item
     nesse estado -- por isso não precisa de nenhum campo novo no banco
-    nem de nenhuma chamada de API extra pra essa ordenação existir."""
+    nem de nenhuma chamada de API extra pra essa ordenação existir.
+
+    [CORREÇÃO 21/09/2026] -> cache.meu_papel fica None quando a busca do
+    seu user_id falhou na hora que o claim foi resolvido (API fora do
+    ar) ou você não apareceu na lista de "players" do claim -- e nesse
+    caso, ANTES, toda mensagem (inclusive uma resposta SUA) caía no
+    'else' e virava 'cliente' por eliminação, fazendo sua própria
+    resposta aparecer como mensagem não lida do cliente (pontinho
+    vermelho na lista + contador "Mensagens novas não vistas" do Painel
+    Geral -- os 2 só olham "quem_mandou != voce"). Agora, sem saber quem
+    mandou de verdade, devolve quem_mandou=None em vez de arriscar --
+    None já é tratado como "não conta como não lida" em views.py (mesma
+    checagem "quem_mandou and quem_mandou != 'voce'" já existente, None
+    é falsy ali) sem precisar mudar nada lá; o template também para de
+    rotular como "Cliente:" nesse caso (ver mediacoes_ml.html). Troca
+    uma mensagem não lida de verdade que deixaria de alertar (só
+    enquanto meu_papel continuar None) por parar de gritar "mensagem
+    nova" toda vez que você mesmo responde -- avise se quiser um
+    comportamento diferente pra esse caso."""
     if not mensagens_brutas:
         return None, None, None
     mais_recente = max(mensagens_brutas, key=lambda m: m.get('date_created') or '')
@@ -568,7 +610,9 @@ def calcular_ultima_mensagem(mensagens_brutas, cache):
     sender = mais_recente.get('sender_role')
     if sender == 'mediator':
         quem = 'ml'
-    elif cache.meu_papel is not None and sender == cache.meu_papel:
+    elif cache.meu_papel is None:
+        quem = None
+    elif sender == cache.meu_papel:
         quem = 'voce'
     else:
         quem = 'cliente'

@@ -176,7 +176,7 @@
                                         {% endif %}
                                     </span>
                                     {% if item.ultima_mensagem_texto %}
-                                    <span class="med-item-ultima-msg"><b>{% if item.ultima_mensagem_de == 'ml' %}Mercado Livre{% elif item.ultima_mensagem_de == 'voce' %}Você{% else %}Cliente{% endif %}:</b> {{ item.ultima_mensagem_texto }}</span>
+                                    <span class="med-item-ultima-msg">{% if item.ultima_mensagem_de %}<b>{% if item.ultima_mensagem_de == 'ml' %}Mercado Livre{% elif item.ultima_mensagem_de == 'voce' %}Você{% else %}Cliente{% endif %}:</b> {% endif %}{{ item.ultima_mensagem_texto }}</span>
                                     {% else %}
                                     <span class="med-item-sem-conversa">{% if item.claim_id %}Sem mensagens nessa conversa ainda{% else %}Sem conversa ainda — reclamação não vinculada ainda{% endif %}</span>
                                     {% endif %}
