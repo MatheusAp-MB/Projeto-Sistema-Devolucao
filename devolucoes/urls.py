@@ -31,6 +31,7 @@ urlpatterns = [
     path('mediacoes/varredura/status/', views.status_varredura_mediacoes, name='status_varredura_mediacoes'),
     path('mediacoes/claim/<str:claim_id>/acompanhar/', views.acompanhar_claim, name='acompanhar_claim'),
     path('mediacoes/claim/<str:claim_id>/deixar-de-acompanhar/', views.deixar_de_acompanhar_claim, name='deixar_de_acompanhar_claim'),
+    path('mediacoes/claim/<str:claim_id>/anexo/<str:filename>/', views.proxy_anexo_mediacao, name='proxy_anexo_mediacao'),
     path('mediacoes/devolucao/<int:devolucao_id>/prazo/', views.definir_prazo_resposta, name='definir_prazo_resposta_devolucao'),
     path('mediacoes/avulsa/<int:avulsa_id>/prazo/', views.definir_prazo_resposta, name='definir_prazo_resposta_avulsa'),
 

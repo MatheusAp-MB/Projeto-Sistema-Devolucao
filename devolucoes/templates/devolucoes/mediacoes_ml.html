@@ -433,7 +433,7 @@
                         {% if msg.anexos %}
                         <div class="med-msg-anexos">
                             {% for anexo in msg.anexos %}
-                            <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="med-msg-anexo" title="Abrir imagem anexada (abre em nova guia — pede login do Mercado Livre se você ainda não estiver logado)">
+                            <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="med-msg-anexo" title="Abrir imagem anexada (tenta abrir direto; se não conseguir, cai no Mercado Livre em nova guia)">
                                 <i class="fas fa-image"></i>
                             </a>
                             {% endfor %}
@@ -537,7 +537,7 @@
                         {% if msg.anexos %}
                         <div class="med-msg-anexos">
                             {% for anexo in msg.anexos %}
-                            <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="med-msg-anexo" title="Abrir imagem anexada (abre em nova guia — pede login do Mercado Livre se você ainda não estiver logado)">
+                            <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="med-msg-anexo" title="Abrir imagem anexada (tenta abrir direto; se não conseguir, cai no Mercado Livre em nova guia)">
                                 <i class="fas fa-image"></i>
                             </a>
                             {% endfor %}

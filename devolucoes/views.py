@@ -32,8 +32,9 @@ from django.utils import timezone
 from django.utils.text import slugify
 
 from api_mercado_livre.core.auth.gerenciador_token import FalhaAutenticacao
+from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
-from integracao_mercado_livre.views import CONTA_POR_EMPRESA
+from integracao_mercado_livre.views import CONTA_POR_EMPRESA, PASTA_LOGS_ML
 
 from .models import (
     ClaimMercadoLivre, Compatibilidade, ConferenciaPeca, Devolucao,
@@ -47,7 +48,7 @@ from .varredura_mediacoes import (
     categoria_slug, completar_avulsa_automaticamente,
     contagem_por_categoria, executar_atualizacao_acompanhados,
     executar_varredura_completa, formatar_mensagens_em_cache,
-    resolver_claim_por_numero_pedido,
+    resolver_claim_por_numero_pedido, url_anexo_mensagem_fallback,
 )
 
 
@@ -2641,3 +2642,53 @@ def manutencao_reorganizar_fotos(request):
         'resultado': resultado,
         'aplicou': aplicar,
     })
+
+
+def proxy_anexo_mediacao(request, claim_id, filename):
+    """Proxy do anexo de 1 mensagem de mediação (ícone de imagem no chat
+    de Mediações ML) -- decisão de Matheus, 21/09/2026, depois da
+    investigação registrada no vault ("Validação da Documentação Oficial
+    do Endpoint de Download de Anexos" e a checkpoint anterior sobre os
+    anexos).
+
+    Tenta baixar o binário direto da API do ML com o Bearer token da
+    conta ativa (post-purchase/v1/claims/{claim_id}/attachments/
+    {filename}/download -- endpoint validado empiricamente e contra a
+    doc oficial). Nada é salvo em disco: só repassa os bytes da resposta
+    como estão, com o Content-Type que a própria API devolveu.
+
+    Se a chamada falhar por qualquer motivo (claim/anexo não existe
+    mais, erro de autenticação, qualquer outro erro da API), cai pro
+    mesmo link cookie-auth da Central de Vendedores que já era usado
+    antes dessa troca (redirect 302) -- mantém o comportamento anterior
+    como rede de segurança, sem duplicar lógica de fallback no
+    template/JS: se nem esse link funcionar (sem login no navegador),
+    Ana continua vendo a foto direto pelo Mercado Livre, do jeito que já
+    era antes.
+
+    Só serve o anexo de um claim que já está na nossa cache local
+    (ClaimMercadoLivre) -- a EmpresaRouter já restringe essa consulta ao
+    banco da empresa ativa, então isso também evita servir claim_id de
+    uma empresa pra sessão da outra.
+    """
+    cache = ClaimMercadoLivre.objects.filter(claim_id=claim_id).first()
+    if not cache:
+        return HttpResponse(status=404)
+
+    conta = CONTA_POR_EMPRESA.get(obter_empresa_ativa())
+    url_fallback = url_anexo_mensagem_fallback(cache, conta, {'filename': filename})
+
+    try:
+        resposta = chamar_api(
+            "GET", f"/post-purchase/v1/claims/{claim_id}/attachments/{filename}/download",
+            pasta_logs=PASTA_LOGS_ML, conta=conta,
+        )
+    except (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao):
+        if url_fallback:
+            return redirect(url_fallback)
+        return HttpResponse(status=404)
+
+    return HttpResponse(
+        resposta.content,
+        content_type=resposta.headers.get('Content-Type', 'application/octet-stream'),
+    )

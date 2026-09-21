@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from zoneinfo import ZoneInfo
 
+from django.urls import reverse
 from django.utils import timezone
 
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
@@ -653,7 +654,7 @@ def _preparar_mensagem_html(texto):
     return limpo.replace("<a ", '<a target="_blank" rel="noopener" ')
 
 
-def _url_anexo_mensagem(cache, conta, anexo):
+def url_anexo_mensagem_fallback(cache, conta, anexo):
     """Monta o link direto (abre em nova guia, na sessão de navegador de
     quem clicar) pra abrir 1 anexo de mensagem na Central de Vendedores
     -- padrão de URL mapeado manualmente antes (vault,
@@ -669,10 +670,13 @@ def _url_anexo_mensagem(cache, conta, anexo):
     navegador (confirmado testando: sem login, cai na tela de login do
     ML), não o token Bearer da API, e embed cross-site (<img src=...>)
     corre risco real de o navegador bloquear o cookie por política de
-    SameSite. Por isso é só um ícone clicável que abre em nova guia
-    (navegação de topo, não bloqueada por SameSite) -- se não funcionar
-    pra quem clicar, só abre uma aba com erro/tela de login, nada quebra
-    na tela de Mediações."""
+    SameSite.
+
+    Atualização 21/09/2026: deixou de ser o link principal do ícone --
+    virou só o alvo do redirect de devolucoes.views.proxy_anexo_mediacao,
+    usado quando a tentativa via API (Bearer token) falha. Renomeada (sem
+    underscore) porque agora é chamada de fora deste módulo, por
+    views.py -- deixou de ser função privada."""
     filename = anexo.get('filename')
     seller_id = os.getenv(f'{conta}_USER_ID')
     if not filename or not seller_id:
@@ -682,6 +686,26 @@ def _url_anexo_mensagem(cache, conta, anexo):
         f'/sellers/{seller_id}/messages/attachments/{filename}'
         f'?siteId=MLB&tag=claim&claimId={cache.claim_id}&dispute=false'
     )
+
+
+def _url_proxy_anexo(cache, anexo):
+    """Monta a URL do proxy de anexo (devolucoes.views.proxy_anexo_mediacao).
+
+    Troca de 21/09/2026: em vez de mandar o clique direto pro link
+    cookie-auth de url_anexo_mensagem_fallback (acima), agora passa
+    primeiro pelo backend, que tenta baixar o anexo com o Bearer token da
+    API (post-purchase/v1/claims/.../download -- validado empírica e
+    documentalmente, ver vault "Validação da Documentação Oficial do
+    Endpoint de Download de Anexos"). Só se essa chamada falhar (claim
+    antigo, erro de autenticação, qualquer outro erro) o proxy
+    redireciona pro link antigo de url_anexo_mensagem_fallback -- o
+    comportamento anterior continua existindo, só como rede de
+    segurança, não como caminho principal. Sem cache em disco: o proxy
+    só repassa os bytes, não salva nada."""
+    filename = anexo.get('filename')
+    if not filename:
+        return None
+    return reverse('proxy_anexo_mediacao', args=[cache.claim_id, filename])
 
 
 def _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta, desde=None):
@@ -716,7 +740,7 @@ def _formatar_mensagens(mensagens_brutas, cache, nome_cliente, conta, desde=None
 
         anexos = []
         for anexo in (m.get('attachments') or []):
-            url = _url_anexo_mensagem(cache, conta, anexo)
+            url = _url_proxy_anexo(cache, anexo)
             if url:
                 anexos.append({'url': url})
 
