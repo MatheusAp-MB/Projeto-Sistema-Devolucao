@@ -231,6 +231,17 @@ class Devolucao(models.Model):
         return (self.data_reclamacao_cliente - self.data_recebimento_cliente).days
 
     @property
+    def dias_desde_abertura_mediacao(self):
+        # * [EXPLICAÇÃO] → pedido de Matheus (28/09/2026, redesenho do
+        #   card de Mediações Abertas): quantos dias corridos desde que a
+        #   mediação foi aberta — mesma filosofia defensiva de
+        #   dias_ate_reclamacao/dias_ate_prazo_resposta, só que contando
+        #   pra frente a partir de hoje em vez de subtrair 2 datas fixas.
+        if self.data_abertura_mediacao is None:
+            return None
+        return (date.today() - self.data_abertura_mediacao).days
+
+    @property
     def reclamacao_dentro_do_prazo(self):
         # * [EXPLICAÇÃO] → pedido de Matheus (19/09/2026): deixar visível
         #   se o cliente reclamou dentro de 7 dias corridos a partir do

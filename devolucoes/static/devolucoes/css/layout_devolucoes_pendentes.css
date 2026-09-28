@@ -387,3 +387,244 @@
         justify-content: center;
     }
 }
+
+/* =========================================================
+   Mediações Abertas — tabela de colunas fixas (redesenho
+   pedido por Matheus, 28/09/2026): prazo mora dentro da célula
+   de Produto, mensagem nova mora dentro da célula de Cliente,
+   motivo da reclamação virou anotação da mediação (ícone com
+   hover), ações com texto explícito em grade 2 colunas. Teto de
+   largura pra não esticar à toa numa tela grande. Não mexe em
+   nenhuma outra aba.
+   ========================================================= */
+
+.dp-tabela-wrapper {
+    max-width: 1180px;
+}
+
+.dp-tabela-grade {
+    display: grid;
+    grid-template-columns: 48px minmax(0, 340px) minmax(0, 260px) 92px 226px;
+    align-items: center;
+    gap: 14px;
+}
+
+.dp-tabela-cabecalho {
+    padding: 0 14px 10px 14px;
+    border-bottom: 1px solid var(--cor-borda);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cor-texto-muted);
+    margin-top: 16px;
+}
+
+.dp-tabela-item {
+    padding: 14px;
+    border: none;
+    border-bottom: 1px solid var(--cor-borda);
+    border-radius: 0;
+}
+
+.dp-tabela-item:hover {
+    background-color: #f7f9fc;
+}
+
+.dp-tabela-item:last-child {
+    border-bottom: none;
+}
+
+.dp-tabela-foto {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    background-color: var(--cor-fundo-pagina);
+    color: var(--cor-texto-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.dp-tabela-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.dp-tabela-produto {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.dp-tabela-badge-prazo {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.dp-tabela-badge-prazo--vencido { background: #fde8e8; color: var(--cor-negativo); }
+.dp-tabela-badge-prazo--proximo { background: #fef3c7; color: #92400e; }
+.dp-tabela-badge-prazo--ok { background: #e6f4ea; color: var(--cor-positivo); }
+.dp-tabela-badge-prazo--sem-prazo { background: #eceef1; color: var(--cor-texto-muted); }
+
+.dp-tabela-produto-nome {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+}
+
+.dp-tabela-produto-linha {
+    font-size: 12px;
+    color: var(--cor-texto-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    gap: 12px;
+    margin: 0;
+}
+
+.dp-tabela-produto-linha i {
+    margin-right: 3px;
+}
+
+.dp-tabela-cliente {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.dp-tabela-cliente-nome {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
+}
+
+.dp-tabela-cliente-meta {
+    font-size: 11.5px;
+    color: var(--cor-texto-muted);
+    line-height: 1.35;
+    margin: 0;
+}
+
+.dp-tabela-cliente-meta--fora {
+    color: var(--cor-negativo);
+}
+
+.dp-tabela-msg {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--cor-negativo);
+    margin-top: 2px;
+}
+
+.dp-tabela-anotacao {
+    position: relative;
+    display: flex;
+    justify-content: center;
+}
+
+.dp-tabela-anotacao-icone {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #e7f0fa;
+    color: var(--cor-primaria-clara);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    cursor: help;
+    flex-shrink: 0;
+}
+
+.dp-tabela-anotacao-tooltip {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    z-index: 5;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 230px;
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-size: 11.5px;
+    line-height: 1.45;
+    padding: 10px 12px;
+    border-radius: 8px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    transition: opacity .12s ease;
+    text-align: left;
+    pointer-events: none;
+}
+
+.dp-tabela-anotacao-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: var(--cor-primaria);
+}
+
+.dp-tabela-anotacao:hover .dp-tabela-anotacao-tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+.dp-tabela-acoes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
+
+.dp-tabela-btn {
+    padding: 6px 8px;
+    font-size: 11px;
+    gap: 5px;
+    justify-content: center;
+    text-align: center;
+    line-height: 1.25;
+    white-space: normal;
+}
+
+.dp-tabela-btn--principal {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+    .dp-tabela-scroll {
+        overflow-x: auto;
+    }
+
+    .dp-tabela-grade {
+        min-width: 850px;
+    }
+}

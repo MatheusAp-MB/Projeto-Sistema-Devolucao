@@ -1,150 +1,764 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Mockup — Card de Mediação Aberta enriquecido</title>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockup — Mediações Abertas (tabela de colunas fixas)</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <style>
     :root {
-        --cor-primaria:        #1a3a5c;
-        --cor-primaria-clara:  #2e7bb5;
-        --cor-texto-claro:     #ffffff;
-        --cor-texto-muted:     #6c757d;
-        --cor-fundo-pagina:    #e9edf4;
-        --cor-fundo-card:      #ffffff;
-        --cor-borda:           #dee2e6;
-        --cor-positivo:        #2d7a4f;
-        --cor-negativo:        #dc3545;
+        --cor-primaria: #1a3a5c;
+        --cor-primaria-clara: #2e7bb5;
+        --cor-texto-claro: #ffffff;
+        --cor-texto-muted: #6c757d;
+        --cor-fundo-pagina: #e9edf4;
+        --cor-fundo-card: #ffffff;
+        --cor-borda: #dee2e6;
+        --cor-positivo: #2d7a4f;
+        --cor-negativo: #dc3545;
     }
+
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 24px; background-color: var(--cor-fundo-pagina); font-family: 'Segoe UI', Arial, sans-serif; }
+
+    body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        background-color: var(--cor-fundo-pagina);
+        color: #333;
+    }
+
+    /* ===== aviso do mockup (não faz parte da tela real) ===== */
     .mockup-aviso {
-        max-width: 900px; margin: 0 auto 16px auto; background: #fff3cd; border: 1px solid #ffe69c;
-        color: #664d03; padding: 10px 16px; border-radius: 8px; font-size: 13px;
+        background: #fff3cd;
+        color: #664d03;
+        font-size: 12.5px;
+        padding: 8px 24px;
+        text-align: center;
+        border-bottom: 1px solid #ffe69c;
     }
-    .mockup-legenda {
-        max-width: 900px; margin: 0 auto 20px auto; background: #e7f0fa; border: 1px solid #cfe0f5;
-        color: var(--cor-primaria); padding: 12px 16px; border-radius: 8px; font-size: 12.5px; line-height: 1.7;
+
+    /* ===== topbar ===== */
+    .topbar {
+        background-color: var(--cor-primaria);
+        color: var(--cor-texto-claro);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 24px;
+        gap: 16px;
     }
-    .mockup-legenda b { color: var(--cor-primaria); }
-    .dp-cartao { max-width: 900px; margin: 0 auto 16px auto; background-color: var(--cor-fundo-card); border: 1px solid var(--cor-borda); border-radius: 10px; padding: 20px 24px; }
 
-    .dp-lista { display: flex; flex-direction: column; gap: 14px; }
-    .dp-item { display: flex; align-items: flex-start; gap: 14px; padding: 14px; border: 1px solid var(--cor-borda); border-radius: 8px; flex-wrap: wrap; }
+    .topbar-esquerda {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-weight: 600;
+        font-size: 15px;
+    }
 
-    /* [1] dot de mensagem não lida sobre a foto — reaproveita .med-item-nao-lida (mediacoes_ml.css) */
-    .dp-item-foto { position: relative; width: 52px; height: 52px; border-radius: 8px; background-color: var(--cor-fundo-pagina); flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--cor-texto-muted); }
-    .dp-foto-nao-lida { position: absolute; top: -4px; right: -4px; width: 12px; height: 12px; border-radius: 50%; background: var(--cor-negativo); border: 2px solid var(--cor-fundo-card); }
+    .topbar-logo {
+        width: 30px;
+        height: 30px;
+        background: var(--cor-texto-claro);
+        color: var(--cor-primaria);
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 13px;
+    }
 
-    .dp-item-textos { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
-    .dp-item-produto { font-size: 15px; font-weight: 600; color: #333; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .dp-badge { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; padding: 3px 9px; border-radius: 20px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
-    .dp-badge--mediacao-aberta { background: #fde8e8; color: var(--cor-negativo); }
+    .topbar-direita {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
 
-    /* [2] badges de prazo — cores exatas de layout_mediacoes_ml.css */
-    .dp-badge--prazo-vencido { background: #fde8e8; color: var(--cor-negativo); }
-    .dp-badge--prazo-proximo { background: #fef3c7; color: #92400e; }
-    .dp-badge--prazo-ok { background: #e6f4ea; color: var(--cor-positivo); }
+    .topbar-btn-nova {
+        background: var(--cor-primaria-clara);
+        color: var(--cor-texto-claro);
+        padding: 7px 14px;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        white-space: nowrap;
+    }
 
-    /* [6] badge do prazo de 7 dias do cliente — paleta neutra, não compete com o badge de prazo de resposta */
-    .dp-badge--dentro-prazo-cliente { background: #eceef1; color: var(--cor-texto-muted); }
-    .dp-badge--fora-prazo-cliente { background: #eceef1; color: var(--cor-texto-muted); }
+    .topbar-empresa {
+        background: rgba(255, 255, 255, 0.15);
+        padding: 7px 14px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+    }
 
-    .dp-item-linha { display: flex; gap: 16px; font-size: 13px; color: #515151; flex-wrap: wrap; }
-    .dp-item-linha--muted { color: var(--cor-texto-muted); }
-    .dp-item-linha i { margin-right: 4px; }
+    /* ===== shell (sidebar + conteúdo) ===== */
+    .app-shell {
+        display: flex;
+        min-height: calc(100vh - 49px);
+    }
 
-    /* [5] prévia do motivo da reclamação */
-    .dp-item-motivo { font-size: 12.5px; color: #666; font-style: italic; margin-top: 2px; }
-    .dp-item-motivo i { margin-right: 4px; color: var(--cor-texto-muted); font-style: normal; }
+    .sidebar {
+        width: 220px;
+        background-color: var(--cor-primaria);
+        color: var(--cor-texto-claro);
+        flex-shrink: 0;
+        padding: 18px 0;
+    }
 
-    .dp-item-acoes { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; align-self: center; }
-    .dp-btn { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 6px; font-size: 12.5px; font-weight: 600; border: 1px solid var(--cor-borda); background-color: #fff; color: #444; cursor: pointer; white-space: nowrap; text-decoration: none; }
-    .dp-btn--principal { background-color: var(--cor-primaria); border-color: var(--cor-primaria); color: var(--cor-texto-claro); }
-    /* [3] botão de link direto pro ML */
-    .dp-btn--ml { background-color: #fff3e0; border-color: #ffd699; color: #92400e; }
+    .sidebar-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 22px;
+        font-size: 13.5px;
+        color: rgba(255, 255, 255, 0.78);
+        font-weight: 500;
+    }
+
+    .sidebar-item i { width: 16px; text-align: center; }
+
+    .sidebar-item--ativo {
+        background: rgba(255, 255, 255, 0.12);
+        color: var(--cor-texto-claro);
+        font-weight: 700;
+        border-left: 3px solid var(--cor-texto-claro);
+        padding-left: 19px;
+    }
+
+    .main-content {
+        flex: 1;
+        padding: 24px 28px 40px 28px;
+        min-width: 0;
+    }
+
+    .pagina-topo {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+        gap: 14px;
+    }
+
+    .pagina-titulo {
+        font-size: 22px;
+        font-weight: 700;
+        color: var(--cor-primaria);
+        margin: 0;
+    }
+
+    .campo-busca-topo {
+        position: relative;
+    }
+
+    .campo-busca-topo i {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--cor-texto-muted);
+        font-size: 13px;
+    }
+
+    .campo-busca-topo input {
+        width: 340px;
+        max-width: 60vw;
+        padding: 9px 14px 9px 36px;
+        border: 1px solid var(--cor-borda);
+        border-radius: 8px;
+        font-size: 13px;
+        font-family: inherit;
+        background: var(--cor-fundo-card);
+    }
+
+    .filtro-todos {
+        border: 1px solid var(--cor-borda);
+        background: var(--cor-fundo-card);
+        padding: 9px 14px;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #444;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-left: 10px;
+        white-space: nowrap;
+    }
+
+    /* ===== cartão da listagem — teto de largura pra não esticar
+       à toa numa tela larga ===== */
+    .dp-cartao {
+        background-color: var(--cor-fundo-card);
+        border: 1px solid var(--cor-borda);
+        border-radius: 10px;
+        padding: 20px 24px;
+        max-width: 1180px;
+    }
+
+    /* ===== abas do fluxo (igual ao sistema real) ===== */
+    .dp-abas-nav {
+        display: flex;
+        gap: 4px;
+        border-bottom: 1px solid var(--cor-borda);
+        flex-wrap: wrap;
+    }
+
+    .dp-aba-btn {
+        background: none;
+        border: none;
+        padding: 10px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--cor-texto-muted);
+        border-bottom: 2.5px solid transparent;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        white-space: nowrap;
+    }
+
+    .dp-aba-btn--ativa {
+        color: var(--cor-primaria);
+        border-bottom-color: var(--cor-primaria-clara);
+    }
+
+    .dp-aba-contagem {
+        background-color: #eceef1;
+        color: var(--cor-texto-muted);
+        font-size: 11px;
+        font-weight: 700;
+        padding: 1px 7px;
+        border-radius: 20px;
+    }
+
+    .dp-aba-btn--ativa .dp-aba-contagem {
+        background-color: var(--cor-primaria-clara);
+        color: var(--cor-texto-claro);
+    }
+
+    /* ===== filtro secundário (Feature 1, já em produção) ===== */
+    .dp-filtro-secundario {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin: 16px 0 18px 0;
+        font-size: 12.5px;
+        color: var(--cor-texto-muted);
+        flex-wrap: wrap;
+    }
+
+    .dp-chip-filtro {
+        border: 1px solid var(--cor-borda);
+        background-color: var(--cor-fundo-card);
+        color: #444;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .dp-chip-filtro--ativa {
+        background-color: var(--cor-primaria);
+        border-color: var(--cor-primaria);
+        color: var(--cor-texto-claro);
+    }
+
+    /* =========================================================
+       tabela de colunas fixas — SEM `fr`: Produto e Cliente têm
+       teto em pixel, então não esticam à toa numa tela larga.
+       ========================================================= */
+
+    .devt-grid {
+        display: grid;
+        grid-template-columns: 48px minmax(0, 340px) minmax(0, 260px) 44px 226px;
+        align-items: center;
+        gap: 14px;
+    }
+
+    .devt-cabecalho {
+        padding: 0 14px 10px 14px;
+        border-bottom: 1px solid var(--cor-borda);
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--cor-texto-muted);
+    }
+
+    .devt-corpo {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .devt-linha {
+        padding: 14px;
+        border-bottom: 1px solid var(--cor-borda);
+    }
+
+    .devt-linha:hover {
+        background-color: #f7f9fc;
+    }
+
+    .devt-linha:last-child {
+        border-bottom: none;
+    }
+
+    /* --- coluna foto --- */
+    .devt-foto {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        background-color: var(--cor-fundo-pagina);
+        color: var(--cor-texto-muted);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        flex-shrink: 0;
+    }
+
+    /* --- coluna produto (prazo + nome + loja/pedido, empilhados) --- */
+    .devt-produto-cel {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        min-width: 0;
+    }
+
+    .devt-badge-prazo {
+        display: inline-flex;
+        align-self: flex-start;
+        align-items: center;
+        gap: 5px;
+        font-size: 10.5px;
+        font-weight: 700;
+        padding: 3px 9px;
+        border-radius: 20px;
+        white-space: nowrap;
+        line-height: 1.3;
+    }
+
+    .devt-badge-prazo--vencido { background: #fde8e8; color: var(--cor-negativo); }
+    .devt-badge-prazo--proximo { background: #fef3c7; color: #92400e; }
+    .devt-badge-prazo--ok { background: #e6f4ea; color: var(--cor-positivo); }
+
+    .devt-produto-nome {
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0;
+    }
+
+    .devt-produto-linha {
+        font-size: 12px;
+        color: var(--cor-texto-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: flex;
+        gap: 12px;
+        margin: 0;
+    }
+
+    .devt-produto-linha i { margin-right: 3px; }
+
+    /* --- coluna cliente/data (com mensagens embutido) --- */
+    .devt-cliente-cel {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-width: 0;
+    }
+
+    .devt-cliente-nome {
+        font-size: 13.5px;
+        font-weight: 600;
+        color: #333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0;
+    }
+
+    .devt-cliente-meta {
+        font-size: 11.5px;
+        color: var(--cor-texto-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0;
+    }
+
+    .devt-cliente-meta--fora { color: var(--cor-negativo); }
+
+    .devt-msg-inline {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: var(--cor-negativo);
+        margin: 2px 0 0 0;
+    }
+
+    /* --- coluna anotações da mediação (ícone + hover) --- */
+    .devt-anotacao {
+        position: relative;
+        display: flex;
+        justify-content: center;
+    }
+
+    .devt-anotacao-icone {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #e7f0fa;
+        color: var(--cor-primaria-clara);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        cursor: help;
+        flex-shrink: 0;
+    }
+
+    .devt-anotacao-tooltip {
+        visibility: hidden;
+        opacity: 0;
+        position: absolute;
+        z-index: 5;
+        bottom: 120%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 230px;
+        background: var(--cor-primaria);
+        color: #fff;
+        font-size: 11.5px;
+        line-height: 1.45;
+        padding: 10px 12px;
+        border-radius: 8px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+        transition: opacity .12s ease;
+        text-align: left;
+        pointer-events: none;
+    }
+
+    .devt-anotacao-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 6px solid transparent;
+        border-top-color: var(--cor-primaria);
+    }
+
+    .devt-anotacao:hover .devt-anotacao-tooltip {
+        visibility: visible;
+        opacity: 1;
+    }
+
+    /* --- coluna ações — GRADE fixa 2 colunas (não é mais
+       flex-wrap: o layout de cada linha fica sempre idêntico,
+       sem sobra de espaço nem zigue-zague) --- */
+    .devt-acoes {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+
+    .devt-btn-acao {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        padding: 6px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 600;
+        border: 1px solid var(--cor-borda);
+        background-color: #fff;
+        color: #444;
+        white-space: nowrap;
+        width: 100%;
+    }
+
+    .devt-btn-acao:hover {
+        border-color: var(--cor-primaria-clara);
+        color: var(--cor-primaria-clara);
+    }
+
+    .devt-btn-acao--principal {
+        grid-column: 1 / -1;
+        background-color: var(--cor-primaria);
+        border-color: var(--cor-primaria);
+        color: var(--cor-texto-claro);
+    }
+
+    .devt-btn-acao--principal:hover {
+        background-color: var(--cor-primaria-clara);
+        border-color: var(--cor-primaria-clara);
+        color: var(--cor-texto-claro);
+    }
+
+    .devt-btn-acao--perigo:hover {
+        border-color: var(--cor-negativo);
+        color: var(--cor-negativo);
+        background-color: #fde8e8;
+    }
+
+    @media (max-width: 900px) {
+        .devt-grid-scroll { overflow-x: auto; }
+        .devt-grid { min-width: 780px; }
+    }
 </style>
 </head>
 <body>
 
-<div class="mockup-aviso">
-    <i class="fas fa-info-circle"></i> Mockup estático — 2 cenários da mesma aba (Mediações Abertas) mostrando os estados possíveis dos itens novos.
-</div>
-
-<div class="mockup-legenda">
-    <b>[1]</b> Bolinha vermelha na foto = mensagem não lida (já calculado em <code>mensagem_nao_lida</code>) &nbsp;·&nbsp;
-    <b>[2]</b> Badge de prazo de resposta (já calculado em <code>status_prazo_resposta</code>) &nbsp;·&nbsp;
-    <b>[3]</b> Botão "Ver mediação no ML" (só aparece se plataforma = Mercado Livre e já tiver <code>claim_id</code>) &nbsp;·&nbsp;
-    <b>[4]</b> "há X dias" ao lado da data de abertura (conta simples a partir de <code>data_abertura_mediacao</code>) &nbsp;·&nbsp;
-    <b>[5]</b> Prévia do <code>motivo_reclamacao</code> &nbsp;·&nbsp;
-    <b>[6]</b> Badge "dentro/fora do prazo de 7 dias" (já calculado em <code>reclamacao_dentro_do_prazo</code>)
-</div>
-
-<div class="dp-cartao">
-    <div class="dp-lista">
-
-        <!-- ===== Cenário 1: Mercado Livre, urgente ===== -->
-        <div class="dp-item">
-            <div class="dp-item-foto">
-                <i class="fas fa-box"></i>
-                <span class="dp-foto-nao-lida" title="Mensagem não lida"></span> <!-- [1] -->
-            </div>
-            <div class="dp-item-textos">
-                <p class="dp-item-produto">
-                    Furadeira de Impacto 750W
-                    <span class="dp-badge dp-badge--mediacao-aberta">Mediação aberta</span>
-                    <span class="dp-badge dp-badge--prazo-vencido"><i class="fas fa-triangle-exclamation"></i> Vencido há 2 dias</span> <!-- [2] -->
-                    <span class="dp-badge dp-badge--fora-prazo-cliente">Reclamou fora do prazo de 7 dias</span> <!-- [6] -->
-                </p>
-                <p class="dp-item-linha">
-                    <span><i class="fas fa-store"></i> Mercado Livre</span>
-                    <span><i class="fas fa-receipt"></i> Pedido 2000098765</span>
-                </p>
-                <p class="dp-item-linha dp-item-linha--muted">
-                    <span><i class="fas fa-user"></i> Roberto Lima</span>
-                    <span><i class="fas fa-gavel"></i> mediação aberta em 20/09/2026 — há 8 dias</span> <!-- [4] -->
-                </p>
-                <p class="dp-item-motivo"><i class="fas fa-quote-left"></i> "Produto veio sem a bateria, só o carregador..."</p> <!-- [5] -->
-            </div>
-            <div class="dp-item-acoes">
-                <a href="#" class="dp-btn"><i class="fas fa-eye"></i> Visualizar</a>
-                <a href="#" class="dp-btn dp-btn--ml"><i class="fas fa-arrow-up-right-from-square"></i> Ver mediação no ML</a> <!-- [3] -->
-                <a href="#" class="dp-btn dp-btn--principal"><i class="fas fa-pen"></i> Editar (encerrar mediação)</a>
-            </div>
-        </div>
-
-        <!-- ===== Cenário 2: Magalu, tranquilo (igual ao seu print original) ===== -->
-        <div class="dp-item">
-            <div class="dp-item-foto">
-                <i class="fas fa-box"></i>
-                <!-- sem bolinha — sem mensagem nova -->
-            </div>
-            <div class="dp-item-textos">
-                <p class="dp-item-produto">
-                    Pulverizador a Bateria e Manual SS-20B
-                    <span class="dp-badge dp-badge--mediacao-aberta">Mediação aberta</span>
-                    <span class="dp-badge dp-badge--prazo-ok">Vence em 5 dias</span> <!-- [2] -->
-                    <span class="dp-badge dp-badge--dentro-prazo-cliente">Reclamou dentro do prazo de 7 dias</span> <!-- [6] -->
-                </p>
-                <p class="dp-item-linha">
-                    <span><i class="fas fa-store"></i> Magalu</span>
-                    <span><i class="fas fa-receipt"></i> Pedido 1566770102812575</span>
-                </p>
-                <p class="dp-item-linha dp-item-linha--muted">
-                    <span><i class="fas fa-user"></i> Maria Marta Cremonesi Ganacin</span>
-                    <span><i class="fas fa-gavel"></i> mediação aberta em 08/09/2026 — há 20 dias</span> <!-- [4] -->
-                </p>
-                <p class="dp-item-motivo"><i class="fas fa-quote-left"></i> "Aparelho não liga desde a primeira tentativa de uso..."</p> <!-- [5] -->
-            </div>
-            <div class="dp-item-acoes">
-                <a href="#" class="dp-btn"><i class="fas fa-eye"></i> Visualizar</a>
-                <!-- sem botão "Ver mediação no ML" — Magalu não tem essa integração -->
-                <a href="#" class="dp-btn dp-btn--principal"><i class="fas fa-pen"></i> Editar (encerrar mediação)</a>
-            </div>
-        </div>
-
+    <div class="mockup-aviso">
+        Mockup estático — coluna "Loja" usando o ícone genérico <code>fa-store</code> que já existe hoje no sistema (não os logos coloridos por marketplace do print do GPT), até você decidir qual dos dois quer.
     </div>
-</div>
+
+    <div class="topbar">
+        <div class="topbar-esquerda">
+            <div class="topbar-logo">MB</div>
+            Sistema de Devoluções
+            <i class="fas fa-bars" style="margin-left:6px;opacity:.7;font-size:13px;"></i>
+            <span style="opacity:.7;font-weight:400;">Devoluções</span>
+        </div>
+        <div class="topbar-direita">
+            <div class="topbar-btn-nova"><i class="fas fa-plus"></i> Nova devolução</div>
+            <div class="topbar-empresa">MAGAZINE BRASILEIRO</div>
+        </div>
+    </div>
+
+    <div class="app-shell">
+        <div class="sidebar">
+            <div class="sidebar-item"><i class="fas fa-magnifying-glass"></i> Consultar Pedido</div>
+            <div class="sidebar-item"><i class="fas fa-rotate-left"></i> Nova Devolução</div>
+            <div class="sidebar-item sidebar-item--ativo"><i class="fas fa-box-open"></i> Devoluções</div>
+            <div class="sidebar-item"><i class="fas fa-comments"></i> Mediações ML</div>
+            <div class="sidebar-item"><i class="fas fa-cube"></i> Produtos</div>
+            <div class="sidebar-item"><i class="fas fa-puzzle-piece"></i> Peças</div>
+            <div class="sidebar-item"><i class="fas fa-tags"></i> Marcas</div>
+        </div>
+
+        <div class="main-content">
+            <div class="pagina-topo">
+                <h1 class="pagina-titulo">Devoluções</h1>
+                <div style="display:flex;align-items:center;">
+                    <div class="campo-busca-topo">
+                        <i class="fas fa-magnifying-glass"></i>
+                        <input type="text" placeholder="Buscar por cliente, número do pedido ou produto...">
+                    </div>
+                    <div class="filtro-todos">Todos <i class="fas fa-chevron-down" style="font-size:10px;"></i></div>
+                </div>
+            </div>
+
+            <div class="dp-cartao">
+                <div class="dp-abas-nav">
+                    <button class="dp-aba-btn"><i class="fas fa-magnifying-glass"></i> Aguardando Conferência <span class="dp-aba-contagem">1</span></button>
+                    <button class="dp-aba-btn"><i class="fas fa-clipboard-check"></i> Conferidos <span class="dp-aba-contagem">0</span></button>
+                    <button class="dp-aba-btn dp-aba-btn--ativa"><i class="fas fa-gavel"></i> Mediações Abertas <span class="dp-aba-contagem">6</span></button>
+                    <button class="dp-aba-btn"><i class="fas fa-check-double"></i> Mediações Encerradas <span class="dp-aba-contagem">1</span></button>
+                    <button class="dp-aba-btn"><i class="fas fa-print"></i> Impressos <span class="dp-aba-contagem">2</span></button>
+                </div>
+
+                <div class="dp-filtro-secundario">
+                    Filtrar por destino:
+                    <button class="dp-chip-filtro">Troca</button>
+                    <button class="dp-chip-filtro">Usado</button>
+                    <button class="dp-chip-filtro dp-chip-filtro--ativa">Todos</button>
+                </div>
+
+                <div class="devt-grid-scroll">
+                <div class="devt-grid devt-cabecalho">
+                    <div></div>
+                    <div>Produto / Loja / Pedido</div>
+                    <div>Cliente / Data</div>
+                    <div style="text-align:center;">Anotações</div>
+                    <div>Ações</div>
+                </div>
+
+                <div class="devt-corpo">
+
+                    <!-- linha 1 — com anotação -->
+                    <div class="devt-grid devt-linha">
+                        <div class="devt-foto"><i class="fas fa-screwdriver-wrench"></i></div>
+                        <div class="devt-produto-cel">
+                            <span class="devt-badge-prazo devt-badge-prazo--vencido"><i class="fas fa-triangle-exclamation"></i> Vencido há 2 dias</span>
+                            <p class="devt-produto-nome">Furadeira de Impacto 750W</p>
+                            <p class="devt-produto-linha">
+                                <span><i class="fas fa-store"></i> Mercado Livre</span>
+                                <span><i class="fas fa-receipt"></i> Pedido 2000098765</span>
+                            </p>
+                        </div>
+                        <div class="devt-cliente-cel">
+                            <p class="devt-cliente-nome">Roberto Lima</p>
+                            <p class="devt-cliente-meta devt-cliente-meta--fora">aberta em 20/09/2026 · há 8 dias · fora dos 7 dias</p>
+                            <span class="devt-msg-inline"><i class="fas fa-comment-dots"></i> 3 novas</span>
+                        </div>
+                        <div class="devt-anotacao">
+                            <div class="devt-anotacao-icone"><i class="fas fa-note-sticky"></i></div>
+                            <div class="devt-anotacao-tooltip">Cliente já concordou em receber peça de reposição; aguardando aprovação do fornecedor.</div>
+                        </div>
+                        <div class="devt-acoes">
+                            <button class="devt-btn-acao" title="Visualizar"><i class="fas fa-eye"></i> Ver</button>
+                            <button class="devt-btn-acao" title="Editar conferência"><i class="fas fa-pen-to-square"></i> Revisar</button>
+                            <button class="devt-btn-acao devt-btn-acao--principal" title="Editar (encerrar mediação)"><i class="fas fa-pen"></i> Encerrar mediação</button>
+                            <button class="devt-btn-acao" title="Etiqueta térmica"><i class="fas fa-tag"></i> Etiqueta</button>
+                            <button class="devt-btn-acao devt-btn-acao--perigo" title="Excluir"><i class="fas fa-trash"></i> Excluir</button>
+                        </div>
+                    </div>
+
+                    <!-- linha 2 — sem anotação -->
+                    <div class="devt-grid devt-linha">
+                        <div class="devt-foto"><i class="fas fa-spray-can"></i></div>
+                        <div class="devt-produto-cel">
+                            <span class="devt-badge-prazo devt-badge-prazo--ok">Vence em 5 dias</span>
+                            <p class="devt-produto-nome">Pulverizador a Bateria e Manutenção Costal 20L</p>
+                            <p class="devt-produto-linha">
+                                <span><i class="fas fa-store"></i> Magalu</span>
+                                <span><i class="fas fa-receipt"></i> Pedido 1566770108212575</span>
+                            </p>
+                        </div>
+                        <div class="devt-cliente-cel">
+                            <p class="devt-cliente-nome">Maria Marta Cremonesi Ganacin Fioravante</p>
+                            <p class="devt-cliente-meta">aberta em 08/09/2026 · há 20 dias · dentro dos 7 dias</p>
+                            <span class="devt-msg-inline"><i class="fas fa-comment-dots"></i> 1 nova</span>
+                        </div>
+                        <div></div>
+                        <div class="devt-acoes">
+                            <button class="devt-btn-acao" title="Visualizar"><i class="fas fa-eye"></i> Ver</button>
+                            <button class="devt-btn-acao" title="Continuar conferência"><i class="fas fa-clipboard-check"></i> Continuar</button>
+                            <button class="devt-btn-acao devt-btn-acao--principal" title="Editar (encerrar mediação)"><i class="fas fa-pen"></i> Encerrar mediação</button>
+                            <button class="devt-btn-acao" title="Etiqueta térmica"><i class="fas fa-tag"></i> Etiqueta</button>
+                            <button class="devt-btn-acao devt-btn-acao--perigo" title="Excluir"><i class="fas fa-trash"></i> Excluir</button>
+                        </div>
+                    </div>
+
+                    <!-- linha 3 — com anotação -->
+                    <div class="devt-grid devt-linha">
+                        <div class="devt-foto"><i class="fas fa-fire-burner"></i></div>
+                        <div class="devt-produto-cel">
+                            <span class="devt-badge-prazo devt-badge-prazo--vencido"><i class="fas fa-triangle-exclamation"></i> Vence hoje</span>
+                            <p class="devt-produto-nome">Fritadeira Elétrica Air Fryer 4L</p>
+                            <p class="devt-produto-linha">
+                                <span><i class="fas fa-store"></i> Shopee</span>
+                                <span><i class="fas fa-receipt"></i> Pedido 2390011123344</span>
+                            </p>
+                        </div>
+                        <div class="devt-cliente-cel">
+                            <p class="devt-cliente-nome">Carlos Eduardo Silva</p>
+                            <p class="devt-cliente-meta">aberta em 23/09/2026 · há 5 dias · dentro dos 7 dias</p>
+                        </div>
+                        <div class="devt-anotacao">
+                            <div class="devt-anotacao-icone"><i class="fas fa-note-sticky"></i></div>
+                            <div class="devt-anotacao-tooltip">ML sinalizou possível fraude — aguardando retorno da análise antes de decidir o reembolso.</div>
+                        </div>
+                        <div class="devt-acoes">
+                            <button class="devt-btn-acao" title="Visualizar"><i class="fas fa-eye"></i> Ver</button>
+                            <button class="devt-btn-acao" title="Editar conferência"><i class="fas fa-pen-to-square"></i> Revisar</button>
+                            <button class="devt-btn-acao devt-btn-acao--principal" title="Editar (encerrar mediação)"><i class="fas fa-pen"></i> Encerrar mediação</button>
+                            <button class="devt-btn-acao" title="Etiqueta térmica"><i class="fas fa-tag"></i> Etiqueta</button>
+                            <button class="devt-btn-acao devt-btn-acao--perigo" title="Excluir"><i class="fas fa-trash"></i> Excluir</button>
+                        </div>
+                    </div>
+
+                    <!-- linha 4 — sem anotação -->
+                    <div class="devt-grid devt-linha">
+                        <div class="devt-foto"><i class="fas fa-bone"></i></div>
+                        <div class="devt-produto-cel">
+                            <span class="devt-badge-prazo devt-badge-prazo--ok">Vence em 7 dias</span>
+                            <p class="devt-produto-nome">Joelheira Ortopédica Ajustável Neoprene</p>
+                            <p class="devt-produto-linha">
+                                <span><i class="fas fa-store"></i> Amazon</span>
+                                <span><i class="fas fa-receipt"></i> Pedido 701-1234567-8912345</span>
+                            </p>
+                        </div>
+                        <div class="devt-cliente-cel">
+                            <p class="devt-cliente-nome">Juliana Ferreira de Souza</p>
+                            <p class="devt-cliente-meta devt-cliente-meta--fora">aberta em 18/09/2026 · há 10 dias · fora dos 7 dias</p>
+                            <span class="devt-msg-inline"><i class="fas fa-comment-dots"></i> 2 novas</span>
+                        </div>
+                        <div></div>
+                        <div class="devt-acoes">
+                            <button class="devt-btn-acao" title="Visualizar"><i class="fas fa-eye"></i> Ver</button>
+                            <button class="devt-btn-acao" title="Continuar conferência"><i class="fas fa-clipboard-check"></i> Continuar</button>
+                            <button class="devt-btn-acao devt-btn-acao--principal" title="Editar (encerrar mediação)"><i class="fas fa-pen"></i> Encerrar mediação</button>
+                            <button class="devt-btn-acao" title="Etiqueta térmica"><i class="fas fa-tag"></i> Etiqueta</button>
+                            <button class="devt-btn-acao devt-btn-acao--perigo" title="Excluir"><i class="fas fa-trash"></i> Excluir</button>
+                        </div>
+                    </div>
+
+                    <!-- linha 5 — com anotação -->
+                    <div class="devt-grid devt-linha">
+                        <div class="devt-foto"><i class="fas fa-shoe-prints"></i></div>
+                        <div class="devt-produto-cel">
+                            <span class="devt-badge-prazo devt-badge-prazo--proximo"><i class="fas fa-clock"></i> Vence em 1 dia</span>
+                            <p class="devt-produto-nome">Palmilha Ortopédica Masculina Gel</p>
+                            <p class="devt-produto-linha">
+                                <span><i class="fas fa-store"></i> Mercado Livre</span>
+                                <span><i class="fas fa-receipt"></i> Pedido 2000112233445</span>
+                            </p>
+                        </div>
+                        <div class="devt-cliente-cel">
+                            <p class="devt-cliente-nome">André Ricardo Nascimento</p>
+                            <p class="devt-cliente-meta">aberta em 25/09/2026 · há 3 dias · dentro dos 7 dias</p>
+                        </div>
+                        <div class="devt-anotacao">
+                            <div class="devt-anotacao-icone"><i class="fas fa-note-sticky"></i></div>
+                            <div class="devt-anotacao-tooltip">Cliente pediu troca por número maior; peça já reservada no estoque.</div>
+                        </div>
+                        <div class="devt-acoes">
+                            <button class="devt-btn-acao" title="Visualizar"><i class="fas fa-eye"></i> Ver</button>
+                            <button class="devt-btn-acao" title="Continuar conferência"><i class="fas fa-clipboard-check"></i> Continuar</button>
+                            <button class="devt-btn-acao devt-btn-acao--principal" title="Editar (encerrar mediação)"><i class="fas fa-pen"></i> Encerrar mediação</button>
+                            <button class="devt-btn-acao" title="Etiqueta térmica"><i class="fas fa-tag"></i> Etiqueta</button>
+                            <button class="devt-btn-acao devt-btn-acao--perigo" title="Excluir"><i class="fas fa-trash"></i> Excluir</button>
+                        </div>
+                    </div>
+
+                    <!-- linha 6 — sem anotação -->
+                    <div class="devt-grid devt-linha">
+                        <div class="devt-foto"><i class="fas fa-hand"></i></div>
+                        <div class="devt-produto-cel">
+                            <span class="devt-badge-prazo devt-badge-prazo--ok">Vence em 4 dias</span>
+                            <p class="devt-produto-nome">Órtese para Polegar - P/M Esquerda</p>
+                            <p class="devt-produto-linha">
+                                <span><i class="fas fa-store"></i> Magalu</span>
+                                <span><i class="fas fa-receipt"></i> Pedido 9876543210123</span>
+                            </p>
+                        </div>
+                        <div class="devt-cliente-cel">
+                            <p class="devt-cliente-nome">Fernanda Alves Rocha</p>
+                            <p class="devt-cliente-meta">aberta em 21/09/2026 · há 7 dias · dentro dos 7 dias</p>
+                        </div>
+                        <div></div>
+                        <div class="devt-acoes">
+                            <button class="devt-btn-acao" title="Visualizar"><i class="fas fa-eye"></i> Ver</button>
+                            <button class="devt-btn-acao" title="Continuar conferência"><i class="fas fa-clipboard-check"></i> Continuar</button>
+                            <button class="devt-btn-acao devt-btn-acao--principal" title="Editar (encerrar mediação)"><i class="fas fa-pen"></i> Encerrar mediação</button>
+                            <button class="devt-btn-acao" title="Etiqueta térmica"><i class="fas fa-tag"></i> Etiqueta</button>
+                            <button class="devt-btn-acao devt-btn-acao--perigo" title="Excluir"><i class="fas fa-trash"></i> Excluir</button>
+                        </div>
+                    </div>
+
+                </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
 </body>
 </html>

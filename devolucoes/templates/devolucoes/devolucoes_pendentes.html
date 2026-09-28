@@ -166,10 +166,18 @@
                 <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todos">Todos</button>
             </div>
             {% if mediacoes_abertas %}
-            <div class="dp-lista">
+            <div class="dp-tabela-wrapper">
+            <div class="dp-tabela-scroll">
+                <div class="dp-tabela-grade dp-tabela-cabecalho">
+                    <div></div>
+                    <div>Produto / Loja / Pedido</div>
+                    <div>Cliente / Data</div>
+                    <div style="text-align:center;">Anotações</div>
+                    <div>Ações</div>
+                </div>
                 {% for devolucao in mediacoes_abertas %}
-                <div class="dp-item" data-destino="{{ devolucao.destino_produto }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
-                    <div class="dp-item-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
+                <div class="dp-item dp-tabela-grade dp-tabela-item" data-destino="{{ devolucao.destino_produto }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
+                    <div class="dp-tabela-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
                          {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
                             <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
@@ -177,38 +185,58 @@
                             <i class="fas fa-box"></i>
                         {% endif %}
                     </div>
-                    <div class="dp-item-textos">
-                        <p class="dp-item-produto">
-                            {{ devolucao.produto.nome }}
-                            <span class="dp-badge dp-badge--mediacao-aberta">Mediação aberta</span>
-                        </p>
-                        <p class="dp-item-linha">
+                    <div class="dp-tabela-produto">
+                        {% if devolucao.status_prazo_resposta == 'vencido' %}
+                        <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--vencido"><i class="fas fa-triangle-exclamation"></i> Vencido há {{ devolucao.dias_desde_vencimento_prazo }} dia{{ devolucao.dias_desde_vencimento_prazo|pluralize }}</span>
+                        {% elif devolucao.status_prazo_resposta == 'hoje' %}
+                        <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--vencido"><i class="fas fa-triangle-exclamation"></i> Vence hoje</span>
+                        {% elif devolucao.status_prazo_resposta == 'proximo' %}
+                        <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--proximo"><i class="fas fa-clock"></i> Vence em {{ devolucao.dias_ate_prazo_resposta }} dia{{ devolucao.dias_ate_prazo_resposta|pluralize }}</span>
+                        {% elif devolucao.status_prazo_resposta == 'ok' %}
+                        <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--ok">Vence em {{ devolucao.dias_ate_prazo_resposta }} dia{{ devolucao.dias_ate_prazo_resposta|pluralize }}</span>
+                        {% else %}
+                        <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--sem-prazo">Sem prazo registrado</span>
+                        {% endif %}
+                        <p class="dp-tabela-produto-nome" title="{{ devolucao.produto.nome }}">{{ devolucao.produto.nome }}</p>
+                        <p class="dp-tabela-produto-linha">
                             <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }}</span>
                             <span><i class="fas fa-receipt"></i> Pedido {{ devolucao.numero_pedido }}</span>
                         </p>
-                        <p class="dp-item-linha dp-item-linha--muted">
-                            <span><i class="fas fa-user"></i> {{ devolucao.nome_cliente }}</span>
-                            <span><i class="fas fa-gavel"></i> mediação aberta em {{ devolucao.data_abertura_mediacao|date:"d/m/Y" }}</span>
-                        </p>
                     </div>
-                    <div class="dp-item-acoes">
-                        <a href="{% url 'visualizar_devolucao' devolucao.id %}" class="dp-btn"><i class="fas fa-eye"></i> Visualizar</a>
-                        {% if devolucao.destino_produto %}
-                            <a href="{% url 'conferir_devolucao' devolucao.id %}" class="dp-btn"><i class="fas fa-pen-to-square"></i> Editar conferência</a>
-                        {% else %}
-                            <a href="{% url 'conferir_devolucao' devolucao.id %}" class="dp-btn"><i class="fas fa-clipboard-check"></i> Continuar conferência</a>
+                    <div class="dp-tabela-cliente">
+                        <p class="dp-tabela-cliente-nome" title="{{ devolucao.nome_cliente }}">{{ devolucao.nome_cliente }}</p>
+                        <p class="dp-tabela-cliente-meta{% if devolucao.reclamacao_dentro_do_prazo == False %} dp-tabela-cliente-meta--fora{% endif %}">
+                            mediação aberta em {{ devolucao.data_abertura_mediacao|date:"d/m/Y" }}{% if devolucao.dias_desde_abertura_mediacao is not None %} · há {{ devolucao.dias_desde_abertura_mediacao }} dia{{ devolucao.dias_desde_abertura_mediacao|pluralize }}{% endif %}{% if devolucao.reclamacao_dentro_do_prazo is not None %} · reclamação {% if devolucao.reclamacao_dentro_do_prazo %}dentro{% else %}fora{% endif %} dos 7 dias{% endif %}
+                        </p>
+                        {% if devolucao.mensagem_nao_lida %}
+                        <span class="dp-tabela-msg"><i class="fas fa-comment-dots"></i> mensagem nova</span>
                         {% endif %}
-                        <a href="{% url 'editar_devolucao' devolucao.id %}" class="dp-btn dp-btn--principal"><i class="fas fa-pen"></i> Editar (encerrar mediação)</a>
-                        <a href="{% url 'imprimir_etiqueta_termica_devolucao' devolucao.id %}" target="_blank" class="dp-btn"><i class="fas fa-tag"></i> Etiqueta térmica</a>
+                    </div>
+                    <div class="dp-tabela-anotacao">
+                        {% if devolucao.anotacao_mediacao %}
+                        <div class="dp-tabela-anotacao-icone"><i class="fas fa-note-sticky"></i></div>
+                        <div class="dp-tabela-anotacao-tooltip">{{ devolucao.anotacao_mediacao }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="dp-tabela-acoes">
+                        <a href="{% url 'visualizar_devolucao' devolucao.id %}" class="dp-btn dp-tabela-btn"><i class="fas fa-eye"></i> Visualizar</a>
+                        {% if devolucao.destino_produto %}
+                            <a href="{% url 'conferir_devolucao' devolucao.id %}" class="dp-btn dp-tabela-btn"><i class="fas fa-pen-to-square"></i> Editar conferência</a>
+                        {% else %}
+                            <a href="{% url 'conferir_devolucao' devolucao.id %}" class="dp-btn dp-tabela-btn"><i class="fas fa-clipboard-check"></i> Continuar conferência</a>
+                        {% endif %}
+                        <a href="{% url 'editar_devolucao' devolucao.id %}" class="dp-btn dp-btn--principal dp-tabela-btn dp-tabela-btn--principal"><i class="fas fa-pen"></i> Editar (encerrar mediação)</a>
+                        <a href="{% url 'imprimir_etiqueta_termica_devolucao' devolucao.id %}" target="_blank" class="dp-btn dp-tabela-btn"><i class="fas fa-tag"></i> Etiqueta térmica</a>
                         <form method="post" action="{% url 'excluir_devolucao' devolucao.id %}" class="dp-form-inline dp-form-excluir">
                             {% csrf_token %}
-                            <button type="submit" class="dp-btn dp-btn--perigo" data-nome="{{ devolucao.numero_pedido }}">
+                            <button type="submit" class="dp-btn dp-btn--perigo dp-tabela-btn dp-tabela-btn--perigo" data-nome="{{ devolucao.numero_pedido }}">
                                 <i class="fas fa-trash"></i> Excluir
                             </button>
                         </form>
                     </div>
                 </div>
                 {% endfor %}
+            </div>
             </div>
             {% else %}
             <p class="dp-vazio">Nenhuma devolução nessa aba no momento.</p>

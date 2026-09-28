@@ -807,10 +807,37 @@ def devolucoes_pendentes(request):
     for devolucao in lista:
         grupos[devolucao.status_fluxo].append(devolucao)
 
+    # * [EXPLICAÇÃO] → indicador de mensagem não lida no card de
+    #   Mediações Abertas (redesenho pedido por Matheus, 28/09/2026): só
+    #   um booleano (tem/não tem mensagem nova), lido do MESMO cache
+    #   denormalizado (ClaimMercadoLivre.ultima_mensagem_em/_de) que a
+    #   tela "Mediações ML" já usa — mesma lógica, linha por linha, da
+    #   CORREÇÃO 21/09/2026 daquela tela. De propósito NÃO existe
+    #   contagem de mensagens novas aqui (só o resumo denormalizado da
+    #   última mensagem está disponível, não uma contagem real) e
+    #   NENHUMA chamada nova à API do Mercado Livre acontece nesta tela
+    #   — só leitura do que já está no banco.
+    mediacoes_abertas_lista = grupos[Devolucao.STATUS_MEDIACAO_ABERTA]
+    cache_por_claim_id_abertas = {
+        c.claim_id: c
+        for c in ClaimMercadoLivre.objects.filter(
+            claim_id__in=[d.claim_id for d in mediacoes_abertas_lista if d.claim_id]
+        )
+    }
+    for devolucao in mediacoes_abertas_lista:
+        cache = cache_por_claim_id_abertas.get(devolucao.claim_id)
+        devolucao.mensagem_nao_lida = bool(
+            cache and cache.ultima_mensagem_de and cache.ultima_mensagem_de != 'voce'
+            and (
+                not devolucao.mediacao_visualizada_em
+                or (cache.ultima_mensagem_em and cache.ultima_mensagem_em > devolucao.mediacao_visualizada_em)
+            )
+        )
+
     contexto = {
         'aguardando_conferencia': grupos[Devolucao.STATUS_AGUARDANDO_CONFERENCIA],
         'conferidos': grupos[Devolucao.STATUS_CONFERIDO],
-        'mediacoes_abertas': grupos[Devolucao.STATUS_MEDIACAO_ABERTA],
+        'mediacoes_abertas': mediacoes_abertas_lista,
         'mediacoes_encerradas': grupos[Devolucao.STATUS_MEDIACAO_ENCERRADA],
         'impressos': grupos[Devolucao.STATUS_IMPRESSO],
         'total_devolucoes': len(lista),
