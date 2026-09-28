@@ -394,13 +394,19 @@
 }
 
 /* =========================================================
-   Mediações Abertas — tabela de colunas fixas (redesenho
-   pedido por Matheus, 28/09/2026): prazo mora dentro da célula
-   de Produto, mensagem nova mora dentro da célula de Cliente,
-   motivo da reclamação virou anotação da mediação (ícone com
-   hover), ações com texto explícito em grade 2 colunas. Teto de
-   largura pra não esticar à toa numa tela grande. Não mexe em
-   nenhuma outra aba.
+   Tabela de colunas fixas (redesenho pedido por Matheus,
+   28/09/2026, ampliado 02/10/2026 pras 5 abas da listagem de
+   Devoluções): prazo mora dentro da célula de Produto (só em
+   Mediações Abertas — é a única aba com prazo de resposta
+   correndo), mensagem nova mora dentro da célula de Cliente (só
+   em Mediações Abertas — só faz sentido enquanto a mediação tá
+   aberta), destino/reclamação/reembolso viram badge dentro da
+   badges-linha (variam de aba pra aba, conforme o que já existia
+   em cada uma), anotação da mediação e evidência da conferência
+   viram ícone com hover (célula Anotações, disponível em
+   qualquer aba onde exista o dado), ações com texto explícito em
+   grade 2 colunas. Teto de largura pra não esticar à toa numa
+   tela grande.
    ========================================================= */
 
 .dp-tabela-wrapper {
@@ -409,7 +415,7 @@
 
 .dp-tabela-grade {
     display: grid;
-    grid-template-columns: 100px minmax(220px, 1fr) minmax(200px, 1fr) 92px 226px;
+    grid-template-columns: 100px minmax(220px, 1fr) minmax(200px, 1fr) 92px 320px;
     align-items: center;
     gap: 14px;
 }
@@ -536,7 +542,7 @@
 .dp-tabela-cliente {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 6px;
     min-width: 0;
     max-width: 340px;
 }
@@ -649,6 +655,6 @@
     }
 
     .dp-tabela-grade {
-        min-width: 950px;
+        min-width: 1050px;
     }
 }

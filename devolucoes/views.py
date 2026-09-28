@@ -834,30 +834,36 @@ def devolucoes_pendentes(request):
             )
         )
 
-    # * [EXPLICAÇÃO] → ícone de evidência da mediação no card de
-    #   Mediações Abertas (pedido de Matheus, 28/09/2026): só decide SE
-    #   mostra o ícone (peça com problema registrada, foto de
-    #   observação geral, ou observação geral em texto) — mesmo
-    #   critério que visualizar_devolucao já usa pra decidir se mostra
-    #   o card "Evidência para a mediação". As FOTOS em si não são
+    # * [EXPLICAÇÃO] → ícone de evidência da conferência (pedido de
+    #   Matheus, 28/09/2026, ampliado 02/10/2026 pro padrão valer nas 5
+    #   abas, não só Mediações Abertas): só decide SE mostra o ícone
+    #   (peça com problema registrada, foto de observação geral, ou
+    #   observação geral em texto) — mesmo critério que
+    #   visualizar_devolucao já usa pra decidir se mostra o card
+    #   "Evidência para a mediação". Roda pra lista INTEIRA (não só
+    #   mediações abertas) porque a conferência (Fase 3) normalmente
+    #   acontece bem antes de qualquer mediação existir — Conferidos,
+    #   Mediações Encerradas e Impressos também têm peça/foto pra
+    #   mostrar aqui; só quem tá em Aguardando Conferência nunca vai ter
+    #   esse ícone (conferência ainda não rolou). As FOTOS em si não são
     #   carregadas aqui: ficam pro endpoint evidencia_mediacao_preview,
     #   buscado sob demanda só quando o mouse passa em cima do ícone —
-    #   pré-carregar fotos de todas as mediações abertas escondidas na
-    #   página inteira pesaria à toa numa lista de ~50 itens.
-    pecas_conferidas_abertas = ConferenciaPeca.objects.filter(
-        devolucao_id__in=[d.id for d in mediacoes_abertas_lista],
+    #   pré-carregar fotos da listagem inteira pesaria à toa numa lista
+    #   de ~50+ itens.
+    pecas_conferidas_todas = ConferenciaPeca.objects.filter(
+        devolucao_id__in=[d.id for d in lista],
     ).only('devolucao_id', 'quantidade_recebida', 'quantidade_esperada', 'anotacao')
     pecas_por_devolucao_id = {}
-    for peca_conferida in pecas_conferidas_abertas:
+    for peca_conferida in pecas_conferidas_todas:
         pecas_por_devolucao_id.setdefault(peca_conferida.devolucao_id, []).append(peca_conferida)
 
     ids_com_foto_observacao_geral = set(
         FotoObservacaoGeral.objects.filter(
-            devolucao_id__in=[d.id for d in mediacoes_abertas_lista],
+            devolucao_id__in=[d.id for d in lista],
         ).values_list('devolucao_id', flat=True).distinct()
     )
 
-    for devolucao in mediacoes_abertas_lista:
+    for devolucao in lista:
         tem_peca_com_problema = any(
             peca_conferida.eh_evidencia_de_problema
             for peca_conferida in pecas_por_devolucao_id.get(devolucao.id, [])

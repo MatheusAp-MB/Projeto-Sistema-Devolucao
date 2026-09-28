@@ -171,19 +171,19 @@
 })();
 
 
-// Popover flutuante compartilhado pelos 2 ícones da célula ANOTAÇÕES no
-// card de Mediações Abertas (pedido de Matheus, 28/09/2026 e 02/10/2026):
-// o de evidência busca o conteúdo sob demanda (só quando o mouse passa
-// em cima, nunca carrega foto de devolução nenhuma antes disso — HTML já
-// vem pronto do backend, mesmas classes vd-* reaproveitadas de
-// visualizar_devolucao, com cache no navegador por devolução); o de
-// anotação da mediação já tem o texto pronto na própria linha (dentro de
-// um <template>, sem custo nenhum de rede) — o popover só lê o conteúdo
-// de um jeito ou de outro e mostra do mesmo formato pros 2.
+// Popover flutuante compartilhado pelos 2 ícones da célula ANOTAÇÕES —
+// existe em TODAS as abas agora (pedido de Matheus, 28/09/2026, ampliado
+// 02/10/2026 pro padrão valer nas 5 abas): o de evidência busca o
+// conteúdo sob demanda (só quando o mouse passa em cima, nunca carrega
+// foto de devolução nenhuma antes disso — HTML já vem pronto do backend,
+// mesmas classes vd-* reaproveitadas de visualizar_devolucao, com cache
+// no navegador por devolução); o de anotação da mediação já tem o texto
+// pronto na própria linha (dentro de um <template>, sem custo nenhum de
+// rede) — o popover só lê o conteúdo de um jeito ou de outro e mostra do
+// mesmo formato pros 2. Os listeners ficam no `document` (não presos a 1
+// painel só) porque o ícone agora pode aparecer em qualquer uma das 5
+// abas.
 (function () {
-    var painel = document.querySelector('.dp-tab-panel[data-painel="mediacao_aberta"]');
-    if (!painel) return;
-
     var popover = document.createElement('div');
     popover.className = 'vd-cartao dp-tabela-popover';
     document.body.appendChild(popover);
@@ -271,14 +271,14 @@
             });
     }
 
-    painel.addEventListener('mouseover', function (evento) {
+    document.addEventListener('mouseover', function (evento) {
         var icone = evento.target.closest('.dp-tabela-evidencia-icone, .dp-tabela-anotacao-icone');
         if (!icone) return;
         clearTimeout(timeoutEsconder);
         mostrar(icone);
     });
 
-    painel.addEventListener('mouseout', function (evento) {
+    document.addEventListener('mouseout', function (evento) {
         var icone = evento.target.closest('.dp-tabela-evidencia-icone, .dp-tabela-anotacao-icone');
         if (!icone) return;
         // * [EXPLICAÇÃO] → antes só considerava "ainda em cima" se o
