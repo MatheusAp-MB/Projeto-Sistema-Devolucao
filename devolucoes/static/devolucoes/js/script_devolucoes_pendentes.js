@@ -192,15 +192,22 @@
 
     function posicionar(icone) {
         var retangulo = icone.getBoundingClientRect();
-        var margem = 10;
+        var margemViewport = 10;
+        // * [EXPLICAÇÃO] → esse é o vão vertical entre o ícone e o
+        //   popover — de propósito bem pequeno (não usa margemViewport
+        //   aqui), porque um vão grande vira uma faixa "morta" que o
+        //   mouse precisa atravessar sem tocar nem no ícone nem no
+        //   popover. Era exatamente isso que fechava o preview antes de
+        //   dar tempo do mouse chegar nele.
+        var espacamento = 4;
         var largura = popover.offsetWidth;
         var altura = popover.offsetHeight;
 
         var esquerda = retangulo.left + (retangulo.width / 2) - (largura / 2);
-        esquerda = Math.max(margem, Math.min(esquerda, window.innerWidth - largura - margem));
+        esquerda = Math.max(margemViewport, Math.min(esquerda, window.innerWidth - largura - margemViewport));
 
-        var acima = retangulo.top - altura - margem;
-        var topo = acima >= margem ? acima : retangulo.bottom + margem;
+        var acima = retangulo.top - altura - espacamento;
+        var topo = acima >= margemViewport ? acima : retangulo.bottom + espacamento;
 
         popover.style.left = esquerda + 'px';
         popover.style.top = topo + 'px';
@@ -256,8 +263,13 @@
     painel.addEventListener('mouseout', function (evento) {
         var icone = evento.target.closest('.dp-tabela-evidencia-icone');
         if (!icone) return;
-        if (icone.contains(evento.relatedTarget)) return;
-        timeoutEsconder = setTimeout(esconder, 150);
+        // * [EXPLICAÇÃO] → antes só considerava "ainda em cima" se o
+        //   mouse continuasse DENTRO do ícone. Se o mouse pulasse direto
+        //   do ícone pro popover (sem passar por espaço vazio no meio),
+        //   isso não contava e agendava o fechamento à toa — agora conta
+        //   também quando cai direto dentro do popover.
+        if (icone.contains(evento.relatedTarget) || popover.contains(evento.relatedTarget)) return;
+        timeoutEsconder = setTimeout(esconder, 300);
     });
 
     popover.addEventListener('mouseenter', function () {
@@ -265,8 +277,18 @@
     });
 
     popover.addEventListener('mouseleave', function () {
-        timeoutEsconder = setTimeout(esconder, 150);
+        timeoutEsconder = setTimeout(esconder, 300);
     });
 
-    window.addEventListener('scroll', esconder, true);
+    // * [EXPLICAÇÃO] → o scroll da PÁGINA fecha o popover (senão ele fica
+    //   visualmente descolado do ícone conforme a lista rola). Mas o
+    //   scroll de DENTRO do próprio popover (arrastando as fotos/lista
+    //   dele, que tem overflow-y:auto) TAMBÉM dispara esse mesmo evento
+    //   'scroll' em fase de captura — sem esse filtro, rolar o conteúdo
+    //   do popover fechava ele na primeira tentativa, antes de dar tempo
+    //   de ver qualquer coisa.
+    window.addEventListener('scroll', function (evento) {
+        if (popover.contains(evento.target)) return;
+        esconder();
+    }, true);
 })();
