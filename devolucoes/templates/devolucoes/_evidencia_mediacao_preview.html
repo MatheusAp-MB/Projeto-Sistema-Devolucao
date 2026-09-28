@@ -1,0 +1,54 @@
+<h2 class="vd-cartao-titulo">Evidência para a mediação</h2>
+<p class="vd-texto-bloco vd-texto-bloco--dica">Fotos de todas as peças com problema, já reunidas — selecione tudo e arraste direto pro chat de mediação da plataforma.</p>
+
+{% if pecas_com_problema or fotos_observacao_geral or devolucao.observacao_geral %}
+    <div class="vd-grade-fotos">
+        {% for conferencia in pecas_com_problema %}
+            {% for foto in conferencia.fotos.all %}
+                <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item card-fotos-item" title="{{ foto.nome_arquivo }}"
+                   data-fotos-id="dp-evidencia-{{ devolucao.id }}" data-titulo="{{ conferencia.peca.nome_generico }}"
+                   data-legenda="{{ conferencia.anotacao|default:'' }}">
+                    <div class="vd-foto-thumb">
+                        <img src="{{ foto.imagem.url }}" alt="Foto de {{ conferencia.peca.nome_generico }}">
+                    </div>
+                    <span class="vd-foto-nome">{{ foto.nome_arquivo }}</span>
+                </a>
+            {% endfor %}
+        {% endfor %}
+        {% for foto in fotos_observacao_geral %}
+            <a href="{{ foto.imagem.url }}" target="_blank" class="vd-foto-item card-fotos-item" title="{{ foto.nome_arquivo }}"
+               data-fotos-id="dp-evidencia-{{ devolucao.id }}" data-titulo="Observação geral do produto"
+               data-legenda="{{ devolucao.observacao_geral|default:'' }}">
+                <div class="vd-foto-thumb">
+                    <img src="{{ foto.imagem.url }}" alt="Foto geral do produto">
+                </div>
+                <span class="vd-foto-nome">{{ foto.nome_arquivo }}</span>
+            </a>
+        {% endfor %}
+    </div>
+
+    <div class="vd-lista-anotacoes">
+        {% for conferencia in pecas_com_problema %}
+            <div class="vd-anotacao-item">
+                <span class="vd-anotacao-peca">{{ conferencia.peca.nome_generico }}</span>
+                <span class="vd-anotacao-texto">
+                    {% if conferencia.anotacao %}
+                        {{ conferencia.anotacao }}
+                    {% elif conferencia.situacao == 'nao_recebida' %}
+                        Não recebida.
+                    {% elif conferencia.situacao == 'incompleta' %}
+                        Recebida {{ conferencia.quantidade_recebida }} de {{ conferencia.quantidade_esperada }}.
+                    {% endif %}
+                </span>
+            </div>
+        {% endfor %}
+        {% if devolucao.observacao_geral %}
+            <div class="vd-anotacao-item">
+                <span class="vd-anotacao-peca">Observação geral do produto</span>
+                <span class="vd-anotacao-texto">{{ devolucao.observacao_geral }}</span>
+            </div>
+        {% endif %}
+    </div>
+{% else %}
+    <p class="vd-sem-fotos">Nenhuma peça com problema registrada nessa conferência.</p>
+{% endif %}

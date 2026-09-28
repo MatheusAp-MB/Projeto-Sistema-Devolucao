@@ -834,6 +834,40 @@ def devolucoes_pendentes(request):
             )
         )
 
+    # * [EXPLICAÇÃO] → ícone de evidência da mediação no card de
+    #   Mediações Abertas (pedido de Matheus, 28/09/2026): só decide SE
+    #   mostra o ícone (peça com problema registrada, foto de
+    #   observação geral, ou observação geral em texto) — mesmo
+    #   critério que visualizar_devolucao já usa pra decidir se mostra
+    #   o card "Evidência para a mediação". As FOTOS em si não são
+    #   carregadas aqui: ficam pro endpoint evidencia_mediacao_preview,
+    #   buscado sob demanda só quando o mouse passa em cima do ícone —
+    #   pré-carregar fotos de todas as mediações abertas escondidas na
+    #   página inteira pesaria à toa numa lista de ~50 itens.
+    pecas_conferidas_abertas = ConferenciaPeca.objects.filter(
+        devolucao_id__in=[d.id for d in mediacoes_abertas_lista],
+    ).only('devolucao_id', 'quantidade_recebida', 'quantidade_esperada', 'anotacao')
+    pecas_por_devolucao_id = {}
+    for peca_conferida in pecas_conferidas_abertas:
+        pecas_por_devolucao_id.setdefault(peca_conferida.devolucao_id, []).append(peca_conferida)
+
+    ids_com_foto_observacao_geral = set(
+        FotoObservacaoGeral.objects.filter(
+            devolucao_id__in=[d.id for d in mediacoes_abertas_lista],
+        ).values_list('devolucao_id', flat=True).distinct()
+    )
+
+    for devolucao in mediacoes_abertas_lista:
+        tem_peca_com_problema = any(
+            peca_conferida.eh_evidencia_de_problema
+            for peca_conferida in pecas_por_devolucao_id.get(devolucao.id, [])
+        )
+        devolucao.tem_evidencia_mediacao = bool(
+            tem_peca_com_problema
+            or devolucao.id in ids_com_foto_observacao_geral
+            or devolucao.observacao_geral
+        )
+
     contexto = {
         'aguardando_conferencia': grupos[Devolucao.STATUS_AGUARDANDO_CONFERENCIA],
         'conferidos': grupos[Devolucao.STATUS_CONFERIDO],
@@ -1757,6 +1791,29 @@ def visualizar_devolucao(request, devolucao_id):
         'pecas_com_problema': pecas_com_problema,
         'fotos_observacao_geral': devolucao.fotos_observacao_geral.all(),
         'fotos_reclamacao_cliente': devolucao.fotos_reclamacao_cliente.all(),
+    })
+
+
+def evidencia_mediacao_preview(request, devolucao_id):
+    """Fragmento HTML sob demanda pro ícone de evidência no card de
+    Mediações Abertas (pedido de Matheus, 28/09/2026) — mesmo conteúdo
+    e mesmas classes CSS (vd-*) do bloco 'Evidência para a mediação' de
+    visualizar_devolucao, só que buscado 1 devolução por vez, no
+    momento em que o mouse passa em cima do ícone, em vez de vir
+    escondido dentro da lista inteira (que obrigaria a baixar as fotos
+    de TODAS as mediações abertas de uma vez, mesmo as que ninguém for
+    olhar — ver comentário em devolucoes_pendentes)."""
+    devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
+    pecas_conferidas = (
+        devolucao.pecas_conferidas
+        .select_related('peca')
+        .prefetch_related('fotos')
+    )
+    pecas_com_problema = [c for c in pecas_conferidas if c.eh_evidencia_de_problema]
+    return render(request, 'devolucoes/_evidencia_mediacao_preview.html', {
+        'devolucao': devolucao,
+        'pecas_com_problema': pecas_com_problema,
+        'fotos_observacao_geral': devolucao.fotos_observacao_geral.all(),
     })
 
 

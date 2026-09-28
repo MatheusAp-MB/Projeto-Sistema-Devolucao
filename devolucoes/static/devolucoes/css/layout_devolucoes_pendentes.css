@@ -399,12 +399,12 @@
    ========================================================= */
 
 .dp-tabela-wrapper {
-    max-width: 1180px;
+    max-width: 100%;
 }
 
 .dp-tabela-grade {
     display: grid;
-    grid-template-columns: 48px minmax(0, 340px) minmax(0, 260px) 92px 226px;
+    grid-template-columns: 48px minmax(220px, 1fr) minmax(200px, 1fr) 92px 226px;
     align-items: center;
     gap: 14px;
 }
@@ -460,6 +460,7 @@
     flex-direction: column;
     gap: 5px;
     min-width: 0;
+    max-width: 460px;
 }
 
 .dp-tabela-badge-prazo {
@@ -510,6 +511,7 @@
     flex-direction: column;
     gap: 3px;
     min-width: 0;
+    max-width: 340px;
 }
 
 .dp-tabela-cliente-nome {
@@ -547,6 +549,8 @@
     position: relative;
     display: flex;
     justify-content: center;
+    align-items: center;
+    gap: 8px;
 }
 
 .dp-tabela-anotacao-icone {
@@ -597,6 +601,34 @@
 .dp-tabela-anotacao:hover .dp-tabela-anotacao-tooltip {
     visibility: visible;
     opacity: 1;
+}
+
+.dp-tabela-evidencia-icone {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #eaf7f0;
+    color: var(--cor-positivo);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    cursor: help;
+    flex-shrink: 0;
+}
+
+.dp-tabela-evidencia-popover {
+    display: none;
+    position: fixed;
+    z-index: 20;
+    width: 360px;
+    max-height: 420px;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.dp-tabela-evidencia-popover.dp-tabela-evidencia-popover--visivel {
+    display: block;
 }
 
 .dp-tabela-acoes {

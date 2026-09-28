@@ -14,6 +14,7 @@ urlpatterns = [
     path('observacao-geral/foto/<int:foto_id>/excluir/', views.excluir_foto_observacao_geral, name='excluir_foto_observacao_geral'),
     path('reclamacao-cliente/foto/<int:foto_id>/excluir/', views.excluir_foto_reclamacao_cliente, name='excluir_foto_reclamacao_cliente'),
     path('devolucoes/<int:devolucao_id>/visualizar/', views.visualizar_devolucao, name='visualizar_devolucao'),
+    path('devolucoes/<int:devolucao_id>/evidencia-mediacao/', views.evidencia_mediacao_preview, name='evidencia_mediacao_preview'),
     path('devolucoes/<int:devolucao_id>/abrir-pasta-conferencia/', views.abrir_pasta_conferencia, name='abrir_pasta_conferencia'),
     path('devolucoes/<int:devolucao_id>/relatorio/', views.imprimir_relatorio_devolucao, name='imprimir_relatorio_devolucao'),
     path('devolucoes/<int:devolucao_id>/marcar-impressa/', views.marcar_devolucao_impressa, name='marcar_devolucao_impressa'),

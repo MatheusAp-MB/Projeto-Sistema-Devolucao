@@ -10,6 +10,7 @@
 
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'devolucoes/css/layout_devolucoes_pendentes.css' %}">
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_visualizar_devolucao.css' %}">
 {% endblock %}
 
 {% block conteudo %}
@@ -216,6 +217,11 @@
                         {% if devolucao.anotacao_mediacao %}
                         <div class="dp-tabela-anotacao-icone"><i class="fas fa-note-sticky"></i></div>
                         <div class="dp-tabela-anotacao-tooltip">{{ devolucao.anotacao_mediacao }}</div>
+                        {% endif %}
+                        {% if devolucao.tem_evidencia_mediacao %}
+                        <div class="dp-tabela-evidencia-icone" data-devolucao-id="{{ devolucao.id }}" data-evidencia-url="{% url 'evidencia_mediacao_preview' devolucao.id %}">
+                            <i class="fas fa-images"></i>
+                        </div>
                         {% endif %}
                     </div>
                     <div class="dp-tabela-acoes">

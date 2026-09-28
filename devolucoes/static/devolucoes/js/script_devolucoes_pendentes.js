@@ -169,3 +169,104 @@
 
     atualizarTudo(false);
 })();
+
+
+// Ícone de evidência da mediação (card de Mediações Abertas, pedido de
+// Matheus, 28/09/2026): busca sob demanda, só quando o mouse passa em
+// cima do ícone — nunca carrega foto de devolução nenhuma antes disso.
+// O HTML de resposta já vem pronto do backend (mesmas classes vd-*
+// reaproveitadas de visualizar_devolucao) e fica em cache no próprio
+// navegador por devolução, pra não buscar de novo se passar o mouse
+// 2x na mesma linha.
+(function () {
+    var painel = document.querySelector('.dp-tab-panel[data-painel="mediacao_aberta"]');
+    if (!painel) return;
+
+    var popover = document.createElement('div');
+    popover.className = 'vd-cartao dp-tabela-evidencia-popover';
+    document.body.appendChild(popover);
+
+    var cacheHtmlPorId = {};
+    var idAtual = null;
+    var timeoutEsconder = null;
+
+    function posicionar(icone) {
+        var retangulo = icone.getBoundingClientRect();
+        var margem = 10;
+        var largura = popover.offsetWidth;
+        var altura = popover.offsetHeight;
+
+        var esquerda = retangulo.left + (retangulo.width / 2) - (largura / 2);
+        esquerda = Math.max(margem, Math.min(esquerda, window.innerWidth - largura - margem));
+
+        var acima = retangulo.top - altura - margem;
+        var topo = acima >= margem ? acima : retangulo.bottom + margem;
+
+        popover.style.left = esquerda + 'px';
+        popover.style.top = topo + 'px';
+    }
+
+    function esconder() {
+        popover.classList.remove('dp-tabela-evidencia-popover--visivel');
+        idAtual = null;
+    }
+
+    function mostrar(icone) {
+        var id = icone.getAttribute('data-devolucao-id');
+        var url = icone.getAttribute('data-evidencia-url');
+        if (!id || !url) return;
+        idAtual = id;
+
+        function exibir(html) {
+            if (idAtual !== id) return;
+            popover.innerHTML = html;
+            popover.classList.add('dp-tabela-evidencia-popover--visivel');
+            posicionar(icone);
+        }
+
+        if (cacheHtmlPorId[id]) {
+            exibir(cacheHtmlPorId[id]);
+            return;
+        }
+
+        popover.innerHTML = '<p class="vd-sem-fotos">Carregando...</p>';
+        popover.classList.add('dp-tabela-evidencia-popover--visivel');
+        posicionar(icone);
+
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (resposta) { return resposta.text(); })
+            .then(function (html) {
+                cacheHtmlPorId[id] = html;
+                exibir(html);
+            })
+            .catch(function () {
+                if (idAtual === id) {
+                    popover.innerHTML = '<p class="vd-sem-fotos">Não foi possível carregar a evidência agora.</p>';
+                }
+            });
+    }
+
+    painel.addEventListener('mouseover', function (evento) {
+        var icone = evento.target.closest('.dp-tabela-evidencia-icone');
+        if (!icone) return;
+        clearTimeout(timeoutEsconder);
+        mostrar(icone);
+    });
+
+    painel.addEventListener('mouseout', function (evento) {
+        var icone = evento.target.closest('.dp-tabela-evidencia-icone');
+        if (!icone) return;
+        if (icone.contains(evento.relatedTarget)) return;
+        timeoutEsconder = setTimeout(esconder, 150);
+    });
+
+    popover.addEventListener('mouseenter', function () {
+        clearTimeout(timeoutEsconder);
+    });
+
+    popover.addEventListener('mouseleave', function () {
+        timeoutEsconder = setTimeout(esconder, 150);
+    });
+
+    window.addEventListener('scroll', esconder, true);
+})();
