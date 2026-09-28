@@ -5,11 +5,15 @@
 // em cascata; marcar como impressa não tem "desfazer" na tela, decisão
 // de Matheus 18/09/2026) — e (2) toda a interação das abas do fluxo
 // (Aguardando Conferência/Conferidos/Mediações Abertas/Mediações
-// Encerradas/Impressos): trocar de aba, filtrar por reembolso dentro de
-// Mediações Encerradas/Impressos, e a busca global por cliente/pedido/
-// produto que atravessa as 5 abas sozinha. Tudo client-side porque o
-// Django já manda as 5 listas prontas pro template — não existe
-// requisição nova nenhuma aqui, só mostrar/esconder o que já veio.
+// Encerradas/Impressos): trocar de aba, filtrar por destino (Troca/
+// Usado) dentro de Conferidos/Mediações Abertas/Mediações Encerradas/
+// Impressos, filtrar por reembolso dentro de Mediações Encerradas/
+// Impressos (os 2 filtros combinam entre si, cada um no seu próprio
+// grupo .dp-filtro-secundario[data-tipo-filtro]), e a busca global por
+// cliente/pedido/produto que atravessa as 5 abas sozinha. Tudo
+// client-side porque o Django já manda as 5 listas prontas pro
+// template — não existe requisição nova nenhuma aqui, só mostrar/
+// esconder o que já veio.
 
 (function () {
     document.addEventListener('submit', function (evento) {
@@ -44,16 +48,24 @@
     var nota = document.getElementById('dp-nota-outras-abas');
 
     function bateFiltroReembolso(item, painel) {
-        var chipAtiva = painel.querySelector('.dp-chip-filtro--ativa');
+        var grupo = painel.querySelector('.dp-filtro-secundario[data-tipo-filtro="reembolso"]');
+        var chipAtiva = grupo ? grupo.querySelector('.dp-chip-filtro--ativa') : null;
         if (!chipAtiva || chipAtiva.getAttribute('data-filtro') === 'todos') return true;
         return item.getAttribute('data-reembolso') === chipAtiva.getAttribute('data-filtro');
+    }
+
+    function bateFiltroDestino(item, painel) {
+        var grupo = painel.querySelector('.dp-filtro-secundario[data-tipo-filtro="destino"]');
+        var chipAtiva = grupo ? grupo.querySelector('.dp-chip-filtro--ativa') : null;
+        if (!chipAtiva || chipAtiva.getAttribute('data-filtro') === 'todos') return true;
+        return item.getAttribute('data-destino') === chipAtiva.getAttribute('data-filtro');
     }
 
     function itensQueBatem(painel, termo) {
         var itens = Array.prototype.slice.call(painel.querySelectorAll('.dp-item'));
         return itens.filter(function (item) {
             var bateBusca = !termo || item.getAttribute('data-busca').indexOf(termo) !== -1;
-            return bateBusca && bateFiltroReembolso(item, painel);
+            return bateBusca && bateFiltroReembolso(item, painel) && bateFiltroDestino(item, painel);
         });
     }
 

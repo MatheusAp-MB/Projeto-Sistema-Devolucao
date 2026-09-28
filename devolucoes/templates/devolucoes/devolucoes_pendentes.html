@@ -97,10 +97,16 @@
 
         <!-- ===== 2. CONFERIDOS ===== -->
         <div class="dp-tab-panel" data-painel="conferido">
+            <div class="dp-filtro-secundario" data-tipo-filtro="destino">
+                Filtrar por destino:
+                <button type="button" class="dp-chip-filtro" data-filtro="troca">Troca</button>
+                <button type="button" class="dp-chip-filtro" data-filtro="usado">Usado</button>
+                <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todos">Todos</button>
+            </div>
             {% if conferidos %}
             <div class="dp-lista">
                 {% for devolucao in conferidos %}
-                <div class="dp-item" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
+                <div class="dp-item" data-destino="{{ devolucao.destino_produto }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
                     <div class="dp-item-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
                          {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
@@ -153,10 +159,16 @@
 
         <!-- ===== 3. MEDIAÇÕES ABERTAS ===== -->
         <div class="dp-tab-panel" data-painel="mediacao_aberta">
+            <div class="dp-filtro-secundario" data-tipo-filtro="destino">
+                Filtrar por destino:
+                <button type="button" class="dp-chip-filtro" data-filtro="troca">Troca</button>
+                <button type="button" class="dp-chip-filtro" data-filtro="usado">Usado</button>
+                <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todos">Todos</button>
+            </div>
             {% if mediacoes_abertas %}
             <div class="dp-lista">
                 {% for devolucao in mediacoes_abertas %}
-                <div class="dp-item" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
+                <div class="dp-item" data-destino="{{ devolucao.destino_produto }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
                     <div class="dp-item-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
                          {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
@@ -206,7 +218,13 @@
 
         <!-- ===== 4. MEDIAÇÕES ENCERRADAS ===== -->
         <div class="dp-tab-panel" data-painel="mediacao_encerrada">
-            <div class="dp-filtro-secundario">
+            <div class="dp-filtro-secundario" data-tipo-filtro="destino">
+                Filtrar por destino:
+                <button type="button" class="dp-chip-filtro" data-filtro="troca">Troca</button>
+                <button type="button" class="dp-chip-filtro" data-filtro="usado">Usado</button>
+                <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todos">Todos</button>
+            </div>
+            <div class="dp-filtro-secundario" data-tipo-filtro="reembolso">
                 Filtrar por reembolso:
                 <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todos">Todos</button>
                 <button type="button" class="dp-chip-filtro" data-filtro="sim">Reembolsados</button>
@@ -215,7 +233,7 @@
             {% if mediacoes_encerradas %}
             <div class="dp-lista">
                 {% for devolucao in mediacoes_encerradas %}
-                <div class="dp-item" data-reembolso="{{ devolucao.reembolsado_filtro }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
+                <div class="dp-item" data-destino="{{ devolucao.destino_produto }}" data-reembolso="{{ devolucao.reembolsado_filtro }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
                     <div class="dp-item-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
                          {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
@@ -273,7 +291,13 @@
 
         <!-- ===== 5. IMPRESSOS ===== -->
         <div class="dp-tab-panel" data-painel="impresso">
-            <div class="dp-filtro-secundario">
+            <div class="dp-filtro-secundario" data-tipo-filtro="destino">
+                Filtrar por destino:
+                <button type="button" class="dp-chip-filtro" data-filtro="troca">Troca</button>
+                <button type="button" class="dp-chip-filtro" data-filtro="usado">Usado</button>
+                <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todos">Todos</button>
+            </div>
+            <div class="dp-filtro-secundario" data-tipo-filtro="reembolso">
                 Filtrar por reembolso:
                 <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todos">Todos</button>
                 <button type="button" class="dp-chip-filtro" data-filtro="sim">Reembolsados</button>
@@ -282,7 +306,7 @@
             {% if impressos %}
             <div class="dp-lista">
                 {% for devolucao in impressos %}
-                <div class="dp-item" data-reembolso="{{ devolucao.reembolsado_filtro }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
+                <div class="dp-item" data-destino="{{ devolucao.destino_produto }}" data-reembolso="{{ devolucao.reembolsado_filtro }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
                     <div class="dp-item-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
                          {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
