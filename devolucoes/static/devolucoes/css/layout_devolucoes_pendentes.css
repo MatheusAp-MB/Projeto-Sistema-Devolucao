@@ -138,6 +138,11 @@
     color: var(--cor-negativo);
 }
 
+.dp-badge--reembolso-pendente {
+    background: #eceef1;
+    color: var(--cor-texto-muted);
+}
+
 .dp-item-linha {
     display: flex;
     gap: 16px;
@@ -404,7 +409,7 @@
 
 .dp-tabela-grade {
     display: grid;
-    grid-template-columns: 48px minmax(220px, 1fr) minmax(200px, 1fr) 92px 226px;
+    grid-template-columns: 100px minmax(220px, 1fr) minmax(200px, 1fr) 92px 226px;
     align-items: center;
     gap: 14px;
 }
@@ -481,6 +486,28 @@
 .dp-tabela-badge-prazo--ok { background: #e6f4ea; color: var(--cor-positivo); }
 .dp-tabela-badge-prazo--sem-prazo { background: #eceef1; color: var(--cor-texto-muted); }
 
+.dp-tabela-badges-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.dp-tabela-badge-destino {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10.5px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 20px;
+    white-space: nowrap;
+    line-height: 1.3;
+}
+
+.dp-tabela-badge-destino--troca { background: #e7f0fa; color: var(--cor-primaria-clara); }
+.dp-tabela-badge-destino--usado { background: #f1e8fb; color: #6b3fa0; }
+
 .dp-tabela-produto-nome {
     font-size: 14px;
     font-weight: 600;
@@ -529,10 +556,6 @@
     color: var(--cor-texto-muted);
     line-height: 1.35;
     margin: 0;
-}
-
-.dp-tabela-cliente-meta--fora {
-    color: var(--cor-negativo);
 }
 
 .dp-tabela-msg {
@@ -626,6 +649,6 @@
     }
 
     .dp-tabela-grade {
-        min-width: 850px;
+        min-width: 950px;
     }
 }

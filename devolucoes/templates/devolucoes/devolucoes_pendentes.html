@@ -187,17 +187,24 @@
                         {% endif %}
                     </div>
                     <div class="dp-tabela-produto">
-                        {% if devolucao.status_prazo_resposta == 'vencido' %}
-                        <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--vencido"><i class="fas fa-triangle-exclamation"></i> Vencido há {{ devolucao.dias_desde_vencimento_prazo }} dia{{ devolucao.dias_desde_vencimento_prazo|pluralize }}</span>
-                        {% elif devolucao.status_prazo_resposta == 'hoje' %}
-                        <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--vencido"><i class="fas fa-triangle-exclamation"></i> Vence hoje</span>
-                        {% elif devolucao.status_prazo_resposta == 'proximo' %}
-                        <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--proximo"><i class="fas fa-clock"></i> Vence em {{ devolucao.dias_ate_prazo_resposta }} dia{{ devolucao.dias_ate_prazo_resposta|pluralize }}</span>
-                        {% elif devolucao.status_prazo_resposta == 'ok' %}
-                        <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--ok">Vence em {{ devolucao.dias_ate_prazo_resposta }} dia{{ devolucao.dias_ate_prazo_resposta|pluralize }}</span>
-                        {% else %}
-                        <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--sem-prazo">Sem prazo registrado</span>
-                        {% endif %}
+                        <div class="dp-tabela-badges-linha">
+                            {% if devolucao.status_prazo_resposta == 'vencido' %}
+                            <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--vencido"><i class="fas fa-triangle-exclamation"></i> Vencido há {{ devolucao.dias_desde_vencimento_prazo }} dia{{ devolucao.dias_desde_vencimento_prazo|pluralize }}</span>
+                            {% elif devolucao.status_prazo_resposta == 'hoje' %}
+                            <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--vencido"><i class="fas fa-triangle-exclamation"></i> Vence hoje</span>
+                            {% elif devolucao.status_prazo_resposta == 'proximo' %}
+                            <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--proximo"><i class="fas fa-clock"></i> Vence em {{ devolucao.dias_ate_prazo_resposta }} dia{{ devolucao.dias_ate_prazo_resposta|pluralize }}</span>
+                            {% elif devolucao.status_prazo_resposta == 'ok' %}
+                            <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--ok">Vence em {{ devolucao.dias_ate_prazo_resposta }} dia{{ devolucao.dias_ate_prazo_resposta|pluralize }}</span>
+                            {% else %}
+                            <span class="dp-tabela-badge-prazo dp-tabela-badge-prazo--sem-prazo">Sem prazo registrado</span>
+                            {% endif %}
+                            {% if devolucao.destino_produto %}
+                            <span class="dp-tabela-badge-destino dp-tabela-badge-destino--{{ devolucao.destino_produto }}">
+                                <i class="fas fa-{% if devolucao.destino_produto == 'troca' %}right-left{% else %}recycle{% endif %}"></i> {{ devolucao.get_destino_produto_display }}
+                            </span>
+                            {% endif %}
+                        </div>
                         <p class="dp-tabela-produto-nome" title="{{ devolucao.produto.nome }}">{{ devolucao.produto.nome }}</p>
                         <p class="dp-tabela-produto-linha">
                             <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }}</span>
@@ -206,9 +213,25 @@
                     </div>
                     <div class="dp-tabela-cliente">
                         <p class="dp-tabela-cliente-nome" title="{{ devolucao.nome_cliente }}">{{ devolucao.nome_cliente }}</p>
-                        <p class="dp-tabela-cliente-meta{% if devolucao.reclamacao_dentro_do_prazo == False %} dp-tabela-cliente-meta--fora{% endif %}">
-                            mediação aberta em {{ devolucao.data_abertura_mediacao|date:"d/m/Y" }}{% if devolucao.dias_desde_abertura_mediacao is not None %} · há {{ devolucao.dias_desde_abertura_mediacao }} dia{{ devolucao.dias_desde_abertura_mediacao|pluralize }}{% endif %}{% if devolucao.reclamacao_dentro_do_prazo is not None %} · reclamação {% if devolucao.reclamacao_dentro_do_prazo %}dentro{% else %}fora{% endif %} dos 7 dias{% endif %}
+                        <p class="dp-tabela-cliente-meta">
+                            mediação aberta em {{ devolucao.data_abertura_mediacao|date:"d/m/Y" }}{% if devolucao.dias_desde_abertura_mediacao is not None %} · há {{ devolucao.dias_desde_abertura_mediacao }} dia{{ devolucao.dias_desde_abertura_mediacao|pluralize }}{% endif %}
                         </p>
+                        <div class="dp-tabela-badges-linha">
+                            {% if devolucao.reclamacao_dentro_do_prazo is not None %}
+                                {% if devolucao.reclamacao_dentro_do_prazo %}
+                                <span class="vd-badge vd-badge--verde">Reclamação dentro dos 7 dias</span>
+                                {% else %}
+                                <span class="vd-badge vd-badge--vermelho">Reclamação fora dos 7 dias</span>
+                                {% endif %}
+                            {% endif %}
+                            {% if devolucao.reembolsado is True %}
+                            <span class="dp-badge dp-badge--reembolsado">Reembolsado{% if devolucao.valor_reembolsado is not None %} — R$ {{ devolucao.valor_reembolsado|floatformat:2 }}{% endif %}</span>
+                            {% elif devolucao.reembolsado is False %}
+                            <span class="dp-badge dp-badge--nao-reembolsado">Não reembolsado</span>
+                            {% else %}
+                            <span class="dp-badge dp-badge--reembolso-pendente">Reembolso ainda não definido</span>
+                            {% endif %}
+                        </div>
                         {% if devolucao.mensagem_nao_lida %}
                         <span class="dp-tabela-msg"><i class="fas fa-comment-dots"></i> mensagem nova</span>
                         {% endif %}
