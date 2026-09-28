@@ -58,8 +58,8 @@
 }
 
 .dp-item-foto {
-    width: 52px;
-    height: 52px;
+    width: 100px;
+    height: 100px;
     border-radius: 8px;
     background-color: var(--cor-fundo-pagina);
     flex-shrink: 0;
@@ -436,8 +436,8 @@
 }
 
 .dp-tabela-foto {
-    width: 42px;
-    height: 42px;
+    width: 100px;
+    height: 100px;
     border-radius: 8px;
     background-color: var(--cor-fundo-pagina);
     color: var(--cor-texto-muted);
@@ -567,42 +567,6 @@
     flex-shrink: 0;
 }
 
-.dp-tabela-anotacao-tooltip {
-    visibility: hidden;
-    opacity: 0;
-    position: absolute;
-    z-index: 5;
-    bottom: 120%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 230px;
-    background: var(--cor-primaria);
-    color: var(--cor-texto-claro);
-    font-size: 11.5px;
-    line-height: 1.45;
-    padding: 10px 12px;
-    border-radius: 8px;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-    transition: opacity .12s ease;
-    text-align: left;
-    pointer-events: none;
-}
-
-.dp-tabela-anotacao-tooltip::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 6px solid transparent;
-    border-top-color: var(--cor-primaria);
-}
-
-.dp-tabela-anotacao:hover .dp-tabela-anotacao-tooltip {
-    visibility: visible;
-    opacity: 1;
-}
-
 .dp-tabela-evidencia-icone {
     width: 32px;
     height: 32px;
@@ -617,7 +581,12 @@
     flex-shrink: 0;
 }
 
-.dp-tabela-evidencia-popover {
+/* * [EXPLICAÇÃO] → popover flutuante compartilhado pelos 2 ícones dessa
+   célula (anotação e evidência) — por isso o nome genérico
+   "dp-tabela-popover", sem "evidencia" no nome. O tooltip 100% CSS que
+   a anotação tinha antes (dp-tabela-anotacao-tooltip) saiu daqui —
+   ver script_devolucoes_pendentes.js. */
+.dp-tabela-popover {
     display: none;
     position: fixed;
     z-index: 20;
@@ -627,7 +596,7 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
 }
 
-.dp-tabela-evidencia-popover.dp-tabela-evidencia-popover--visivel {
+.dp-tabela-popover.dp-tabela-popover--visivel {
     display: block;
 }
 

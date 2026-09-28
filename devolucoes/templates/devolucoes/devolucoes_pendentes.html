@@ -215,8 +215,13 @@
                     </div>
                     <div class="dp-tabela-anotacao">
                         {% if devolucao.anotacao_mediacao %}
-                        <div class="dp-tabela-anotacao-icone"><i class="fas fa-note-sticky"></i></div>
-                        <div class="dp-tabela-anotacao-tooltip">{{ devolucao.anotacao_mediacao }}</div>
+                        <div class="dp-tabela-anotacao-icone" data-popover-alvo="anotacao-mediacao-{{ devolucao.id }}">
+                            <i class="fas fa-note-sticky"></i>
+                        </div>
+                        <template id="anotacao-mediacao-{{ devolucao.id }}">
+                            <h2 class="vd-cartao-titulo">Anotações da mediação</h2>
+                            <p class="vd-texto-bloco">{{ devolucao.anotacao_mediacao|linebreaksbr }}</p>
+                        </template>
                         {% endif %}
                         {% if devolucao.tem_evidencia_mediacao %}
                         <div class="dp-tabela-evidencia-icone" data-devolucao-id="{{ devolucao.id }}" data-evidencia-url="{% url 'evidencia_mediacao_preview' devolucao.id %}">

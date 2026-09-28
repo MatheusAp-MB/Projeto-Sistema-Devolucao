@@ -171,19 +171,21 @@
 })();
 
 
-// Ícone de evidência da mediação (card de Mediações Abertas, pedido de
-// Matheus, 28/09/2026): busca sob demanda, só quando o mouse passa em
-// cima do ícone — nunca carrega foto de devolução nenhuma antes disso.
-// O HTML de resposta já vem pronto do backend (mesmas classes vd-*
-// reaproveitadas de visualizar_devolucao) e fica em cache no próprio
-// navegador por devolução, pra não buscar de novo se passar o mouse
-// 2x na mesma linha.
+// Popover flutuante compartilhado pelos 2 ícones da célula ANOTAÇÕES no
+// card de Mediações Abertas (pedido de Matheus, 28/09/2026 e 02/10/2026):
+// o de evidência busca o conteúdo sob demanda (só quando o mouse passa
+// em cima, nunca carrega foto de devolução nenhuma antes disso — HTML já
+// vem pronto do backend, mesmas classes vd-* reaproveitadas de
+// visualizar_devolucao, com cache no navegador por devolução); o de
+// anotação da mediação já tem o texto pronto na própria linha (dentro de
+// um <template>, sem custo nenhum de rede) — o popover só lê o conteúdo
+// de um jeito ou de outro e mostra do mesmo formato pros 2.
 (function () {
     var painel = document.querySelector('.dp-tab-panel[data-painel="mediacao_aberta"]');
     if (!painel) return;
 
     var popover = document.createElement('div');
-    popover.className = 'vd-cartao dp-tabela-evidencia-popover';
+    popover.className = 'vd-cartao dp-tabela-popover';
     document.body.appendChild(popover);
 
     var cacheHtmlPorId = {};
@@ -214,11 +216,27 @@
     }
 
     function esconder() {
-        popover.classList.remove('dp-tabela-evidencia-popover--visivel');
+        popover.classList.remove('dp-tabela-popover--visivel');
         idAtual = null;
     }
 
     function mostrar(icone) {
+        // * [EXPLICAÇÃO] → ícone de anotação: o texto já está pronto na
+        //   própria linha, dentro de um <template> escondido (sem
+        //   nenhum custo de rede) — só copia o conteúdo dele pro
+        //   popover. Ícone de evidência: continua buscando sob demanda,
+        //   como antes.
+        var alvoInline = icone.getAttribute('data-popover-alvo');
+        if (alvoInline) {
+            var template = document.getElementById(alvoInline);
+            if (!template) return;
+            idAtual = alvoInline;
+            popover.innerHTML = template.innerHTML;
+            popover.classList.add('dp-tabela-popover--visivel');
+            posicionar(icone);
+            return;
+        }
+
         var id = icone.getAttribute('data-devolucao-id');
         var url = icone.getAttribute('data-evidencia-url');
         if (!id || !url) return;
@@ -227,7 +245,7 @@
         function exibir(html) {
             if (idAtual !== id) return;
             popover.innerHTML = html;
-            popover.classList.add('dp-tabela-evidencia-popover--visivel');
+            popover.classList.add('dp-tabela-popover--visivel');
             posicionar(icone);
         }
 
@@ -237,7 +255,7 @@
         }
 
         popover.innerHTML = '<p class="vd-sem-fotos">Carregando...</p>';
-        popover.classList.add('dp-tabela-evidencia-popover--visivel');
+        popover.classList.add('dp-tabela-popover--visivel');
         posicionar(icone);
 
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
@@ -254,14 +272,14 @@
     }
 
     painel.addEventListener('mouseover', function (evento) {
-        var icone = evento.target.closest('.dp-tabela-evidencia-icone');
+        var icone = evento.target.closest('.dp-tabela-evidencia-icone, .dp-tabela-anotacao-icone');
         if (!icone) return;
         clearTimeout(timeoutEsconder);
         mostrar(icone);
     });
 
     painel.addEventListener('mouseout', function (evento) {
-        var icone = evento.target.closest('.dp-tabela-evidencia-icone');
+        var icone = evento.target.closest('.dp-tabela-evidencia-icone, .dp-tabela-anotacao-icone');
         if (!icone) return;
         // * [EXPLICAÇÃO] → antes só considerava "ainda em cima" se o
         //   mouse continuasse DENTRO do ícone. Se o mouse pulasse direto
