@@ -704,7 +704,11 @@ def view_consultar_pedido(request):
         data_entrega_cliente = _ultimo_evento_com_status(historico_ida, "delivered") if historico_ida else None
 
         # ----- Envio(s) de volta -----
-        envios_volta = devolucao.get("shipments", [])
+        # * [EXPLICAÇÃO] → .get("shipments", []) só usa o [] quando a chave NÃO existe;
+        #   se a API mandar "shipments": null (achado real em 03/10/2026, pedido
+        #   2000018090218022), o valor vem None e o for abaixo derrubava a tela
+        #   inteira com TypeError. "or []" trata os dois casos.
+        envios_volta = devolucao.get("shipments") or []
         historicos_volta = []
         data_postagem_cliente = None
         data_chegada_nos = None
