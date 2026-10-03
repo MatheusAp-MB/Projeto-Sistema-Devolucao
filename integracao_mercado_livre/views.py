@@ -629,13 +629,15 @@ def view_consultar_pedido(request):
 
         devolucao = None
         claim = None
+        erros_returns = []  # 1 texto por claim cujo /returns falhou — alimenta o aviso lá embaixo
         for candidata in claims_em_ordem_de_tentativa:
             try:
                 resposta_devolucao = chamar_api(
                     "GET", f"/post-purchase/v2/claims/{candidata['id']}/returns",
                     pasta_logs=PASTA_LOGS_ML, conta=conta,
                 )
-            except (ErroAPI, ErroAutenticacaoAPI):
+            except (ErroAPI, ErroAutenticacaoAPI) as erro:
+                erros_returns.append(str(erro))
                 continue
             devolucao = resposta_devolucao.json()
             resposta_claim = chamar_api(
@@ -645,12 +647,20 @@ def view_consultar_pedido(request):
             claim = resposta_claim.json()
             break
 
-        if devolucao is None:
-            contexto['erro'] = (
-                'Nenhuma reclamação tem devolução física associada — '
-                'pode ter sido resolvido sem devolução física (reembolso direto, troca, etc).'
+        # * [EXPLICAÇÃO] → antes (até 03/10/2026) a tela parava aqui com um erro e
+        #   não mostrava NADA quando nenhuma claim tinha /returns. Achado real: 7
+        #   devoluções SV do banco (pedido cancelado, ida entregue, 1 claim
+        #   mediations/dispute/closed, /returns 404) caíam nisso. Agora cai na 1ª
+        #   claim da fila: mostra claim + pedido + um aviso claro. "devolucao"
+        #   vira {} só pro resto da função continuar funcionando com .get().
+        sem_devolucao_fisica = devolucao is None
+        if sem_devolucao_fisica:
+            devolucao = {}
+            resposta_claim = chamar_api(
+                "GET", f"/post-purchase/v1/claims/{claims_em_ordem_de_tentativa[0]['id']}",
+                pasta_logs=PASTA_LOGS_ML, conta=conta,
             )
-            return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
+            claim = resposta_claim.json()
 
         # ----- Pedido -----
         if pedido is None:
@@ -768,9 +778,43 @@ def view_consultar_pedido(request):
         except (ErroAPI, ErroAutenticacaoAPI):
             mensagens_mediacao = []
 
+        # ----- Encerramento: vem da devolução física; sem ela, vem da própria claim -----
+        resolucao = traduzir_resolucao(claim.get("resolution"))
+        if sem_devolucao_fisica:
+            esta_encerrado = claim.get('status') == 'closed'
+            # * [NÃO CONFIRMADO] → resolution.date_created é o campo que eu espero pra
+            #   data do encerramento da claim; ainda falta conferir na doc oficial do ML.
+            #   Se vier ausente, a tela diz "Encerrada (data não informada pela API)".
+            data_encerramento = _formatar_data((claim.get('resolution') or {}).get('date_created'))
+            if esta_encerrado and not claim.get('resolution'):
+                resolucao = {
+                    'texto': "Encerrada — a API não informou o detalhe da resolução",
+                    'motivo_curto': "sem detalhe da resolução",
+                    'confirmado': True,
+                }
+        else:
+            esta_encerrado = bool(devolucao.get('date_closed'))
+            data_encerramento = _formatar_data(devolucao.get('date_closed'))
+
+        # * [EXPLICAÇÃO] → só "404 em todas" prova que o ML não registra devolução
+        #   física. Qualquer outro erro no /returns (500, 400, 401...) é falha de
+        #   consulta — nesse caso o aviso fala em "não foi possível consultar",
+        #   não em "não existe".
+        aviso_sem_devolucao = None
+        if sem_devolucao_fisica:
+            todos_404 = all(e.startswith("Erro 404 ") for e in erros_returns)
+            aviso_sem_devolucao = {
+                'confirmado': todos_404,
+                'detalhe_erro': None if todos_404 else erros_returns[-1],
+                'pedido_cancelado': pedido.get('status') == 'cancelled',
+                'total_claims': len(claims_em_ordem_de_tentativa),
+            }
+
         contexto.update({
             'encontrado': True,
-            'esta_encerrado': bool(devolucao.get('date_closed')),
+            'sem_devolucao_fisica': sem_devolucao_fisica,
+            'aviso_sem_devolucao': aviso_sem_devolucao,
+            'esta_encerrado': esta_encerrado,
             'nome_comprador': nome_comprador,
             'nickname_comprador': nickname_comprador,
             'data_compra': _formatar_data(pedido.get('date_created')),
@@ -796,9 +840,9 @@ def view_consultar_pedido(request):
             'ramo': ramo,
             'eh_mediacao': eh_mediacao,
             'status_devolucao': traduzir_evento_envio(devolucao.get("status"), None) if devolucao.get("status") else None,
-            'resolucao': traduzir_resolucao(claim.get("resolution")),
+            'resolucao': resolucao,
             'data_abertura_mediacao': data_abertura_mediacao,
-            'data_encerramento': _formatar_data(devolucao.get('date_closed')),
+            'data_encerramento': data_encerramento,
             'status_dinheiro': devolucao.get('status_money'),
             'mensagens_mediacao': mensagens_mediacao,
             # ===== Só pro botão "Criar devolução" (ponte Consultar Pedido →

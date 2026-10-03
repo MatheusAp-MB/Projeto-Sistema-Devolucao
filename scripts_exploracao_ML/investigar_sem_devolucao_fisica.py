@@ -2,10 +2,13 @@
 
 # Função Objetivo: Investigação do candidato 2 da tela Consultar Pedido — pedidos que a
 # Ana registrou como devolução e a tela responde "Nenhuma reclamação tem devolução física
-# associada". Pra cada pedido mostra: o que está no banco, o pedido e o envio de ida no
-# Mercado Livre, TODAS as claims do pedido e o que o endpoint /returns responde pra cada
-# uma — inclusive o texto do erro, que a tela engole com `continue` (ela não distingue
-# "essa claim não tem devolução" de "a API falhou").
+# associada". Pra cada pedido mostra: o que está no banco (inclusive o PRODUTO), o pedido
+# e o envio de ida no Mercado Livre (inclusive o modo de envio), TODAS as claims do pedido
+# e o que o endpoint /returns responde pra cada uma — com o texto do erro, que a tela
+# engole com `continue` (ela não distingue "essa claim não tem devolução" de "a API
+# falhou"). No fim, a lista de produtos das devoluções da conta, pra testar a hipótese de
+# que itens grandes (ex.: cadeira de transferência) saem por transportadora, fora do fluxo
+# de devolução do ML.
 # Só leitura: SELECT no banco e GET na API.
 #
 # Rodar da raiz do projeto, com o ambiente virtual ativo:
@@ -32,6 +35,7 @@ import django
 django.setup()
 
 from django.conf import settings
+from django.db.models import Count
 from django.utils import timezone
 from rich.console import Console
 from rich.markup import escape
@@ -104,11 +108,17 @@ def _codigo_do_erro(texto_do_erro):
 # ─── Investigação de 1 pedido ───────────────────────────────────────────
 
 def investigar_pedido(conta, numero_pedido):
-    resumo = {"pedido": numero_pedido, "ponte": "?", "pedido_ml": "—", "envio_ida": "—", "claims": "—", "returns": "—"}
+    resumo = {
+        "pedido": numero_pedido, "ponte": "?", "produto": "—", "pedido_ml": "—",
+        "envio_ida": "—", "claims": "—", "returns": "—",
+    }
     console.rule(f"[bold]{conta} {numero_pedido}[/bold]")
 
     # ----- 1) O que está no banco (digitado) -----
-    devolucao = Devolucao.objects.using(BANCO_POR_CONTA[conta]).filter(numero_pedido=numero_pedido).first()
+    devolucao = (
+        Devolucao.objects.using(BANCO_POR_CONTA[conta])
+        .select_related("produto").filter(numero_pedido=numero_pedido).first()
+    )
     if devolucao is None:
         console.print("[yellow]No banco:[/yellow] não existe devolução com esse número de pedido")
     else:
@@ -116,6 +126,12 @@ def investigar_pedido(conta, numero_pedido):
         if timezone.is_aware(criado):
             criado = timezone.localtime(criado)
         resumo["ponte"] = "depois" if criado.date() >= DATA_INICIO_PONTE else "antes"
+        produto = devolucao.produto
+        resumo["produto"] = _resumir(produto.nome if produto else None, 40)
+        console.print(
+            f"[bold]Produto no banco:[/bold] {escape(str(produto.nome if produto else '—'))} | "
+            f"sku {escape(str((produto.sku if produto else None) or '—'))}"
+        )
         console.print(
             "[bold]No banco:[/bold] "
             f"reclamação {_data_banco(devolucao.data_reclamacao_cliente)} | "
@@ -138,9 +154,15 @@ def investigar_pedido(conta, numero_pedido):
         pedido = pedido or {}
         shipping_id = (pedido.get("shipping") or {}).get("id")
         resumo["pedido_ml"] = str(pedido.get("status"))
+        itens = pedido.get("order_items") or []
+        item_ml = (itens[0].get("item") if itens else None) or {}
         console.print(
             f"[bold]Pedido no ML:[/bold] status {pedido.get('status')} | criado {_data(pedido.get('date_created'))} | "
             f"pack {pedido.get('pack_id') or '—'} | tags {escape(_resumir(pedido.get('tags'), 100))}"
+        )
+        console.print(
+            f"[bold]Produto no ML:[/bold] {escape(_resumir(item_ml.get('title'), 120))} | "
+            f"sku {escape(str(item_ml.get('seller_sku') or '—'))} | itens no pedido {len(itens)}"
         )
 
     # ----- 3) O envio de ida (mesma chamada que a tela usa pros endereços) -----
@@ -152,10 +174,15 @@ def investigar_pedido(conta, numero_pedido):
         else:
             envio = envio or {}
             logistica = envio.get("logistic") if isinstance(envio.get("logistic"), dict) else {}
-            resumo["envio_ida"] = f"{envio.get('status')}/{envio.get('substatus') or '—'}"
+            opcao = envio.get("shipping_option") if isinstance(envio.get("shipping_option"), dict) else {}
+            tipo_logistico = envio.get("logistic_type") or logistica.get("type") or "—"
+            modo = envio.get("mode") or logistica.get("mode") or "—"
+            resumo["envio_ida"] = f"{envio.get('status')}/{envio.get('substatus') or '—'} | {modo} / {tipo_logistico}"
             console.print(
                 f"[bold]Envio de ida:[/bold] status {envio.get('status')} / {envio.get('substatus') or '—'} | "
-                f"logistic_type {envio.get('logistic_type') or '—'} | logistic.type {logistica.get('type') or '—'}"
+                f"modo {envio.get('mode') or '—'} (logistic.mode {logistica.get('mode') or '—'}) | "
+                f"logistic_type {envio.get('logistic_type') or '—'} | logistic.type {logistica.get('type') or '—'} | "
+                f"método {escape(str(envio.get('tracking_method') or '—'))} | opção {escape(str(opcao.get('name') or '—'))}"
             )
     else:
         console.print("[bold]Envio de ida:[/bold] o pedido não tem shipping.id")
@@ -214,18 +241,51 @@ def investigar_pedido(conta, numero_pedido):
     return resumo
 
 
-# ─── Resumo final ───────────────────────────────────────────────────────
+# ─── Resumos finais ─────────────────────────────────────────────────────
 
 def imprimir_resumo_final(resumos):
     tabela = Table(title="Resumo — o que cada pedido tem no Mercado Livre")
-    for coluna in ("Pedido", "Ponte", "Pedido ML", "Envio de ida", "Claims (tipo/etapa/status)", "/returns de cada claim"):
+    colunas = ("Pedido", "Ponte", "Produto (banco)", "Pedido ML", "Envio de ida | modo / tipo", "Claims (tipo/etapa/status)", "/returns de cada claim")
+    for coluna in colunas:
         tabela.add_column(coluna, overflow="fold")
     for r in resumos:
         tabela.add_row(
-            r["pedido"], r["ponte"], escape(r["pedido_ml"]), escape(r["envio_ida"]),
-            escape(r["claims"]), escape(r["returns"]),
+            r["pedido"], r["ponte"], escape(r["produto"]), escape(r["pedido_ml"]),
+            escape(r["envio_ida"]), escape(r["claims"]), escape(r["returns"]),
         )
     console.print(tabela)
+
+
+def imprimir_produtos_da_conta(conta, pedidos):
+    """Quantas devoluções de cada produto existem na conta, e quantas delas estão entre os
+    pedidos investigados — mostra se o 'sem devolução física' se concentra num produto só."""
+    base = Devolucao.objects.using(BANCO_POR_CONTA[conta]).order_by()
+    campos = ("produto__nome", "produto__sku")
+    totais = {
+        (linha["produto__nome"], linha["produto__sku"]): linha["total"]
+        for linha in base.values(*campos).annotate(total=Count("id"))
+    }
+    investigados = {
+        (linha["produto__nome"], linha["produto__sku"]): linha["total"]
+        for linha in base.filter(numero_pedido__in=pedidos).values(*campos).annotate(total=Count("id"))
+    }
+    if not totais:
+        return
+
+    ordem = sorted(totais, key=lambda chave: (-investigados.get(chave, 0), -totais[chave]))
+    tabela = Table(title=f"Produtos das devoluções {conta} no banco (os dos pedidos investigados primeiro)")
+    tabela.add_column("Produto", overflow="fold")
+    tabela.add_column("SKU", overflow="fold")
+    tabela.add_column(f"Devoluções {conta} no banco", justify="right")
+    tabela.add_column("Nos pedidos investigados", justify="right")
+    for nome, sku in ordem[:15]:
+        tabela.add_row(
+            escape(_resumir(nome, 70)), escape(str(sku or "—")),
+            str(totais[(nome, sku)]), str(investigados.get((nome, sku), 0)) if investigados.get((nome, sku)) else "·",
+        )
+    console.print(tabela)
+    if len(ordem) > 15:
+        console.print(f"[dim]... e mais {len(ordem) - 15} produtos com menos devoluções.[/dim]")
 
 
 # ─── Execução ───────────────────────────────────────────────────────────
@@ -253,6 +313,8 @@ def main():
     console.print()
     if resumos:
         imprimir_resumo_final(resumos)
+        console.print()
+        imprimir_produtos_da_conta(argumentos.conta, pedidos)
 
 
 if __name__ == "__main__":

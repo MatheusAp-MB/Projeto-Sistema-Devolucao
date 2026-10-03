@@ -227,6 +227,17 @@
 {% endif %}
 
 {% if encontrado %}
+{% if aviso_sem_devolucao %}
+<div class="aviso-global aviso-global--warning">
+    <i class="fas fa-triangle-exclamation"></i>
+    {% if aviso_sem_devolucao.confirmado %}
+        <strong>Sem devolução física.</strong> O Mercado Livre não registra devolução física pra reclamação deste pedido{% if aviso_sem_devolucao.pedido_cancelado %} (o pedido consta como cancelado){% endif %} — por isso não há envio de volta nem data de chegada. Abaixo está o que a reclamação e o pedido mostram.
+    {% else %}
+        <strong>Não foi possível consultar a devolução física.</strong> {{ aviso_sem_devolucao.detalhe_erro }} Abaixo está o que a reclamação e o pedido mostram.
+    {% endif %}
+    {% if aviso_sem_devolucao.total_claims > 1 %}Este pedido tem {{ aviso_sem_devolucao.total_claims }} reclamações; estamos mostrando a primeira.{% endif %}
+</div>
+{% endif %}
 <div class="card mb-3">
     <div class="card-body py-3">
         <div class="d-flex align-items-center gap-3 flex-wrap">
@@ -329,7 +340,11 @@
                 <p><strong>Data de abertura:</strong> {{ data_abertura_claim }}</p>
                 <p><strong>Tipo / Etapa:</strong> {{ tipo_etapa.texto }}{% if not tipo_etapa.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
                 <p><strong>Motivo:</strong> {{ motivo.texto }}{% if not motivo.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
+                {% if sem_devolucao_fisica %}
+                <p class="mb-0"><strong>Data em que virou devolução:</strong> — (sem devolução física registrada, veja o aviso no topo)</p>
+                {% else %}
                 <p class="mb-0"><strong>Data em que virou devolução:</strong> {{ data_virou_devolucao }}</p>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -340,7 +355,7 @@
                 <span class="badge rounded-pill bg-primary me-2">3</span>
                 Devolução física e envio de volta (Histórico CLIENTE &rarr; NÓS)
                 <span class="text-muted small ms-2">
-                    {{ data_postagem_cliente|default:"ainda não despachado" }} &rarr; {{ data_chegada_nos|default:"ainda não chegou" }}
+                    {% if sem_devolucao_fisica %}sem devolução física{% else %}{{ data_postagem_cliente|default:"ainda não despachado" }} &rarr; {{ data_chegada_nos|default:"ainda não chegou" }}{% endif %}
                     {% if destino_chegada %} · destino: {{ destino_chegada }}{% endif %}
                 </span>
             </button>
@@ -369,7 +384,11 @@
                 </div>
                 {% endfor %}
                 {% empty %}
+                {% if sem_devolucao_fisica %}
+                <p class="text-muted mb-0">Sem envio de volta pra mostrar — veja o aviso no topo da página.</p>
+                {% else %}
                 <p class="text-muted mb-0">Nenhum envio de volta encontrado ainda.</p>
+                {% endif %}
                 {% endfor %}
 
                 {% if confirmacao_chegada.confirmacao %}
@@ -394,7 +413,7 @@
             <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bloco4">
                 <span class="badge rounded-pill bg-primary me-2">4</span>
                 Recebimento e mediação/resolução
-                <span class="text-muted small ms-2">{% if data_encerramento %}Encerrado em {{ data_encerramento }}{% else %}Ainda em aberto{% endif %}</span>
+                <span class="text-muted small ms-2">{% if data_encerramento %}Encerrado em {{ data_encerramento }}{% elif esta_encerrado %}Encerrado{% else %}Ainda em aberto{% endif %}</span>
             </button>
         </h2>
         <div id="bloco4" class="accordion-collapse collapse" data-bs-parent="#acordeaoConsultarPedido">
@@ -422,12 +441,14 @@
                     {% endif %}
                     <div class="col">
                         <p class="text-uppercase text-muted fw-bold mb-1 consultar-pedido-campo-rotulo">Data de encerramento</p>
-                        <p class="mb-0">{{ data_encerramento|default:"ainda em aberto" }}</p>
+                        <p class="mb-0">{% if data_encerramento %}{{ data_encerramento }}{% elif esta_encerrado %}encerrada (data não informada pela API){% else %}ainda em aberto{% endif %}</p>
                     </div>
+                    {% if not sem_devolucao_fisica %}
                     <div class="col">
                         <p class="text-uppercase text-muted fw-bold mb-1 consultar-pedido-campo-rotulo">Status do dinheiro</p>
                         <p class="mb-0">{{ status_dinheiro|default:"—" }} <span class="badge bg-warning text-dark">não confirmado</span></p>
                     </div>
+                    {% endif %}
                 </div>
 
                 {% if mensagens_mediacao %}
