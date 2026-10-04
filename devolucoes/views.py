@@ -14,6 +14,7 @@
 # Fornecedores (criar/editar/excluir cada um, direto na lista).
 
 import json
+import logging
 import re
 import subprocess
 import threading
@@ -23,17 +24,20 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib import messages
+from django.core.files.base import ContentFile
 from django.db import transaction
 from django.db.models import Count, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.http import urlencode
 from django.utils.text import slugify
 
 from api_mercado_livre.core.auth.gerenciador_token import FalhaAutenticacao
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
 from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
+from core.imagens import converter_heic_para_jpeg, jpeg_se_for_heic, parece_heic
 from integracao_mercado_livre.views import CONTA_POR_EMPRESA, PASTA_LOGS_ML
 
 from .models import (
@@ -394,7 +398,96 @@ def _parse_decimal_opcional(valor):
         return None
 
 
-def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=None, busca_produto_sugerida=''):
+# * [EXPLICAÇÃO] → Nova Devolução vinda do botão "Criar devolução" da tela
+#   Consultar Pedido (decisões de Matheus, 04/10/2026):
+#   - produto escolhido SOZINHO quando o SKU (ou o EAN) do anúncio bate com 1
+#     Produto cadastrado — o texto abaixo diz à Ana por que ele veio marcado;
+#   - fotos do CLIENTE importadas sozinhas do chat da reclamação do ML.
+TEXTO_ORIGEM_PRODUTO_AUTOMATICO = {
+    'sku': 'Escolhido sozinho: o SKU do anúncio é igual ao SKU deste produto.',
+    'ean': 'Escolhido sozinho: o código de barras do anúncio é igual ao deste produto.',
+    'sku_e_ean': 'Escolhido sozinho: o SKU e o código de barras do anúncio batem com este produto.',
+}
+LIMITE_FOTOS_CLIENTE_ML = 20
+# 04/10/2026: de 10 para 20 MB (decisão de Matheus) -- uma foto JPG de cliente
+# de 15,2 MB, real, era recusada.
+TAMANHO_MAXIMO_FOTO_CLIENTE_ML_BYTES = 20 * 1024 * 1024
+EXTENSAO_POR_TIPO_DE_IMAGEM = {'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif'}
+# Mesmo formato de nome de anexo que integracao_mercado_livre.views.proxy_anexo_claim aceita.
+PADRAO_NOME_ANEXO_ML = re.compile(r'[\w\-][\w.\-]*')
+logger = logging.getLogger(__name__)
+
+
+def _fotos_do_cliente_pedidas(claim_id, nomes_de_arquivo, numero_pedido):
+    """Limpa o que chegou pela URL do botão (ou pelo formulário reenviado):
+    claim só com dígitos, nomes de anexo no formato que o proxy aceita, sem
+    repetidos e no máximo LIMITE_FOTOS_CLIENTE_ML. Devolve (claim_id,
+    [{'filename', 'url'}]) — a url é a miniatura (proxy_anexo_claim). Sem
+    nada válido: ('', [])."""
+    claim_id = (claim_id or '').strip()
+    if not re.fullmatch(r'[0-9]+', claim_id):
+        return '', []
+    fotos = []
+    vistos = set()
+    for nome in nomes_de_arquivo:
+        nome = (nome or '').strip()
+        if nome in vistos or not PADRAO_NOME_ANEXO_ML.fullmatch(nome):
+            continue
+        vistos.add(nome)
+        fotos.append({
+            'filename': nome,
+            'url': reverse('proxy_anexo_claim', args=[claim_id, nome]) + '?' + urlencode({'pedido': numero_pedido}),
+        })
+        if len(fotos) >= LIMITE_FOTOS_CLIENTE_ML:
+            break
+    return (claim_id, fotos) if fotos else ('', [])
+
+
+def _importar_fotos_do_cliente_do_ml(devolucao, claim_id, fotos):
+    """Baixa do ML as fotos que o cliente mandou e salva como
+    FotoReclamacaoCliente da devolução. Devolve (importadas, falhas).
+
+    * [EXPLICAÇÃO] → roda DEPOIS de a devolução estar salva, e nunca levanta
+      erro: se o ML falhar, a devolução fica salva do mesmo jeito e a Ana é
+      avisada pra anexar à mão (Editar devolução). Mesmo endpoint e mesma
+      regra do proxy_anexo_claim: baixa com o token da conta ativa e só
+      aceita o que o ML diz ser imagem (JPG/PNG/WEBP/GIF — SVG não).
+    * Foto HEIC (iPhone) vira JPEG antes de salvar (core.imagens), pra abrir
+      em qualquer navegador. Sem o pacote pillow-heif, ou se a conversão
+      falhar, conta como falha (a Ana é avisada) -- nunca salva uma foto
+      que o navegador não abre."""
+    conta = CONTA_POR_EMPRESA.get(obter_empresa_ativa())
+    if not conta:
+        return 0, len(fotos)
+    importadas = 0
+    falhas = 0
+    for foto in fotos:
+        try:
+            resposta = chamar_api(
+                "GET", f"/post-purchase/v1/claims/{claim_id}/attachments/{foto['filename']}/download",
+                pasta_logs=PASTA_LOGS_ML, conta=conta,
+            )
+            tipo = (resposta.headers.get('Content-Type') or '').split(';')[0].strip().lower()
+            conteudo = resposta.content
+            if parece_heic(conteudo[:12], tipo, foto['filename']):
+                conteudo = converter_heic_para_jpeg(conteudo)  # falhou? cai no except abaixo
+                tipo = 'image/jpeg'
+            extensao = EXTENSAO_POR_TIPO_DE_IMAGEM.get(tipo)
+            if not extensao or not conteudo or len(conteudo) > TAMANHO_MAXIMO_FOTO_CLIENTE_ML_BYTES:
+                falhas += 1
+                continue
+            FotoReclamacaoCliente.objects.create(
+                devolucao=devolucao, imagem=ContentFile(conteudo, name=f'foto_ml.{extensao}'),
+            )
+            importadas += 1
+        except Exception:  # best-effort de propósito: a devolução já foi salva
+            logger.warning('Falha ao importar foto do cliente (claim %s, anexo %s)', claim_id, foto['filename'], exc_info=True)
+            falhas += 1
+    return importadas, falhas
+
+
+def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=None, busca_produto_sugerida='',
+                             fotos_cliente_ml=None, claim_id_fotos='', produto_origem_automatica=''):
     """Monta o contexto da tela de Nova Devolução (Fase 0 + busca/
     seleção de produto) — usada tanto pro GET simples quanto pra
     re-exibir o formulário com o que a pessoa digitou quando a
@@ -404,7 +497,12 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
     em vez de "Nova devolução". 'busca_produto_sugerida' só vem preenchido
     quando chega da ponte Consultar Pedido → Nova Devolução (SKU do
     vendedor no ML) — o template joga esse valor no campo de busca de
-    produto e a JS dispara a busca sozinha ao carregar a página."""
+    produto e a JS dispara a busca sozinha ao carregar a página.
+
+    'fotos_cliente_ml'/'claim_id_fotos' (04/10/2026): fotos que o cliente
+    mandou no chat da reclamação do ML, vindas do botão "Criar devolução" —
+    viram miniaturas na seção de fotos e são importadas ao salvar.
+    'produto_origem_automatica': texto de por que o produto já veio marcado."""
     if valores is None:
         valores = {
             'nome_plataforma': '', 'tipo_venda': '',
@@ -423,6 +521,9 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
         'devolucao': devolucao,
         'fotos_reclamacao_cliente': devolucao.fotos_reclamacao_cliente.all() if devolucao else [],
         'busca_produto_sugerida': busca_produto_sugerida,
+        'fotos_cliente_ml': fotos_cliente_ml or [],
+        'claim_id_fotos': claim_id_fotos,
+        'produto_origem_automatica': produto_origem_automatica,
         'plataforma_choices': Devolucao.PLATAFORMA_CHOICES,
         'tipo_venda_choices': Devolucao.TIPO_VENDA_CHOICES,
         'pagina_ativa': 'nova_devolucao',
@@ -475,13 +576,21 @@ def nova_devolucao(request):
     cliente e datas pré-preenchidos, e NF/reembolsado/motivo da reclamação
     continuam em branco pra confirmação manual (decisão de Matheus,
     18/09/2026: só auto-preenche o que vem direto e confiável da API do
-    ML). O produto não é selecionado sozinho, mas a busca já chega com o
-    SKU do vendedor no ML (?produto_busca=...) e a JS dispara a mesma
-    busca de sempre ao carregar a página — se bater exato com um código
-    de barras, seleciona igual o leitor de código de barras faria; senão,
-    já deixa a lista de candidatos pronta pra 1 clique (decisão de
-    Matheus, 18/09/2026, reaproveitando o mesmo mecanismo do "Colar linha
-    do ERP"). Se já existir uma devolução pra esse numero_pedido,
+    ML). O produto: desde 04/10/2026 (decisão de Matheus: "comparar SKU
+    com SKU ou EAN com EAN — se bater, já seleciona sozinho") a
+    Consultar Pedido manda ?produto_id=... quando o SKU ou o EAN do anúncio
+    bate com 1 Produto cadastrado, e o formulário já abre com ele
+    selecionado (?produto_origem=... só explica à Ana o porquê). Sem batida
+    (ou com conflito SKU x EAN), vale o que já existia: a busca chega com o
+    SKU do vendedor no ML (?produto_busca=...) e a JS dispara a mesma busca
+    de sempre ao carregar a página — se bater exato com um código de
+    barras, seleciona igual o leitor de código de barras faria; senão, já
+    deixa a lista de candidatos pronta pra 1 clique (decisão de Matheus,
+    18/09/2026, reaproveitando o mesmo mecanismo do "Colar linha do ERP").
+    Também desde 04/10/2026: a mediação finalizada NÃO vem mais da ponte
+    (marcada à mão), e as fotos que o cliente mandou no chat da
+    reclamação chegam como ?claim_id=...&foto_cliente=... — viram
+    miniaturas e são baixadas do ML ao salvar (_importar_fotos_do_cliente_do_ml). Se já existir uma devolução pra esse numero_pedido,
     redireciona pra editar_devolucao em vez de abrir o formulário vazio
     de novo — não cria duplicata.
 
@@ -517,9 +626,13 @@ def nova_devolucao(request):
         produto_id = request.POST.get('produto_id', '').strip()
         produto = Produto.objects.select_related('marca').filter(pk=produto_id).first() if produto_id else None
 
+        claim_id_fotos, fotos_cliente_ml = _fotos_do_cliente_pedidas(
+            request.POST.get('claim_id_fotos'), request.POST.getlist('foto_cliente_ml'), valores['numero_pedido'],
+        )
+
         rerenderizar = lambda: render(
             request, 'devolucoes/nova_devolucao.html',
-            _contexto_nova_devolucao(valores, produto),
+            _contexto_nova_devolucao(valores, produto, fotos_cliente_ml=fotos_cliente_ml, claim_id_fotos=claim_id_fotos),
         )
 
         obrigatorios = [
@@ -576,14 +689,29 @@ def nova_devolucao(request):
         # * [EXPLICAÇÃO] → fotos que o CLIENTE mandou pra plataforma junto
         #   da reclamação (opcional) — devolucao já existe nesse ponto
         #   (acabou de ser criada acima), então já tem pk garantido pra
-        #   associar as fotos.
+        #   associar as fotos. Foto HEIC (iPhone) é salva já convertida em
+        #   JPEG (core.imagens) -- 04/10/2026.
         for foto in request.FILES.getlist('fotos_cliente'):
-            FotoReclamacaoCliente.objects.create(devolucao=devolucao, imagem=foto)
+            FotoReclamacaoCliente.objects.create(devolucao=devolucao, imagem=jpeg_se_for_heic(foto))
 
-        messages.success(
-            request,
-            f'Devolução do pedido {devolucao.numero_pedido} criada — pendente de conferência das peças.',
-        )
+        # Fotos do cliente que vieram do chat da reclamação do ML (as que a
+        # Ana não tirou com o X). Falha aqui NÃO desfaz a devolução: só avisa.
+        fotos_importadas, fotos_com_falha = (0, 0)
+        if fotos_cliente_ml:
+            fotos_importadas, fotos_com_falha = _importar_fotos_do_cliente_do_ml(
+                devolucao, claim_id_fotos, fotos_cliente_ml,
+            )
+
+        mensagem_sucesso = f'Devolução do pedido {devolucao.numero_pedido} criada — pendente de conferência das peças.'
+        if fotos_importadas:
+            mensagem_sucesso += f' {fotos_importadas} foto(s) do cliente anexada(s) a partir do Mercado Livre.'
+        messages.success(request, mensagem_sucesso)
+        if fotos_com_falha:
+            messages.warning(
+                request,
+                f'{fotos_com_falha} foto(s) do cliente não puderam ser baixadas do Mercado Livre — '
+                f'adicione à mão em "Editar devolução", se precisar.',
+            )
         return redirect('devolucoes_pendentes')
 
     numero_pedido_ml = request.GET.get('numero_pedido', '').strip()
@@ -612,9 +740,30 @@ def nova_devolucao(request):
             'motivo_reclamacao': '',
         }
         produto_busca_sugerido = request.GET.get('produto_busca', '').strip()
+
+        # Produto escolhido sozinho pela Consultar Pedido (SKU ou EAN iguais).
+        # Se o id não existir mais, cai na busca pelo SKU, como antes.
+        produto_automatico = None
+        produto_id_sugerido = request.GET.get('produto_id', '').strip()
+        if re.fullmatch(r'[0-9]+', produto_id_sugerido):
+            produto_automatico = Produto.objects.select_related('marca').filter(pk=produto_id_sugerido).first()
+
+        claim_id_fotos, fotos_cliente_ml = _fotos_do_cliente_pedidas(
+            request.GET.get('claim_id'), request.GET.getlist('foto_cliente'), numero_pedido_ml,
+        )
         return render(
             request, 'devolucoes/nova_devolucao.html',
-            _contexto_nova_devolucao(valores, busca_produto_sugerida=produto_busca_sugerido),
+            _contexto_nova_devolucao(
+                valores,
+                produto_selecionado=produto_automatico,
+                busca_produto_sugerida='' if produto_automatico else produto_busca_sugerido,
+                fotos_cliente_ml=fotos_cliente_ml,
+                claim_id_fotos=claim_id_fotos,
+                produto_origem_automatica=(
+                    TEXTO_ORIGEM_PRODUTO_AUTOMATICO.get(request.GET.get('produto_origem', '').strip(), '')
+                    if produto_automatico else ''
+                ),
+            ),
         )
 
     return render(request, 'devolucoes/nova_devolucao.html', _contexto_nova_devolucao())
@@ -712,9 +861,10 @@ def editar_devolucao(request, devolucao_id):
         # * [EXPLICAÇÃO] → fotos novas que o cliente mandou, anexadas
         #   durante a edição — SOMA às que já existem, nunca substitui;
         #   excluir uma foto existente é uma ação isolada (botão X de
-        #   cada foto, ver excluir_foto_reclamacao_cliente).
+        #   cada foto, ver excluir_foto_reclamacao_cliente). Foto HEIC
+        #   (iPhone) é salva já convertida em JPEG (core.imagens).
         for foto in request.FILES.getlist('fotos_cliente'):
-            FotoReclamacaoCliente.objects.create(devolucao=devolucao, imagem=foto)
+            FotoReclamacaoCliente.objects.create(devolucao=devolucao, imagem=jpeg_se_for_heic(foto))
 
         messages.success(request, f'Devolução do pedido {devolucao.numero_pedido} atualizada.')
         return redirect('devolucoes_pendentes')
@@ -2861,6 +3011,10 @@ def proxy_anexo_mediacao(request, claim_id, filename):
     (ClaimMercadoLivre) -- a EmpresaRouter já restringe essa consulta ao
     banco da empresa ativa, então isso também evita servir claim_id de
     uma empresa pra sessão da outra.
+
+    Foto HEIC (iPhone) -- 04/10/2026: é convertida pra JPEG aqui mesmo
+    (core.imagens), porque o Chrome/Edge não abrem HEIC. Sem o pacote
+    pillow-heif, ou se a conversão falhar, repassa como veio (antes).
     """
     cache = ClaimMercadoLivre.objects.filter(claim_id=claim_id).first()
     if not cache:
@@ -2879,7 +3033,13 @@ def proxy_anexo_mediacao(request, claim_id, filename):
             return redirect(url_fallback)
         return HttpResponse(status=404)
 
-    return HttpResponse(
-        resposta.content,
-        content_type=resposta.headers.get('Content-Type', 'application/octet-stream'),
-    )
+    conteudo = resposta.content
+    tipo = resposta.headers.get('Content-Type', 'application/octet-stream')
+    if parece_heic(conteudo[:12], tipo, filename):
+        try:
+            conteudo = converter_heic_para_jpeg(conteudo)
+            tipo = 'image/jpeg'
+        except Exception:
+            logger.warning('Não consegui converter a foto HEIC do claim %s (anexo %s); repassando como veio.',
+                           claim_id, filename, exc_info=True)
+    return HttpResponse(conteudo, content_type=tipo)

@@ -459,7 +459,7 @@
                     <i class="fas fa-file-lines"></i> Abrir devolução
                 </a>
             {% else %}
-                <a href="{% url 'nova_devolucao' %}?numero_pedido={{ numero_pedido|urlencode }}&nome_cliente={{ nome_comprador_input|urlencode }}&data_venda={{ data_venda_input|urlencode }}&data_recebimento_cliente={{ data_recebimento_cliente_input|urlencode }}&data_reclamacao_cliente={{ data_reclamacao_cliente_input|urlencode }}&data_recebimento_por_nos={{ data_recebimento_por_nos_input|urlencode }}&data_finalizacao_mediacao={{ data_finalizacao_mediacao_input|urlencode }}&tipo_venda={{ tipo_venda_sugerido|urlencode }}&produto_busca={{ sku_item_input|urlencode }}&preco_produto={{ preco_produto_input|urlencode }}" target="_blank" rel="noopener" class="topo-pedido-botao-principal">
+                <a href="{% url 'nova_devolucao' %}?numero_pedido={{ numero_pedido|urlencode }}&nome_cliente={{ nome_comprador_input|urlencode }}&data_venda={{ data_venda_input|urlencode }}&data_recebimento_cliente={{ data_recebimento_cliente_input|urlencode }}&data_reclamacao_cliente={{ data_reclamacao_cliente_input|urlencode }}&data_recebimento_por_nos={{ data_recebimento_por_nos_input|urlencode }}&tipo_venda={{ tipo_venda_sugerido|urlencode }}&produto_id={{ produto_id_input|urlencode }}&produto_origem={{ produto_origem_input|urlencode }}&produto_busca={{ sku_item_input|urlencode }}&preco_produto={{ preco_produto_input|urlencode }}&claim_id={{ claim_id_input|urlencode }}{% for nome_foto in fotos_cliente_input %}&foto_cliente={{ nome_foto|urlencode }}{% endfor %}" target="_blank" rel="noopener" class="topo-pedido-botao-principal">
                     <i class="fas fa-rotate-left"></i> Criar devolução
                 </a>
             {% endif %}

@@ -3,16 +3,30 @@ core/estrutura_api/cliente_api.py
 
 Camada única de comunicação com a API do Mercado Livre.
 Todo app deve chamar a API através de chamar_api(), nunca via requests direto.
+
+Reuso de conexão (04/10/2026): as duas chamadas HTTP daqui embaixo usam uma
+requests.Session() persistente, com pool de conexão (HTTPAdapter), em vez da
+função solta requests.request() (que abria 1 conexão TCP+TLS nova a cada
+chamada). Mesmo padrão já validado no Sistema Interno V2 e medido aqui antes de
+aplicar (scripts_exploracao_ML/testar_paralelismo_consultar_pedido.py, conta SV,
+04/10/2026): a mesma chamada a /orders caiu de 389 ms pra 195 ms (mediana de
+388 pra 174 ms). Mudança transversal: toda tela e todo script que passa por
+chamar_api() ganha, sem mudar nada do lado de quem chama. requests.Session é
+seguro pra uso concorrente entre threads (o pool do urllib3 por trás dela cuida
+do próprio lock) — por isso 1 Session módulo-level basta.
 """
 
 import re
 import time
 import json
 import logging
+import threading
+from http.cookiejar import DefaultCookiePolicy
 from pathlib import Path
 from rich.logging import RichHandler
 
 import requests
+from requests.adapters import HTTPAdapter
 
 from api_mercado_livre.core.auth.gerenciador_token import obter_token_valido
 from api_mercado_livre.core.estrutura_api.protecao import (
@@ -27,6 +41,53 @@ ESPERA_RETRY_206_SEGUNDOS = 2
 
 DADOS_SENSIVEIS = {"access_token", "refresh_token",
                    "client_secret", "password", "authorization"}
+
+# * [EXPLICAÇÃO] → 50 é o tamanho usado e validado no Sistema Interno V2 (50 threads
+#   simultâneas, sem saturar). Aqui a tela Consultar Pedido usa até ~6 threads por
+#   consulta, então sobra folga. O retry continua 100% em chamar_api() — por isso o
+#   HTTPAdapter fica com max_retries=0 (o padrão), pra não duplicar retry em 2 camadas.
+TAMANHO_POOL_CONEXOES = 50
+
+# * [EXPLICAÇÃO] → conexão parada há mais que isso é descartada antes da próxima
+#   chamada. O V2 faz chamadas sem parar, mas este sistema fica minutos sem falar
+#   com o ML (a Ana consulta um pedido, trabalha, consulta outro). Roteador ou
+#   firewall podem derrubar em silêncio uma conexão ociosa — e aí a próxima chamada
+#   esperaria até o timeout (30 s) numa conexão morta. Dentro de uma consulta
+#   (rajada de ~10 chamadas em ~1 s) e entre consultas seguidas o reuso continua.
+#   [NÃO CONFIRMADO] → 20 s é um valor conservador escolhido por mim; o tempo de
+#   ociosidade que o ML tolera não é documentado.
+OCIOSIDADE_MAXIMA_POOL_SEGUNDOS = 20
+
+# Sessão persistente, módulo-level — criada 1 vez, reaproveitada por toda chamada.
+_sessao = requests.Session()
+_sessao.mount("https://", HTTPAdapter(pool_connections=10, pool_maxsize=TAMANHO_POOL_CONEXOES))
+# * [EXPLICAÇÃO] → o requests.request() antigo criava uma sessão nova a cada chamada,
+#   então nenhum cookie passava de uma chamada pra outra (nem de uma conta pra outra:
+#   MB e SV rodam no mesmo processo). Esta política recusa todo cookie, pra manter
+#   exatamente esse comportamento com a sessão persistente.
+_sessao.cookies.set_policy(DefaultCookiePolicy(allowed_domains=[]))
+
+_trava_pool = threading.Lock()
+_trava_logger = threading.Lock()
+_ultimo_uso_pool = time.monotonic()
+
+
+def _renovar_pool_se_ocioso():
+    """Descarta as conexões do pool se a última chamada foi há mais de
+    OCIOSIDADE_MAXIMA_POOL_SEGUNDOS (ver nota acima). Seguro entre threads: a trava
+    protege só esta checagem, nunca a chamada de rede."""
+    global _ultimo_uso_pool
+    agora = time.monotonic()
+    with _trava_pool:
+        if agora - _ultimo_uso_pool > OCIOSIDADE_MAXIMA_POOL_SEGUNDOS:
+            _sessao.close()
+        _ultimo_uso_pool = agora
+
+
+def _enviar_requisicao(metodo, url, **kwargs):
+    """Único ponto que faz HTTP de verdade: mesma assinatura do requests.request()."""
+    _renovar_pool_se_ocioso()
+    return _sessao.request(metodo, url, **kwargs)
 
 # Instância única, compartilhada por todo o processo — garante que chamadas
 # vindas de pontos diferentes do código (ex: um loop que classifica vários
@@ -54,26 +115,30 @@ def _configurar_logger(pasta_logs: Path, nome_log: str = "api"):
     pasta_logs = Path(pasta_logs)
     pasta_logs.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger(f"cliente_api.{pasta_logs}.{nome_log}")
-    if not logger.handlers:
-        logger.setLevel(logging.INFO)
-        logger.propagate = False  # não deixa vazar pro logger raiz do Django (settings.py LOGGING)
+    # * [EXPLICAÇÃO] → a trava evita que 2 threads, na 1ª chamada de um logger (ex.: as
+    #   chamadas em paralelo da tela Consultar Pedido), criem os handlers ao mesmo
+    #   tempo e dupliquem cada linha do log.
+    with _trava_logger:
+        if not logger.handlers:
+            logger.setLevel(logging.INFO)
+            logger.propagate = False  # não deixa vazar pro logger raiz do Django (settings.py LOGGING)
 
-        # Arquivo recebe tudo (INFO) — histórico completo de cada chamada,
-        # útil pra depurar depois. Console só mostra WARNING+ (429, timeout,
-        # erro real) — silêncio em requisição OK, que colidia com o redraw
-        # ao vivo da barra de progresso (rich.Progress) e criava a enxurrada
-        # de texto repetido.
-        handler_arquivo = logging.FileHandler(
-            pasta_logs / f"{nome_log}.log", encoding="utf-8")
-        handler_arquivo.setLevel(logging.INFO)
-        handler_arquivo.setFormatter(logging.Formatter(
-            "%(asctime)s [%(levelname)s] %(message)s"))
+            # Arquivo recebe tudo (INFO) — histórico completo de cada chamada,
+            # útil pra depurar depois. Console só mostra WARNING+ (429, timeout,
+            # erro real) — silêncio em requisição OK, que colidia com o redraw
+            # ao vivo da barra de progresso (rich.Progress) e criava a enxurrada
+            # de texto repetido.
+            handler_arquivo = logging.FileHandler(
+                pasta_logs / f"{nome_log}.log", encoding="utf-8")
+            handler_arquivo.setLevel(logging.INFO)
+            handler_arquivo.setFormatter(logging.Formatter(
+                "%(asctime)s [%(levelname)s] %(message)s"))
 
-        handler_console = RichHandler(rich_tracebacks=True, show_path=False)
-        handler_console.setLevel(logging.WARNING)
+            handler_console = RichHandler(rich_tracebacks=True, show_path=False)
+            handler_console.setLevel(logging.WARNING)
 
-        logger.addHandler(handler_arquivo)
-        logger.addHandler(handler_console)
+            logger.addHandler(handler_arquivo)
+            logger.addHandler(handler_console)
     return logger
 
 
@@ -131,7 +196,7 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
             _espacador.aguardar(conta)
 
         try:
-            resposta = requests.request(
+            resposta = _enviar_requisicao(
                 metodo, url, headers=headers, params=params, json=json_body, files=arquivos,
                 timeout=(TIMEOUT_CONEXAO_SEGUNDOS, TIMEOUT_LEITURA_SEGUNDOS),
             )
@@ -157,7 +222,7 @@ def chamar_api(metodo: str, endpoint: str, pasta_logs, conta: str, params: dict 
                 headers.update(headers_extra)
             if espacador_ativo:
                 _espacador.aguardar(conta)
-            resposta_retry = requests.request(
+            resposta_retry = _enviar_requisicao(
                 metodo, url, headers=headers, params=params, json=json_body, files=arquivos,
                 timeout=(TIMEOUT_CONEXAO_SEGUNDOS, TIMEOUT_LEITURA_SEGUNDOS),
             )

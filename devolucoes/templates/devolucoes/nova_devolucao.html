@@ -156,6 +156,24 @@
                         </div>
                     {% endif %}
 
+                    {% if fotos_cliente_ml %}
+                        {# Fotos que o cliente mandou no chat da reclamação do ML (vindas do botão "Criar devolução"): são baixadas e anexadas ao salvar. O X tira o quadro, e o campo escondido some junto. Se a imagem não carregar (não é foto), o quadro some sozinho. #}
+                        <input type="hidden" name="claim_id_fotos" value="{{ claim_id_fotos }}">
+                        <small class="nd-campo-ajuda">Fotos que o cliente mandou no Mercado Livre: serão anexadas sozinhas ao salvar. Clique no X para tirar alguma.</small>
+                        <div class="cf-fotos-grade">
+                            {% for foto in fotos_cliente_ml %}
+                                <div class="cf-foto-item card-fotos-item"
+                                     data-fotos-id="nd-fotos-cliente-ml" data-titulo="Foto do cliente (Mercado Livre)">
+                                    <img src="{{ foto.url }}" alt="Foto do cliente" onerror="this.closest('.cf-foto-item').remove()">
+                                    <input type="hidden" name="foto_cliente_ml" value="{{ foto.filename }}">
+                                    <button type="button" class="cf-foto-excluir nd-foto-ml-tirar" title="Tirar esta foto">
+                                        <i class="fas fa-xmark"></i>
+                                    </button>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
                     <label class="cf-foto-botao" for="fotos_cliente">
                         <i class="fas fa-camera"></i> Adicionar foto
                     </label>
@@ -193,6 +211,7 @@
                     <div class="nd-produto-textos">
                         <p class="nd-produto-nome">{{ produto_selecionado.nome }}</p>
                         <p class="nd-produto-marca">{{ produto_selecionado.marca.nome }}</p>
+                        {% if produto_origem_automatica %}<p class="nd-produto-marca">{{ produto_origem_automatica }}</p>{% endif %}
                     </div>
                 {% endif %}
                 <button type="button" class="nd-produto-trocar" id="nd_produto_trocar"><i class="fas fa-rotate"></i> Trocar</button>

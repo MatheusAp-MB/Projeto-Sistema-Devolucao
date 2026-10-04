@@ -463,3 +463,13 @@
         textarea.value = '';
     });
 })();
+
+// ===== Fotos do cliente que vieram do Mercado Livre (ver fotos_cliente_ml no views.py) =====
+// O "X" tira o quadro da foto; o campo escondido dela (foto_cliente_ml) está
+// dentro do quadro e some junto, então essa foto não é anexada ao salvar.
+document.addEventListener('click', function (evento) {
+    var botao = evento.target.closest('.nd-foto-ml-tirar');
+    if (!botao) return;
+    var quadro = botao.closest('.cf-foto-item');
+    if (quadro) quadro.remove();
+});

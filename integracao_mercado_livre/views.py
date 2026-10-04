@@ -10,9 +10,11 @@
 # número do pedido.
 
 import json
+import logging
 import os
 import re
 import bleach
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -23,10 +25,11 @@ from django.urls import reverse
 from django.utils.http import urlencode
 
 from core.empresa import obter_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
+from core.imagens import converter_heic_para_jpeg, parece_heic
 from api_mercado_livre.core.estrutura_api.cliente_api import (
     chamar_api, ErroAPI, ErroAutenticacaoAPI,
 )
-from api_mercado_livre.core.auth.gerenciador_token import FalhaAutenticacao
+from api_mercado_livre.core.auth.gerenciador_token import FalhaAutenticacao, obter_token_valido
 from integracao_mercado_livre.traducoes_devolucao import (
     traduzir_evento_envio, traduzir_tipo_e_etapa_claim,
     traduzir_resolucao, descrever_desfecho,
@@ -49,6 +52,43 @@ HEADER_FORMATO_NOVO = {"x-format-new": "true"}
 # brecha de XSS.
 TAGS_PERMITIDAS_MENSAGEM = ["p", "br", "strong", "b", "em", "i", "a"]
 ATRIBUTOS_PERMITIDOS_MENSAGEM = {"a": ["href"]}
+
+
+def _chamar_api_consulta(metodo, endpoint, conta, **kwargs):
+    """chamar_api() SEM o espaçador de 0,4 s — só pras chamadas da consulta de 1 pedido.
+
+    * [EXPLICAÇÃO] → decisão de Matheus (04/10/2026), a partir do teste em
+      scripts_exploracao_ML/testar_paralelismo_consultar_pedido.py (pedido
+      2000018229470186, conta SV): com o espaçador a consulta ficava em ~4 s mesmo com
+      pool e chamadas em paralelo (10 chamadas × 0,4 s); sem ele cai pra ~1 s. O teste
+      fez ~400 chamadas, até 8 ao mesmo tempo, nas duas famílias de endpoint (vendas e
+      reclamações), com zero 429. Uma consulta é uma rajada pequena (~10 chamadas); a
+      cota (18.000/h) é do APP e dividida com o Sistema Interno V2, e o backoff de 429
+      do chamar_api continua ativo como rede de segurança.
+    * Varreduras longas (lista por cliente, pack, scripts de coleta) NÃO usam esta
+      função: continuam com o espaçador, porque foi em rajadas longas que o 429
+      apareceu (17/09 e 20/09)."""
+    return chamar_api(metodo, endpoint, pasta_logs=PASTA_LOGS_ML, conta=conta, espacador_ativo=False, **kwargs)
+
+
+def _obter_meu_user_id(conta):
+    """ID da nossa conta no Mercado Livre (MB ou SV), lido do .env ({conta}_USER_ID)
+    em vez de uma chamada a GET /users/me a cada consulta.
+
+    * [EXPLICAÇÃO] → o ID da conta não muda e o .env já o guarda — o mesmo valor que
+      o /users/me devolve (conferido na conta SV em 04/10/2026 por
+      scripts_exploracao_ML/testar_paralelismo_consultar_pedido.py). Tirar essa
+      chamada economiza 1 das ~11 da tela. obter_token_valido() vem antes porque é
+      ele quem carrega o .env (e garante o token válido). Se a variável faltar ou não
+      for um número, cai no /users/me como antes — nunca fica sem o ID.
+    * [NÃO CONFIRMADO] → o MB_USER_ID não foi conferido contra o /users/me (o teste
+      rodou só na SV)."""
+    obter_token_valido(conta)
+    valor = (os.getenv(f"{conta}_USER_ID") or "").strip()
+    if valor.isdigit():
+        return int(valor)
+    resposta = chamar_api("GET", "/users/me", pasta_logs=PASTA_LOGS_ML, conta=conta)
+    return resposta.json().get("id")
 
 
 def view_teste_conexao_ml(request):
@@ -251,9 +291,8 @@ def _ultimo_evento_com_status(eventos, status_procurado):
 
 
 def _buscar_historico_envio(shipment_id, conta):
-    resposta = chamar_api(
-        "GET", f"/shipments/{shipment_id}/history",
-        pasta_logs=PASTA_LOGS_ML, conta=conta,
+    resposta = _chamar_api_consulta(
+        "GET", f"/shipments/{shipment_id}/history", conta,
         headers_extra=HEADER_FORMATO_NOVO,
     )
     return resposta.json()
@@ -274,10 +313,7 @@ def _buscar_shipment_completo(shipment_id, conta):
     /shipments/{id} sem headers_extra nenhum. Mandar x-format-new aqui
     muda o formato da resposta e faz sender_address/receiver_address
     sumirem silenciosamente (sem erro, só sem endereço)."""
-    resposta = chamar_api(
-        "GET", f"/shipments/{shipment_id}",
-        pasta_logs=PASTA_LOGS_ML, conta=conta,
-    )
+    resposta = _chamar_api_consulta("GET", f"/shipments/{shipment_id}", conta)
     return resposta.json()
 
 
@@ -454,7 +490,7 @@ def _meu_papel_na_claim(claim, meu_user_id):
     return None
 
 
-def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_cliente, numero_pedido):
+def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_cliente, numero_pedido, mensagens_brutas=None):
     """Monta a lista de mensagens da claim pro Chat do ML (camada 3 do acordeão), já classificada em
     ML / você / cliente (mesma lógica do varredura_respostas_mediacao.py:
     sender_role == 'mediator' é o ML, sender_role == o seu papel nos players
@@ -462,18 +498,20 @@ def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_
     Anexos (attachments) incluídos a partir de 20/09/2026, mesmo padrão de
     devolucoes/varredura_mediacoes.py. Desde 04/10/2026 viram miniatura
     (via proxy_anexo_claim, ver _url_anexo_mensagem) em vez do ícone-link
-    que pedia login no Mercado Livre."""
+    que pedia login no Mercado Livre.
+
+    mensagens_brutas (04/10/2026): lista de mensagens que a consulta já buscou em
+    paralelo com as outras chamadas (ver view_consultar_pedido). Se vier None, a
+    busca é feita aqui, como antes."""
     meu_papel = _meu_papel_na_claim(claim, meu_user_id)
 
-    try:
-        resposta = chamar_api(
-            "GET", f"/post-purchase/v1/claims/{claim_id}/messages",
-            pasta_logs=PASTA_LOGS_ML, conta=conta,
-        )
-    except (ErroAPI, ErroAutenticacaoAPI):
-        return []
+    if mensagens_brutas is None:
+        try:
+            mensagens_brutas = _buscar_mensagens_da_claim(claim_id, conta)
+        except (ErroAPI, ErroAutenticacaoAPI):
+            return []
 
-    mensagens = resposta.json()
+    mensagens = mensagens_brutas
     mensagens.sort(key=lambda m: m.get("date_created") or "")
 
     resultado = []
@@ -490,7 +528,8 @@ def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_
         for anexo in (m.get('attachments') or []):
             url = _url_anexo_mensagem(numero_pedido, claim_id, anexo)
             if url:
-                anexos.append({'url': url})
+                # 'filename' também vai pro botão "Criar devolução" (fotos do cliente).
+                anexos.append({'url': url, 'filename': anexo.get('filename')})
 
         resultado.append({
             "papel": papel,
@@ -530,7 +569,14 @@ def proxy_anexo_claim(request, claim_id, filename):
 
     Só repassa como imagem o que o ML diz que é imagem (menos SVG, que
     pode carregar script); qualquer outro tipo sai como download genérico
-    (octet-stream + attachment), nunca interpretado pelo navegador."""
+    (octet-stream + attachment), nunca interpretado pelo navegador.
+
+    Foto HEIC (formato do iPhone, que o Chrome/Edge não abrem) -- decisão de
+    Matheus, 04/10/2026, pedido 2000017788033354: é convertida pra JPEG aqui
+    mesmo, então a miniatura do chat e a foto aberta no modal (as duas passam
+    por este proxy) saem sempre já convertidas. Sem o pacote pillow-heif, ou
+    se a conversão falhar, repassa o arquivo como veio (comportamento de
+    antes)."""
     if not claim_id.isdigit() or not re.fullmatch(r'[\w\-][\w.\-]*', filename):
         return HttpResponse(status=404)
 
@@ -556,10 +602,18 @@ def proxy_anexo_claim(request, claim_id, filename):
         return HttpResponse(status=404)
 
     tipo = (resposta.headers.get('Content-Type') or '').split(';')[0].strip().lower()
+    conteudo = resposta.content
+    if parece_heic(conteudo[:12], tipo, filename):
+        try:
+            conteudo = converter_heic_para_jpeg(conteudo)
+            tipo = 'image/jpeg'
+        except Exception:
+            _log.warning('Não consegui converter a foto HEIC do claim %s (anexo %s); repassando como veio.',
+                         claim_id, filename, exc_info=True)
     if tipo.startswith('image/') and tipo != 'image/svg+xml':
-        resposta_http = HttpResponse(resposta.content, content_type=tipo)
+        resposta_http = HttpResponse(conteudo, content_type=tipo)
     else:
-        resposta_http = HttpResponse(resposta.content, content_type='application/octet-stream')
+        resposta_http = HttpResponse(conteudo, content_type='application/octet-stream')
         resposta_http['Content-Disposition'] = 'attachment'
     resposta_http['X-Content-Type-Options'] = 'nosniff'
     # Anexo de claim não muda depois de enviado: deixa o navegador guardar
@@ -638,8 +692,7 @@ def _listar_pedidos_do_cliente(buyer_id, conta):
     página de /orders/search (ponto de polimento futuro). Não ordena
     aqui — quem ordena (pela data real, não pelo texto formatado) e
     agrupa por pack é _agrupar_e_ordenar_pedidos."""
-    resposta_eu = chamar_api("GET", "/users/me", pasta_logs=PASTA_LOGS_ML, conta=conta)
-    seller_id = resposta_eu.json().get("id")
+    seller_id = _obter_meu_user_id(conta)
 
     resposta_busca = chamar_api(
         "GET", "/orders/search",
@@ -789,6 +842,67 @@ def _url_foto_grande(url):
     return re.sub(r'-[A-Z]\.((?i:jpg|jpeg|png|webp))$', r'-F.\1', url)
 
 
+CAMPOS_DO_ANUNCIO = "id,status,permalink,thumbnail,pictures"
+CAMPOS_DO_ANUNCIO_COM_ATRIBUTOS = CAMPOS_DO_ANUNCIO + ",attributes"
+
+
+def _chave_de_codigo_de_barras(valor):
+    """Só os dígitos, sem zeros à esquerda — assim o GTIN-14 "07891234567890"
+    e o EAN-13 "7891234567890" (o mesmo produto) viram a mesma chave."""
+    return re.sub(r'\D', '', str(valor or '')).lstrip('0')
+
+
+def _codigos_de_barras_do_anuncio(corpo):
+    """GTIN/EAN que o anúncio (item do ML) declara, só os dígitos.
+
+    * [EXPLICAÇÃO] → vem de corpo['attributes'] (lista de {id, value_name,
+      values}), no atributo de id "GTIN" (ou "EAN"). O valor pode trazer mais
+      de um código separado por vírgula; pegamos todos (8 a 14 dígitos).
+      Sem o atributo → lista vazia, e o produto só é achado pelo SKU."""
+    codigos = []
+    chaves_vistas = set()
+    for atributo in (corpo.get('attributes') or []):
+        if not isinstance(atributo, dict) or atributo.get('id') not in ('GTIN', 'EAN'):
+            continue
+        textos = [atributo.get('value_name')]
+        textos += [(valor or {}).get('name') for valor in (atributo.get('values') or []) if isinstance(valor, dict)]
+        for texto in textos:
+            for numero in re.findall(r'(?<!\d)\d{8,14}(?!\d)', str(texto or '')):
+                chave = _chave_de_codigo_de_barras(numero)
+                if chave and chave not in chaves_vistas:
+                    chaves_vistas.add(chave)
+                    codigos.append(numero)
+    return codigos
+
+
+def _achar_produto_do_item(sku, codigos_de_barras, produtos_por_sku, produtos_por_chave_ean):
+    """Qual Produto cadastrado é o item do pedido? Devolve (produto, origem).
+
+    * [EXPLICAÇÃO] → decisão de Matheus (04/10/2026): "comparar SKU com SKU ou
+      EAN com EAN — se bater, já seleciona sozinho". origem diz como bateu:
+      'sku', 'ean', 'sku_e_ean' (os dois apontam pro mesmo produto) ou
+      'conflito' (SKU e EAN apontam pra produtos DIFERENTES, ou o EAN bate com
+      mais de um produto) — no conflito não escolhemos nenhum, quem decide é a
+      Ana. Sem nenhuma batida: (None, None)."""
+    por_sku = produtos_por_sku.get(sku.lower()) if sku else None
+    por_ean = {}
+    for codigo in codigos_de_barras:
+        produto = produtos_por_chave_ean.get(_chave_de_codigo_de_barras(codigo))
+        if produto is not None:
+            por_ean[produto.pk] = produto
+    if por_sku is not None and por_ean:
+        if list(por_ean) == [por_sku.pk]:
+            return por_sku, 'sku_e_ean'
+        return None, 'conflito'
+    if por_sku is not None:
+        return por_sku, 'sku'
+    if len(por_ean) == 1:
+        return next(iter(por_ean.values())), 'ean'
+    if len(por_ean) > 1:
+        return None, 'conflito'
+    return None, None
+
+
 def _buscar_dados_dos_anuncios(order_items, conta):
     """Foto, link e situação dos anúncios (MLB) de um pedido, numa chamada só.
 
@@ -808,16 +922,29 @@ def _buscar_dados_dos_anuncios(order_items, conta):
             mlbs.append(mlb)
     if not mlbs:
         return {}
-    try:
-        resposta = chamar_api(
-            "GET", "/items",
-            pasta_logs=PASTA_LOGS_ML, conta=conta,
-            params={"ids": ",".join(mlbs), "attributes": "id,status,permalink,thumbnail,pictures"},
-        )
-        lista = resposta.json()
-    except (ErroAPI, ErroAutenticacaoAPI, ValueError):
-        return {}
-    if not isinstance(lista, list):
+    # * [EXPLICAÇÃO] → decisão de Matheus (04/10/2026): o produto do botão
+    #   "Criar devolução" é escolhido sozinho comparando SKU com SKU ou EAN com
+    #   EAN. O EAN do anúncio mora na lista de atributos do item (id "GTIN").
+    #   [NÃO CONFIRMADO] → ainda não vi essa resposta em dado real: por isso
+    #   pedimos "attributes" junto, mas, se o ML recusar ou devolver tudo
+    #   vazio, repetimos o pedido antigo (sem atributos) — foto, link e
+    #   situação do anúncio nunca se perdem por causa do EAN.
+    lista = None
+    for campos in (CAMPOS_DO_ANUNCIO_COM_ATRIBUTOS, CAMPOS_DO_ANUNCIO):
+        try:
+            resposta = _chamar_api_consulta(
+                "GET", "/items", conta,
+                params={"ids": ",".join(mlbs), "attributes": campos},
+            )
+            candidata = resposta.json()
+        except (ErroAPI, ErroAutenticacaoAPI, ValueError):
+            continue
+        if isinstance(candidata, list) and any(
+            isinstance(entrada, dict) and entrada.get('code') == 200 for entrada in candidata
+        ):
+            lista = candidata
+            break
+    if lista is None:
         return {}
 
     dados = {}
@@ -846,8 +973,108 @@ def _buscar_dados_dos_anuncios(order_items, conta):
             'fotos_extras': [_url_foto_grande(url) for url in urls_originais[1:]],
             'permalink': corpo.get('permalink'),
             'status': corpo.get('status'),
+            'gtins': _codigos_de_barras_do_anuncio(corpo),
         }
     return dados
+
+
+# ===== Chamadas ao ML em paralelo (ondas) — consulta de 1 pedido =====
+#
+# * [EXPLICAÇÃO] → decisão de Matheus (04/10/2026), depois de medir em
+#   scripts_exploracao_ML/testar_paralelismo_consultar_pedido.py (pedido
+#   2000018229470186, conta SV): a tela inteira foi de ~6,0 s (uma chamada por vez)
+#   pra ~0,95 s (em ondas), trazendo exatamente os mesmos dados. Mesmo padrão do
+#   Sistema Interno V2: 1 pool de threads por onda (nunca um dentro do outro), as
+#   threads só FAZEM a chamada e devolvem o dado, e só a thread principal junta os
+#   resultados e monta a tela. Nenhuma tarefa pode tocar no banco (ORM) nem em
+#   `contexto`: cada thread abriria a própria conexão com o MySQL.
+#
+# 8 = o maior nível validado no Teste 2 (8 chamadas simultâneas, ~25 chamadas/s, zero
+# 429, nas duas famílias de endpoint). A onda 2 tem 6 chamadas num pedido com 1
+# reclamação e 7 ou mais quando há mais de uma (1 /returns por candidata): com 8
+# threads ela continua sendo uma rodada só. O pool de conexões do cliente_api (50)
+# comporta folgado: 4 consultas ao mesmo tempo no servidor × 8 threads = 32.
+MAX_THREADS_CONSULTA = 8
+
+_log = logging.getLogger(__name__)
+
+
+def _executar_tarefa(funcao):
+    """Roda 1 chamada dentro de uma thread da onda e NUNCA levanta: devolve
+    (resultado, None) se deu certo ou (None, erro) se falhou. O erro volta pra thread
+    principal, que decide o que fazer com ele (ver _valor_ou_levantar)."""
+    try:
+        return funcao(), None
+    except Exception as erro:
+        if not isinstance(erro, (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao)):
+            # Erro de API a tela já trata e mostra; qualquer outro é bug ou rede — deixa
+            # o rastro completo no log (a thread principal ainda levanta o erro depois).
+            _log.exception("Erro inesperado numa chamada em paralelo da Consultar Pedido")
+        return None, erro
+
+
+def _rodar_onda(tarefas):
+    """Roda várias chamadas AO MESMO TEMPO (até MAX_THREADS_CONSULTA) e espera todas
+    terminarem. tarefas: {nome: funcao_sem_argumentos}. Devolve {nome: (resultado, erro)}."""
+    resultados = {}
+    if not tarefas:
+        return resultados
+    with ThreadPoolExecutor(
+        max_workers=min(MAX_THREADS_CONSULTA, len(tarefas)), thread_name_prefix="consultar_pedido",
+    ) as pool:
+        futuros = {pool.submit(_executar_tarefa, funcao): nome for nome, funcao in tarefas.items()}
+        for futuro in as_completed(futuros):
+            resultados[futuros[futuro]] = futuro.result()
+    return resultados
+
+
+def _valor_ou_levantar(resultado_da_onda):
+    """Devolve o resultado de uma chamada da onda; se ela falhou, levanta o MESMO erro
+    aqui, na thread principal — onde o código sequencial o levantaria."""
+    resultado, erro = resultado_da_onda
+    if erro is not None:
+        raise erro
+    return resultado
+
+
+def _valor_tolerando_erro_da_api(resultado_da_onda):
+    """Como _valor_ou_levantar, mas um erro DA API (ErroAPI/ErroAutenticacaoAPI) vira
+    None — é o 'try: ... except (ErroAPI, ErroAutenticacaoAPI): None' que o código
+    sequencial já tinha. Qualquer outro erro continua levantando."""
+    resultado, erro = resultado_da_onda
+    if erro is None:
+        return resultado
+    if isinstance(erro, (ErroAPI, ErroAutenticacaoAPI)):
+        return None
+    raise erro
+
+
+def _buscar_claim(claim_id, conta):
+    return _chamar_api_consulta("GET", f"/post-purchase/v1/claims/{claim_id}", conta).json()
+
+
+def _buscar_mensagens_da_claim(claim_id, conta):
+    return _chamar_api_consulta("GET", f"/post-purchase/v1/claims/{claim_id}/messages", conta).json()
+
+
+def _buscar_pedido_e_claims(numero_pedido, conta):
+    """ONDA 1: o pedido e as reclamações dele, ao mesmo tempo. Devolve um dict com
+    pedido/erro_pedido e claims/erro_claims — quem chama decide o que fazer com cada
+    erro (ex.: 404 no pedido pode significar que o número é um Pack ID).
+
+    obter_token_valido() roda aqui, na thread principal, ANTES das threads: se o token
+    precisar renovar, renova 1 vez só — as threads não disputam o lock de renovação
+    (quem perde a disputa espera ~3 s)."""
+    obter_token_valido(conta)
+    onda = _rodar_onda({
+        'pedido': lambda: _chamar_api_consulta("GET", f"/orders/{numero_pedido}", conta).json(),
+        'claims': lambda: _chamar_api_consulta(
+            "GET", "/post-purchase/v1/claims/search", conta, params={"order_id": numero_pedido},
+        ).json().get("data", []),
+    })
+    pedido, erro_pedido = onda['pedido']
+    claims, erro_claims = onda['claims']
+    return {'pedido': pedido, 'erro_pedido': erro_pedido, 'claims': claims, 'erro_claims': erro_claims}
 
 
 def view_consultar_pedido(request):
@@ -875,7 +1102,8 @@ def view_consultar_pedido(request):
         contexto['erro'] = f'Empresa ativa "{empresa}" não mapeada pra nenhuma conta MB/SV.'
         return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
 
-    pedido = None  # se já buscarmos o pedido lá embaixo (fluxo direto), evita buscar de novo
+    pedido = None  # preenchido pela onda 1 (busca direta por número); nos outros fluxos a onda 1 roda mais abaixo
+    onda_inicial = None  # resultado da onda 1 (pedido + reclamações buscados juntos), quando já foi feita
 
     try:
         if id_cliente:
@@ -941,15 +1169,15 @@ def view_consultar_pedido(request):
 
         else:
             # ----- Busca por Número da Venda, com fallback pra Pack -----
-            try:
-                resposta_pedido = chamar_api(
-                    "GET", f"/orders/{numero_pedido}",
-                    pasta_logs=PASTA_LOGS_ML, conta=conta,
-                )
-                pedido = resposta_pedido.json()
-            except ErroAPI as erro:
-                if not str(erro).startswith("Erro 404 "):
-                    raise
+            # * [EXPLICAÇÃO] → ONDA 1: o pedido e as reclamações dele saem juntos (ver
+            #   _buscar_pedido_e_claims). Se o pedido não existir (404), o número pode ser
+            #   um Pack ID — aí o resultado das reclamações é descartado (foi buscado com
+            #   o número do pack) e o fluxo do pack segue como sempre.
+            onda_inicial = _buscar_pedido_e_claims(numero_pedido, conta)
+            erro_pedido = onda_inicial['erro_pedido']
+            if erro_pedido is not None:
+                if not (isinstance(erro_pedido, ErroAPI) and str(erro_pedido).startswith("Erro 404 ")):
+                    raise erro_pedido
                 pedidos_do_pack = _resolver_pack(numero_pedido, conta)
                 if pedidos_do_pack is None:
                     contexto['erro'] = f'Nenhum pedido nem pacote encontrado com o número {numero_pedido}.'
@@ -964,17 +1192,34 @@ def view_consultar_pedido(request):
                     return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
                 numero_pedido = pedidos_do_pack[0]['numero_pedido']
                 contexto['numero_pedido'] = numero_pedido
-                pedido = None  # só temos o resumo — o bloco "Pedido" abaixo busca o detalhe completo
+                onda_inicial = None  # a onda 1 usou o número do pack — é refeita logo abaixo, com o pedido certo
+            else:
+                pedido = onda_inicial['pedido']
 
         # ----- A partir daqui, numero_pedido é garantidamente 1 pedido real -----
 
+        # * [EXPLICAÇÃO] → ONDAS (ver o bloco "Chamadas ao ML em paralelo" acima da view):
+        #     onda 1 — pedido + reclamações;
+        #     onda 2 — /returns de cada reclamação candidata, anúncios, envio de ida e,
+        #              de PALPITE, a 1ª reclamação da fila com a conversa dela;
+        #     onda 3 — envios de volta (só dá pra saber quais depois do /returns) e,
+        #              só se o palpite errou, a reclamação certa com a conversa dela.
+        #   O palpite acerta quase sempre: a 1ª da fila é a escolhida quando o /returns
+        #   dela funciona OU quando nenhuma delas tem /returns. Um erro numa chamada
+        #   volta pra cá e é levantado no mesmo ponto em que o código sequencial o
+        #   levantaria — as mensagens de erro da tela não mudam.
+
+        # ----- Onda 1 (a busca direta por número já fez; os outros fluxos fazem agora) -----
+        if onda_inicial is None:
+            onda_inicial = _buscar_pedido_e_claims(numero_pedido, conta)
+            if onda_inicial['erro_pedido'] is not None:
+                raise onda_inicial['erro_pedido']
+            pedido = onda_inicial['pedido']
+
         # ----- Reclamação -----
-        resposta_claims = chamar_api(
-            "GET", "/post-purchase/v1/claims/search",
-            pasta_logs=PASTA_LOGS_ML, conta=conta,
-            params={"order_id": numero_pedido},
-        )
-        claims = resposta_claims.json().get("data", [])
+        if onda_inicial['erro_claims'] is not None:
+            raise onda_inicial['erro_claims']
+        claims = onda_inicial['claims']
         if not claims:
             contexto['erro'] = 'Nenhuma reclamação encontrada pra esse pedido.'
             return render(request, 'integracao_mercado_livre/consultar_pedido.html', contexto)
@@ -982,25 +1227,37 @@ def view_consultar_pedido(request):
         claims_em_ordem_de_tentativa = sorted(
             claims, key=lambda c: 0 if c.get("type") in ("return", "fulfillment") else 1
         )
+        primeira_claim_id = claims_em_ordem_de_tentativa[0]['id']
+        shipping_id_ida = (pedido.get("shipping") or {}).get("id")
 
+        # ----- Onda 2 -----
+        tarefas_onda_2 = {}
+        for candidata in claims_em_ordem_de_tentativa:
+            tarefas_onda_2[f"returns_{candidata['id']}"] = lambda id_da_candidata=candidata['id']: _chamar_api_consulta(
+                "GET", f"/post-purchase/v2/claims/{id_da_candidata}/returns", conta,
+            )
+        tarefas_onda_2['anuncios'] = lambda: _buscar_dados_dos_anuncios(pedido.get("order_items") or [], conta)
+        if shipping_id_ida:
+            tarefas_onda_2['ida_historico'] = lambda: _buscar_historico_envio(shipping_id_ida, conta)
+            tarefas_onda_2['ida_envio'] = lambda: _buscar_shipment_completo(shipping_id_ida, conta)
+        tarefas_onda_2['claim_palpite'] = lambda: _buscar_claim(primeira_claim_id, conta)
+        tarefas_onda_2['mensagens_palpite'] = lambda: _buscar_mensagens_da_claim(primeira_claim_id, conta)
+        onda_2 = _rodar_onda(tarefas_onda_2)
+
+        # Escolhe a devolução física: a 1ª da fila (return/fulfillment primeiro) cujo
+        # /returns funcionou — a mesma regra de antes, agora lendo os resultados da onda.
         devolucao = None
-        claim = None
+        claim_id_escolhida = None
         erros_returns = []  # 1 texto por claim cujo /returns falhou — alimenta o aviso lá embaixo
         for candidata in claims_em_ordem_de_tentativa:
-            try:
-                resposta_devolucao = chamar_api(
-                    "GET", f"/post-purchase/v2/claims/{candidata['id']}/returns",
-                    pasta_logs=PASTA_LOGS_ML, conta=conta,
-                )
-            except (ErroAPI, ErroAutenticacaoAPI) as erro:
-                erros_returns.append(str(erro))
+            resposta_devolucao, erro_returns = onda_2[f"returns_{candidata['id']}"]
+            if erro_returns is not None:
+                if not isinstance(erro_returns, (ErroAPI, ErroAutenticacaoAPI)):
+                    raise erro_returns
+                erros_returns.append(str(erro_returns))
                 continue
             devolucao = resposta_devolucao.json()
-            resposta_claim = chamar_api(
-                "GET", f"/post-purchase/v1/claims/{candidata['id']}",
-                pasta_logs=PASTA_LOGS_ML, conta=conta,
-            )
-            claim = resposta_claim.json()
+            claim_id_escolhida = candidata['id']
             break
 
         # * [EXPLICAÇÃO] → antes (até 03/10/2026) a tela parava aqui com um erro e
@@ -1012,19 +1269,27 @@ def view_consultar_pedido(request):
         sem_devolucao_fisica = devolucao is None
         if sem_devolucao_fisica:
             devolucao = {}
-            resposta_claim = chamar_api(
-                "GET", f"/post-purchase/v1/claims/{claims_em_ordem_de_tentativa[0]['id']}",
-                pasta_logs=PASTA_LOGS_ML, conta=conta,
-            )
-            claim = resposta_claim.json()
+            claim_id_escolhida = primeira_claim_id
 
-        # ----- Pedido -----
-        if pedido is None:
-            resposta_pedido = chamar_api(
-                "GET", f"/orders/{numero_pedido}",
-                pasta_logs=PASTA_LOGS_ML, conta=conta,
-            )
-            pedido = resposta_pedido.json()
+        # ----- Onda 3 -----
+        tarefas_onda_3 = {}
+        for envio_da_devolucao in (devolucao.get("shipments") or []):
+            shipment_id_da_volta = envio_da_devolucao.get("shipment_id")
+            if not shipment_id_da_volta:
+                continue
+            tarefas_onda_3[f'volta_historico_{shipment_id_da_volta}'] = lambda sid=shipment_id_da_volta: _buscar_historico_envio(sid, conta)
+            tarefas_onda_3[f'volta_envio_{shipment_id_da_volta}'] = lambda sid=shipment_id_da_volta: _buscar_shipment_completo(sid, conta)
+        palpite_certo = claim_id_escolhida == primeira_claim_id
+        if not palpite_certo:
+            tarefas_onda_3['claim'] = lambda: _buscar_claim(claim_id_escolhida, conta)
+            tarefas_onda_3['mensagens'] = lambda: _buscar_mensagens_da_claim(claim_id_escolhida, conta)
+        onda_3 = _rodar_onda(tarefas_onda_3)
+
+        claim = _valor_ou_levantar(onda_2['claim_palpite'] if palpite_certo else onda_3['claim'])
+        # None = a API não entregou a conversa (a tela mostra o chat vazio, como antes)
+        mensagens_do_chat = _valor_tolerando_erro_da_api(
+            onda_2['mensagens_palpite'] if palpite_certo else onda_3['mensagens']
+        )
 
         comprador = pedido.get("buyer") or {}
         nome_comprador = f"{comprador.get('first_name', '')} {comprador.get('last_name', '')}".strip() or "—"
@@ -1064,7 +1329,12 @@ def view_consultar_pedido(request):
         #   Ana cadastra do produto também ajuda a identificar. Como achamos o
         #   Produto cadastrado de cada item: (1) pedido de 1 produto que já
         #   tem devolução → o produto escolhido nela (vínculo mais firme);
-        #   (2) senão, o Produto cujo SKU é igual ao seller_sku do anúncio.
+        #   (2) senão, o Produto cujo SKU é igual ao seller_sku do anúncio;
+        #   (3) senão, o Produto cujo código de barras é igual ao GTIN/EAN do
+        #   anúncio (decisão de Matheus, 04/10/2026: "comparar SKU com SKU ou
+        #   EAN com EAN"). SKU e EAN apontando pra produtos diferentes =
+        #   conflito → não escolhe nenhum (a Ana decide). É o mesmo produto
+        #   que o botão "Criar devolução" já manda selecionado.
         #   Se não achar, a tela só não mostra a foto do cadastro interno.
         skus_do_pedido = {
             (item_bruto.get("item") or {}).get("seller_sku")
@@ -1098,7 +1368,26 @@ def view_consultar_pedido(request):
             acumulado[1] += total_do_item
         tipo_devolucao_texto = SUBTIPO_DEVOLUCAO.get(devolucao.get("subtype"))
 
-        dados_anuncios = _buscar_dados_dos_anuncios(itens_brutos, conta)
+        dados_anuncios = _valor_ou_levantar(onda_2['anuncios'])
+        # Produtos cadastrados cujo código de barras bate com o GTIN/EAN dos
+        # anúncios do pedido (1 consulta só, e só se algum anúncio trouxe EAN).
+        # Os zeros à esquerda variam (EAN-13 x GTIN-14), então pedimos as
+        # variações de tamanho e comparamos pela chave sem zeros.
+        chaves_ean_do_pedido = {
+            _chave_de_codigo_de_barras(codigo)
+            for anuncio_do_pedido in dados_anuncios.values()
+            for codigo in (anuncio_do_pedido.get('gtins') or [])
+        } - {''}
+        produtos_por_chave_ean = {}
+        if chaves_ean_do_pedido:
+            variacoes_do_codigo = {
+                chave.zfill(tamanho)
+                for chave in chaves_ean_do_pedido
+                for tamanho in (8, 12, 13, 14)
+                if len(chave) <= tamanho
+            }
+            for produto_cadastrado in Produto.objects.select_related('marca').filter(codigo_barras__in=variacoes_do_codigo):
+                produtos_por_chave_ean[_chave_de_codigo_de_barras(produto_cadastrado.codigo_barras)] = produto_cadastrado
         itens_pedido = []
         for item_bruto in itens_brutos:
             dados_do_item = item_bruto.get("item") or {}
@@ -1107,12 +1396,14 @@ def view_consultar_pedido(request):
             situacao_anuncio = anuncio.get("status")
 
             sku_do_item = dados_do_item.get("seller_sku")
+            gtins_do_item = anuncio.get("gtins") or []
+            produto_automatico, origem_automatica = _achar_produto_do_item(
+                sku_do_item, gtins_do_item, produtos_por_sku, produtos_por_chave_ean,
+            )
             if devolucao_no_sistema is not None and len(itens_brutos) == 1:
                 produto_do_item = devolucao_no_sistema.produto
-            elif sku_do_item:
-                produto_do_item = produtos_por_sku.get(sku_do_item.lower())
             else:
-                produto_do_item = None
+                produto_do_item = produto_automatico
             foto_cadastro_url = produto_do_item.foto.url if (produto_do_item is not None and produto_do_item.foto) else None
 
             unidades = unidades_por_item.get(mlb_do_item)
@@ -1140,22 +1431,24 @@ def view_consultar_pedido(request):
                 'foto_cadastro_url': foto_cadastro_url,
                 'produto_marca': produto_do_item.marca.nome if produto_do_item is not None else None,
                 'produto_codigo_barras': produto_do_item.codigo_barras if produto_do_item is not None else None,
+                # Produto que o botão "Criar devolução" manda já selecionado
+                # (SKU/EAN) — independe de a devolução já existir no sistema.
+                'produto_auto_id': produto_automatico.pk if produto_automatico is not None else None,
+                'produto_auto_origem': origem_automatica,
+                'gtins_anuncio': gtins_do_item,
                 'texto_unidades_voltando': texto_unidades_voltando,
                 'tipo_devolucao': tipo_devolucao_texto if texto_unidades_voltando else None,
             })
 
-        shipping_id_ida = (pedido.get("shipping") or {}).get("id")
+        # (shipping_id_ida já foi calculado antes da onda 2, que busca o envio de ida)
         historico_ida = []
         endereco_origem_ida = None
         endereco_destino_ida = None
         logistic_type_ida = None
         metodo_envio_ida = None
         if shipping_id_ida:
-            historico_ida = _buscar_historico_envio(shipping_id_ida, conta)
-            try:
-                shipment_ida_completo = _buscar_shipment_completo(shipping_id_ida, conta)
-            except (ErroAPI, ErroAutenticacaoAPI):
-                shipment_ida_completo = None
+            historico_ida = _valor_ou_levantar(onda_2['ida_historico'])
+            shipment_ida_completo = _valor_tolerando_erro_da_api(onda_2['ida_envio'])
             if shipment_ida_completo:
                 # * [EXPLICAÇÃO] → o tipo logístico do envio mora na RAIZ do
                 #   /shipments/{id} (chamado SEM x-format-new; nesse formato o
@@ -1203,12 +1496,8 @@ def view_consultar_pedido(request):
             shipment_id_volta = envio.get("shipment_id")
             if not shipment_id_volta:
                 continue
-            historico_volta = _buscar_historico_envio(shipment_id_volta, conta)
-
-            try:
-                shipment_volta_completo = _buscar_shipment_completo(shipment_id_volta, conta)
-            except (ErroAPI, ErroAutenticacaoAPI):
-                shipment_volta_completo = None
+            historico_volta = _valor_ou_levantar(onda_3[f'volta_historico_{shipment_id_volta}'])
+            shipment_volta_completo = _valor_tolerando_erro_da_api(onda_3[f'volta_envio_{shipment_id_volta}'])
 
             endereco_origem_volta = endereco_destino_volta = None
             if shipment_volta_completo:
@@ -1249,11 +1538,16 @@ def view_consultar_pedido(request):
         # ----- Conversa da claim (camada 3 do acordeão, "Chat do ML") -----
         meu_papel = None
         try:
-            me = chamar_api("GET", "/users/me", pasta_logs=PASTA_LOGS_ML, conta=conta).json()
-            meu_papel = _meu_papel_na_claim(claim, me.get('id'))
-            mensagens_mediacao = _construir_mensagens_mediacao(
-                claim_id, conta, me.get('id'), claim, (nome_comprador[:1] or "C").upper(), numero_pedido,
-            )
+            meu_user_id = _obter_meu_user_id(conta)
+            meu_papel = _meu_papel_na_claim(claim, meu_user_id)
+            if mensagens_do_chat is None:
+                # A API não entregou a conversa (erro na onda): mesma saída de sempre — chat vazio.
+                mensagens_mediacao = []
+            else:
+                mensagens_mediacao = _construir_mensagens_mediacao(
+                    claim_id, conta, meu_user_id, claim, (nome_comprador[:1] or "C").upper(), numero_pedido,
+                    mensagens_brutas=mensagens_do_chat,
+                )
         except (ErroAPI, ErroAutenticacaoAPI):
             mensagens_mediacao = []
 
@@ -1361,15 +1655,17 @@ def view_consultar_pedido(request):
             'mensagens_mediacao': mensagens_mediacao,
             # ===== Só pro botão "Criar devolução" (ponte Consultar Pedido →
             #   Nova Devolução, decisão do vault 17/09 23:24) — datas no
-            #   formato de <input type="date">, sem reembolsado/motivo/
-            #   produto: decisão de Matheus (18/09/2026) de deixar de fora
-            #   o que não dá pra confiar 100% vindo da API. =====
+            #   formato de <input type="date">, sem reembolsado/motivo:
+            #   decisão de Matheus (18/09/2026) de deixar de fora o que não
+            #   dá pra confiar 100% vindo da API. Também ficam de fora, por
+            #   decisão dele em 04/10/2026, a abertura E a finalização da
+            #   mediação (são marcadas à mão: preencher a finalização faria
+            #   a devolução já nascer em "Mediações Encerradas"). =====
             'nome_comprador_input': nome_comprador if nome_comprador != '—' else '',
             'data_venda_input': _formatar_data_para_input(pedido.get('date_created')),
             'data_recebimento_cliente_input': _formatar_data_para_input(data_entrega_cliente),
             'data_reclamacao_cliente_input': _formatar_data_para_input(claim.get('date_created')),
             'data_recebimento_por_nos_input': _formatar_data_para_input(data_chegada_nos),
-            'data_finalizacao_mediacao_input': _formatar_data_para_input(devolucao.get('date_closed')),
             'tipo_venda_sugerido': tipo_venda_sugerido,
             'metodo_envio_ida': metodo_envio_ida,
             # SKU do vendedor no anúncio do ML — não é código de barras,
@@ -1377,6 +1673,30 @@ def view_consultar_pedido(request):
             # código de barras exato OU por nome/SKU/cód. fabricante/marca
             # (ver produto_busca em nova_devolucao/script_nova_devolucao.js).
             'sku_item_input': '' if (len(itens_pedido) > 1 or sku_item == '—') else sku_item,
+            # Produto escolhido sozinho (decisão de Matheus, 04/10/2026): pedido
+            # de 1 item cujo SKU ou EAN bate com 1 Produto cadastrado. Vai no
+            # botão como ?produto_id=...&produto_origem=... e a Nova Devolução
+            # já abre com ele selecionado. Pedido de 2+ itens ou sem batida
+            # (ou com conflito SKU x EAN): vazio → segue só a busca pelo SKU.
+            # Fotos que o CLIENTE mandou no chat da reclamação (decisão de
+            # Matheus, 04/10/2026: "já temos acesso a elas"). Só os nomes dos
+            # arquivos e o claim viajam no botão; quem baixa é a Nova Devolução,
+            # ao salvar (devolucoes.views._importar_fotos_do_cliente_do_ml).
+            # Mensagem do ML ("ml") e nossa ("voce") ficam de fora.
+            'claim_id_input': str(claim_id) if claim_id else '',
+            'fotos_cliente_input': list(dict.fromkeys(
+                anexo['filename']
+                for mensagem in mensagens_mediacao if mensagem.get('papel') == 'cliente'
+                for anexo in mensagem.get('anexos') or [] if anexo.get('filename')
+            )),
+            'produto_id_input': (
+                str(itens_pedido[0]['produto_auto_id'])
+                if len(itens_pedido) == 1 and itens_pedido[0]['produto_auto_id'] else ''
+            ),
+            'produto_origem_input': (
+                itens_pedido[0]['produto_auto_origem']
+                if len(itens_pedido) == 1 and itens_pedido[0]['produto_auto_id'] else ''
+            ),
             # Preço do produto (pedido de Ana, 19/09/2026) — formatado já
             # com '.' (nunca deixa o Django localizar sozinho pro
             # template), pro <input type=number> de nova_devolucao.html
