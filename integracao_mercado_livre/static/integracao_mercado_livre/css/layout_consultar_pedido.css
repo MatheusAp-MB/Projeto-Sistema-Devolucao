@@ -94,6 +94,34 @@
 .consultar-pedido-chat-avatar--cliente { background: var(--cor-papel-cliente-forte); }
 .consultar-pedido-chat-avatar--voce { background: var(--cor-papel-voce-forte); }
 
+/* Logo no lugar da inicial (decisão de Matheus, 04/10/2026): Mercado Livre
+   nas mensagens do ML e a logo da empresa ativa nas nossas; cliente
+   mantém a inicial. A inicial fica no HTML o tempo todo e a imagem fica
+   escondida até carregar de verdade (onload no template liga a classe
+   --com-logo) -- se o arquivo da logo não existir, nada muda. O aro
+   mantém o código de cores por papel. */
+.consultar-pedido-chat-avatar { overflow: hidden; position: relative; }
+.consultar-pedido-chat-avatar-img {
+    display: none;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+/* O aro fica POR CIMA da imagem (::after) pra continuar redondo e inteiro
+   mesmo quando a logo é um quadrado de cantos arredondados (caso da Samvale). */
+.consultar-pedido-chat-avatar--com-logo { background: #fff; padding: 3px; }
+.consultar-pedido-chat-avatar--com-logo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    pointer-events: none;
+}
+.consultar-pedido-chat-avatar--com-logo.consultar-pedido-chat-avatar--ml::after { box-shadow: inset 0 0 0 2px var(--cor-papel-ml-forte); }
+.consultar-pedido-chat-avatar--com-logo.consultar-pedido-chat-avatar--voce::after { box-shadow: inset 0 0 0 2px var(--cor-papel-voce-forte); }
+.consultar-pedido-chat-avatar--com-logo .consultar-pedido-chat-avatar-img { display: block; }
+.consultar-pedido-chat-avatar--com-logo .consultar-pedido-chat-avatar-texto { display: none; }
+
 .consultar-pedido-chat-corpo {
     display: flex;
     flex-direction: column;
@@ -147,13 +175,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
-    border-radius: 6px;
-    background: #fff;
+    width: 120px;
+    height: 120px;
+    border-radius: 8px;
+    background: var(--cor-fundo-pagina);
     border: 1px solid var(--cor-borda);
     color: var(--cor-texto-muted);
     font-size: 12px;
+    overflow: hidden;
 }
 
 .consultar-pedido-chat-anexo:hover {
@@ -161,6 +190,26 @@
     color: var(--cor-primaria-clara);
     text-decoration: none;
 }
+
+/* Miniatura do anexo (mesmo padrão da tela Mediações ML, 04/10/2026):
+   a imagem inteira, sem cortar. Se não carregar, o template liga
+   --falhou e volta o ícone pequeno de antes. */
+.consultar-pedido-chat-anexo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+}
+.consultar-pedido-chat-anexo-icone { display: none; }
+.consultar-pedido-chat-anexo--falhou {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: #fff;
+}
+.consultar-pedido-chat-anexo--falhou .consultar-pedido-chat-anexo-img { display: none; }
+.consultar-pedido-chat-anexo--falhou .consultar-pedido-chat-anexo-icone { display: inline; }
+.consultar-pedido-chat-msg--dir .consultar-pedido-chat-anexos { justify-content: flex-end; }
 
 /* Lista de desambiguação — buyer.id / Pack ID com mais de 1 pedido */
 .lista-pedidos-desambiguacao {

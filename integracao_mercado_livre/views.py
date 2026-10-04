@@ -17,7 +17,10 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
-from django.shortcuts import render
+from django.http import HttpResponse
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.utils.http import urlencode
 
 from core.empresa import obter_empresa_ativa, EMPRESA_MAGAZINE, EMPRESA_SAMVALE
 from api_mercado_livre.core.estrutura_api.cliente_api import (
@@ -382,11 +385,32 @@ def _preparar_mensagem_html(texto):
     return limpo.replace("<a ", '<a target="_blank" rel="noopener" ')
 
 
-def _url_anexo_mensagem(numero_pedido, claim_id, conta, anexo):
+def _url_anexo_mensagem(numero_pedido, claim_id, anexo):
+    """URL que a miniatura (<img>) e o link do modal de fotos usam pra cada
+    anexo de mensagem do chat da Consultar Pedido -- decisão de Matheus,
+    04/10/2026, mesmo caminho que a tela Mediações ML já usa desde
+    21/09/2026 (devolucoes.views.proxy_anexo_mediacao): em vez de apontar
+    direto pro link da Central de Vendedores (que exige sessão logada no
+    Mercado Livre e não pode ser embutido como imagem), aponta pro nosso
+    proxy_anexo_claim, que baixa o arquivo com o token da API.
+    'pedido' vai na query só pra o proxy conseguir montar o link de
+    segurança (_url_anexo_mensagem_fallback) se o download pela API falhar."""
+    filename = anexo.get('filename')
+    if not filename:
+        return None
+    return (
+        reverse('proxy_anexo_claim', args=[claim_id, filename])
+        + '?' + urlencode({'pedido': numero_pedido})
+    )
+
+
+def _url_anexo_mensagem_fallback(numero_pedido, claim_id, conta, anexo):
     """Mesma URL de download de anexo usada em devolucoes/varredura_mediacoes.py
     (ver vault 'Anexos de Imagem nas Mensagens de Mediação', 20/09/2026) --
     exige sessão web logada no Mercado Livre (cookie), por isso só funciona
-    como link aberto em nova guia, nunca embutido como <img>."""
+    como link aberto em nova guia, nunca embutido como <img>. Desde
+    04/10/2026 é só a rede de segurança do proxy_anexo_claim (era o link
+    principal do ícone do anexo)."""
     filename = anexo.get('filename')
     seller_id = os.getenv(f'{conta}_USER_ID')
     if not filename or not seller_id:
@@ -404,8 +428,9 @@ def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_
     sender_role == 'mediator' é o ML, sender_role == o seu papel nos players
     é você, o resto é a cliente) e com o texto pronto pra exibir no chat.
     Anexos (attachments) incluídos a partir de 20/09/2026, mesmo padrão de
-    devolucoes/varredura_mediacoes.py -- ícone clicável que abre o anexo em
-    nova guia, autenticado pela sessão do navegador."""
+    devolucoes/varredura_mediacoes.py. Desde 04/10/2026 viram miniatura
+    (via proxy_anexo_claim, ver _url_anexo_mensagem) em vez do ícone-link
+    que pedia login no Mercado Livre."""
     meu_papel = None
     for player in claim.get("players", []):
         if player.get("user_id") == meu_user_id:
@@ -435,7 +460,7 @@ def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_
 
         anexos = []
         for anexo in (m.get('attachments') or []):
-            url = _url_anexo_mensagem(numero_pedido, claim_id, conta, anexo)
+            url = _url_anexo_mensagem(numero_pedido, claim_id, anexo)
             if url:
                 anexos.append({'url': url})
 
@@ -449,6 +474,70 @@ def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_
             "anexos": anexos,
         })
     return resultado
+
+
+def proxy_anexo_claim(request, claim_id, filename):
+    """Proxy do anexo de 1 mensagem do chat da Consultar Pedido (miniatura
+    + modal de fotos) -- decisão de Matheus, 04/10/2026: "falta corrigir a
+    exibição das imagens aqui, como já foi corrigido na tela de mediações".
+
+    Baixa o arquivo direto da API do ML com o Bearer token da conta ativa
+    (post-purchase/v1/claims/{claim_id}/attachments/{filename}/download --
+    mesmo endpoint validado empírica e documentalmente em 21/09/2026, ver
+    vault "Validação da Documentação Oficial do Endpoint de Download de
+    Anexos") e repassa os bytes; nada é salvo em disco.
+
+    Diferença pra devolucoes.views.proxy_anexo_mediacao: aquele só serve
+    claim que já está no cache local (ClaimMercadoLivre) da tela Mediações
+    ML; a Consultar Pedido consulta QUALQUER pedido direto na API, então
+    este não depende desse cache -- quem garante que o claim é da empresa
+    certa é o próprio token (a API recusa claim de outra conta).
+
+    Se o download pela API falhar (claim/anexo não existe mais, erro de
+    autenticação, qualquer outro erro), cai pro link da Central de
+    Vendedores (redirect 302, exige login no ML) -- mesma rede de
+    segurança de antes da troca. Sem o número do pedido na query
+    (?pedido=) não há link de segurança: devolve 404.
+
+    Só repassa como imagem o que o ML diz que é imagem (menos SVG, que
+    pode carregar script); qualquer outro tipo sai como download genérico
+    (octet-stream + attachment), nunca interpretado pelo navegador."""
+    if not claim_id.isdigit() or not re.fullmatch(r'[\w\-][\w.\-]*', filename):
+        return HttpResponse(status=404)
+
+    conta = CONTA_POR_EMPRESA.get(obter_empresa_ativa())
+    if conta is None:
+        return HttpResponse(status=404)
+
+    numero_pedido = request.GET.get('pedido', '')
+    url_fallback = None
+    if numero_pedido.isdigit():
+        url_fallback = _url_anexo_mensagem_fallback(
+            numero_pedido, claim_id, conta, {'filename': filename},
+        )
+
+    try:
+        resposta = chamar_api(
+            "GET", f"/post-purchase/v1/claims/{claim_id}/attachments/{filename}/download",
+            pasta_logs=PASTA_LOGS_ML, conta=conta,
+        )
+    except (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao):
+        if url_fallback:
+            return redirect(url_fallback)
+        return HttpResponse(status=404)
+
+    tipo = (resposta.headers.get('Content-Type') or '').split(';')[0].strip().lower()
+    if tipo.startswith('image/') and tipo != 'image/svg+xml':
+        resposta_http = HttpResponse(resposta.content, content_type=tipo)
+    else:
+        resposta_http = HttpResponse(resposta.content, content_type='application/octet-stream')
+        resposta_http['Content-Disposition'] = 'attachment'
+    resposta_http['X-Content-Type-Options'] = 'nosniff'
+    # Anexo de claim não muda depois de enviado: deixa o navegador guardar
+    # (só pra esse usuário) -- evita baixar de novo uma foto de vários MB
+    # quando a Ana abre o modal depois da miniatura.
+    resposta_http['Cache-Control'] = 'private, max-age=3600'
+    return resposta_http
 
 
 # ─── Consultar Pedido — busca por ID do Cliente ou Pack (novo) ──────────

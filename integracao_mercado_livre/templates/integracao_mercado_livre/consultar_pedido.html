@@ -634,7 +634,20 @@
                     <div class="d-flex flex-column gap-3">
                         {% for msg in mensagens_mediacao %}
                         <div class="consultar-pedido-chat-msg consultar-pedido-chat-msg--{{ msg.lado }}">
+                            {# Logo no lugar da inicial: Mercado Livre nas mensagens do ML e a logo da empresa ativa nas nossas; cliente continua com a inicial. A inicial fica sempre no HTML e só some quando a imagem do logo carrega de verdade (onload) -- se o arquivo não existir, continua a inicial de antes. #}
+                            {% if msg.papel == 'ml' %}
+                            <div class="consultar-pedido-chat-avatar consultar-pedido-chat-avatar--ml" title="Mercado Livre">
+                                <img src="{% static 'base_compartilhada/img/Logo_ML.png' %}" alt="" class="consultar-pedido-chat-avatar-img" onload="this.parentNode.classList.add('consultar-pedido-chat-avatar--com-logo')">
+                                <span class="consultar-pedido-chat-avatar-texto">{{ msg.iniciais }}</span>
+                            </div>
+                            {% elif msg.papel == 'voce' %}
+                            <div class="consultar-pedido-chat-avatar consultar-pedido-chat-avatar--voce" title="{{ empresa_ativa_nome }}">
+                                <img src="{% static empresa_logo %}" alt="" class="consultar-pedido-chat-avatar-img" onload="this.parentNode.classList.add('consultar-pedido-chat-avatar--com-logo')">
+                                <span class="consultar-pedido-chat-avatar-texto">{{ msg.iniciais }}</span>
+                            </div>
+                            {% else %}
                             <div class="consultar-pedido-chat-avatar consultar-pedido-chat-avatar--{{ msg.papel }}">{{ msg.iniciais }}</div>
+                            {% endif %}
                             <div class="consultar-pedido-chat-corpo">
                                 <div class="consultar-pedido-chat-remetente">
                                     <span class="consultar-pedido-chat-nome consultar-pedido-chat-nome--{{ msg.papel }}">{{ msg.rotulo }}</span>
@@ -646,8 +659,10 @@
                                 {% if msg.anexos %}
                                 <div class="consultar-pedido-chat-anexos">
                                     {% for anexo in msg.anexos %}
-                                    <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="consultar-pedido-chat-anexo" title="Abrir imagem anexada (abre em nova guia — pede login do Mercado Livre se você ainda não estiver logado)">
-                                        <i class="fas fa-image"></i>
+                                    {# Miniatura (mesmo padrão da tela Mediações ML): só vira item do modal de fotos (card-fotos-item) depois que a imagem carrega de verdade; se não carregar (ex.: não é imagem, ou o proxy caiu no link de segurança), vira o ícone pequeno de antes e o clique abre o anexo em nova guia. #}
+                                    <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="consultar-pedido-chat-anexo" title="Ver imagem anexada" data-fotos-id="chat-msg-{{ forloop.parentloop.counter }}" data-titulo="Anexo de {{ msg.rotulo }}" data-subtitulo="{{ msg.data }}">
+                                        <img src="{{ anexo.url }}" alt="Anexo de {{ msg.rotulo }}" class="consultar-pedido-chat-anexo-img" loading="lazy" onload="this.parentNode.classList.add('card-fotos-item')" onerror="this.parentNode.classList.add('consultar-pedido-chat-anexo--falhou')">
+                                        <i class="fas fa-image consultar-pedido-chat-anexo-icone"></i>
                                     </a>
                                     {% endfor %}
                                 </div>
