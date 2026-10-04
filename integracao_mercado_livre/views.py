@@ -11,6 +11,7 @@
 
 import json
 import os
+import re
 import bleach
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -27,7 +28,7 @@ from integracao_mercado_livre.traducoes_devolucao import (
     traduzir_evento_envio, traduzir_tipo_e_etapa_claim,
     traduzir_resolucao,
 )
-from devolucoes.models import Devolucao
+from devolucoes.models import Devolucao, Produto
 
 CONTA_POR_EMPRESA = {
     EMPRESA_MAGAZINE: 'MB',
@@ -502,6 +503,44 @@ ROTULO_SITUACAO_ANUNCIO = {
 }
 
 
+# Tipo da devolução, como o ML informa em /returns (campo "subtype"). Só os 3
+# valores conhecidos (dicionário dos scripts de exploração); qualquer outro
+# valor não aparece na tela — melhor não mostrar do que mostrar código cru.
+SUBTIPO_DEVOLUCAO = {
+    'return_total': 'Devolução total',
+    'return_partial': 'Devolução parcial',
+    'low_cost': 'Devolução automática (low cost)',
+}
+
+
+def _formatar_unidades(valor):
+    """1.0 -> '1'; 2.5 -> '2,5'. O ML manda essas quantidades como texto ('1.0')."""
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return None
+    return str(int(numero)) if numero.is_integer() else str(numero).replace('.', ',')
+
+
+def _forcar_https(url):
+    if url and url.startswith('http://'):
+        return 'https://' + url[len('http://'):]
+    return url
+
+
+def _url_foto_grande(url):
+    """Troca o tamanho da foto do ML pelo maior: '...-O.jpg' vira '...-F.jpg'.
+
+    * [EXPLICAÇÃO] → decisão de Matheus (04/10/2026): a URL que a API
+      devolve termina em -O (tamanho médio); o sufixo -F é a imagem
+      grande, melhor pra ver o produto ao expandir. Se a URL não tiver esse
+      formato (ex.: miniatura), volta igual. A tela guarda a URL original
+      como plano B caso a grande não carregue."""
+    if not url:
+        return url
+    return re.sub(r'-[A-Z]\.((?i:jpg|jpeg|png|webp))$', r'-F.\1', url)
+
+
 def _buscar_dados_dos_anuncios(order_items, conta):
     """Foto, link e situação dos anúncios (MLB) de um pedido, numa chamada só.
 
@@ -541,16 +580,22 @@ def _buscar_dados_dos_anuncios(order_items, conta):
         mlb = corpo.get('id') or (mlbs[posicao] if posicao < len(mlbs) else None)
         if not mlb:
             continue
-        fotos = corpo.get('pictures') or []
-        foto_url = None
-        if fotos and isinstance(fotos[0], dict):
-            foto_url = fotos[0].get('secure_url') or fotos[0].get('url')
-        if not foto_url:
-            foto_url = corpo.get('thumbnail')
-        if foto_url and foto_url.startswith('http://'):
-            foto_url = 'https://' + foto_url[len('http://'):]
+        # A 1ª foto é a capa (a que a tela mostra); as outras só vão pra
+        # galeria que abre ao clicar — viram elementos escondidos na tela,
+        # então o navegador só baixa cada uma quando a Ana navega até ela.
+        urls_originais = []
+        for figura in (corpo.get('pictures') or []):
+            if not isinstance(figura, dict):
+                continue
+            url_figura = figura.get('secure_url') or figura.get('url')
+            if url_figura:
+                urls_originais.append(_forcar_https(url_figura))
+        if not urls_originais and corpo.get('thumbnail'):
+            urls_originais.append(_forcar_https(corpo['thumbnail']))
         dados[mlb] = {
-            'foto_url': foto_url,
+            'foto_url': _url_foto_grande(urls_originais[0]) if urls_originais else None,
+            'foto_url_original': urls_originais[0] if urls_originais else None,
+            'fotos_extras': [_url_foto_grande(url) for url in urls_originais[1:]],
             'permalink': corpo.get('permalink'),
             'status': corpo.get('status'),
         }
@@ -757,6 +802,54 @@ def view_consultar_pedido(request):
         #   tem mais de 1, o link "Criar devolução" NÃO pré-preenche SKU nem
         #   preço (melhor vazio do que o produto errado) — a Ana escolhe lá.
         itens_brutos = pedido.get("order_items") or []
+
+        # * [EXPLICAÇÃO] → a Ana precisa saber, ao olhar o pedido, se ele já foi
+        #   cadastrado no sistema (aí o botão vira "Abrir devolução"). Mesma
+        #   regra que nova_devolucao já usa: 1 devolução por numero_pedido.
+        devolucao_no_sistema = Devolucao.objects.select_related('produto__marca').filter(
+            numero_pedido=str(numero_pedido),
+        ).first()
+        devolucao_no_sistema_id = devolucao_no_sistema.id if devolucao_no_sistema else None
+
+        # * [EXPLICAÇÃO] → decisão de Matheus (04/10/2026): a 1ª foto do anúncio
+        #   às vezes é uma arte estilizada, não o produto em si; a foto que a
+        #   Ana cadastra do produto também ajuda a identificar. Como achamos o
+        #   Produto cadastrado de cada item: (1) pedido de 1 produto que já
+        #   tem devolução → o produto escolhido nela (vínculo mais firme);
+        #   (2) senão, o Produto cujo SKU é igual ao seller_sku do anúncio.
+        #   Se não achar, a tela só não mostra a foto do cadastro interno.
+        skus_do_pedido = {
+            (item_bruto.get("item") or {}).get("seller_sku")
+            for item_bruto in itens_brutos
+        } - {None, ""}
+        produtos_por_sku = {}
+        if skus_do_pedido:
+            for produto_cadastrado in Produto.objects.select_related('marca').filter(sku__in=skus_do_pedido):
+                produtos_por_sku[produto_cadastrado.sku.lower()] = produto_cadastrado
+
+        # * [EXPLICAÇÃO] → decisão de Matheus (04/10/2026): mostrar quantas
+        #   unidades estão VOLTANDO (≠ quantas o cliente comprou). Vem da
+        #   devolução física do ML (/returns): orders[].item_id aponta o MLB do
+        #   item e return_quantity / total_quantity dizem "voltam X de Y". Sem
+        #   devolução física no ML (sem_devolucao_fisica), não há dado — a tela
+        #   simplesmente não mostra o campo, sem afirmar nada. Num pedido de 2
+        #   produtos, só o item que aparece na lista mostra o campo.
+        #   [NÃO CONFIRMADO] → só vi devolução TOTAL em dado real; parcial segue
+        #   a doc (return_quantity < total_quantity), validar no 1º caso real.
+        unidades_por_item = {}
+        for registro in (devolucao.get("orders") or []):
+            if not isinstance(registro, dict):
+                continue
+            try:
+                voltando = float(registro.get("return_quantity"))
+                total_do_item = float(registro.get("total_quantity"))
+            except (TypeError, ValueError):
+                continue
+            acumulado = unidades_por_item.setdefault(registro.get("item_id"), [0.0, 0.0])
+            acumulado[0] += voltando
+            acumulado[1] += total_do_item
+        tipo_devolucao_texto = SUBTIPO_DEVOLUCAO.get(devolucao.get("subtype"))
+
         dados_anuncios = _buscar_dados_dos_anuncios(itens_brutos, conta)
         itens_pedido = []
         for item_bruto in itens_brutos:
@@ -764,6 +857,24 @@ def view_consultar_pedido(request):
             mlb_do_item = dados_do_item.get("id")
             anuncio = dados_anuncios.get(mlb_do_item, {})
             situacao_anuncio = anuncio.get("status")
+
+            sku_do_item = dados_do_item.get("seller_sku")
+            if devolucao_no_sistema is not None and len(itens_brutos) == 1:
+                produto_do_item = devolucao_no_sistema.produto
+            elif sku_do_item:
+                produto_do_item = produtos_por_sku.get(sku_do_item.lower())
+            else:
+                produto_do_item = None
+            foto_cadastro_url = produto_do_item.foto.url if (produto_do_item is not None and produto_do_item.foto) else None
+
+            unidades = unidades_por_item.get(mlb_do_item)
+            texto_unidades_voltando = None
+            if unidades:
+                sufixo_unidade = '' if unidades[1] == 1 else 's'
+                texto_unidades_voltando = (
+                    f"{_formatar_unidades(unidades[0])} de {_formatar_unidades(unidades[1])} unidade{sufixo_unidade}"
+                )
+
             itens_pedido.append({
                 'titulo': dados_do_item.get("title") or "—",
                 'sku': dados_do_item.get("seller_sku") or "—",
@@ -771,22 +882,25 @@ def view_consultar_pedido(request):
                 'quantidade': item_bruto.get("quantity") or 1,
                 'preco_unitario': _formatar_moeda_br(item_bruto.get("unit_price")),
                 'foto_url': anuncio.get("foto_url"),
+                'foto_url_original': anuncio.get("foto_url_original"),
+                'fotos_extras': anuncio.get("fotos_extras") or [],
                 'link_anuncio': anuncio.get("permalink") if situacao_anuncio == 'active' else None,
                 'rotulo_situacao_anuncio': ROTULO_SITUACAO_ANUNCIO.get(situacao_anuncio),
+                'produto_cadastrado': produto_do_item is not None,
+                'produto_cadastrado_nome': produto_do_item.nome if produto_do_item is not None else None,
+                'foto_cadastro_url': foto_cadastro_url,
+                'produto_marca': produto_do_item.marca.nome if produto_do_item is not None else None,
+                'produto_codigo_barras': produto_do_item.codigo_barras if produto_do_item is not None else None,
+                'texto_unidades_voltando': texto_unidades_voltando,
+                'tipo_devolucao': tipo_devolucao_texto if texto_unidades_voltando else None,
             })
-
-        # * [EXPLICAÇÃO] → a Ana precisa saber, ao olhar o pedido, se ele já foi
-        #   cadastrado no sistema (aí o botão vira "Abrir devolução"). Mesma
-        #   regra que nova_devolucao já usa: 1 devolução por numero_pedido.
-        devolucao_no_sistema_id = Devolucao.objects.filter(
-            numero_pedido=str(numero_pedido),
-        ).values_list('id', flat=True).first()
 
         shipping_id_ida = (pedido.get("shipping") or {}).get("id")
         historico_ida = []
         endereco_origem_ida = None
         endereco_destino_ida = None
         logistic_type_ida = None
+        metodo_envio_ida = None
         if shipping_id_ida:
             historico_ida = _buscar_historico_envio(shipping_id_ida, conta)
             try:
@@ -799,6 +913,9 @@ def view_consultar_pedido(request):
                 #   campo aninhado logistic.type vem ausente). Confirmado no
                 #   pedido real 2000018229470186: raiz = 'xd_drop_off'.
                 logistic_type_ida = shipment_ida_completo.get('logistic_type')
+                # Nome da modalidade como o ML mostra (ex.: "MEL Voluminoso") — já
+                # vem em texto legível, não é código.
+                metodo_envio_ida = shipment_ida_completo.get('tracking_method')
                 endereco_origem_ida = _resumir_endereco_para_exibicao(
                     shipment_ida_completo.get('sender_address'), conta,
                 )
@@ -974,6 +1091,7 @@ def view_consultar_pedido(request):
             'data_recebimento_por_nos_input': _formatar_data_para_input(data_chegada_nos),
             'data_finalizacao_mediacao_input': _formatar_data_para_input(devolucao.get('date_closed')),
             'tipo_venda_sugerido': tipo_venda_sugerido,
+            'metodo_envio_ida': metodo_envio_ida,
             # SKU do vendedor no anúncio do ML — não é código de barras,
             # mas alimenta a mesma busca de produto que já sabe achar por
             # código de barras exato OU por nome/SKU/cód. fabricante/marca

@@ -616,7 +616,7 @@
 
 .topo-pedido-campos {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
     gap: 10px 16px;
 }
 
@@ -757,4 +757,47 @@
 
 .topo-pedido-ml .consultar-pedido-atalho {
     min-height: 36px;
+}
+
+
+/* ----- Duas fotos lado a lado: anúncio e cadastro interno ----- */
+.topo-pedido-fotos {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.topo-pedido-foto-bloco {
+    width: 112px;
+}
+
+.topo-pedido-fotos .topo-pedido-foto {
+    flex: none;
+}
+
+.topo-pedido-foto-legenda {
+    margin-top: 4px;
+    color: #5c6770;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+}
+
+.topo-pedido-item--compacto .topo-pedido-foto-bloco {
+    width: 72px;
+}
+
+/* ----- Subtítulo dentro da grade do produto (separa os dados do anúncio dos do cadastro interno) ----- */
+.topo-pedido-campos-subtitulo {
+    grid-column: 1 / -1;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--cor-borda);
+    color: var(--cor-primaria);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
 }
