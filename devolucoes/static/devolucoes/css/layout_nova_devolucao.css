@@ -352,9 +352,131 @@
     background-color: var(--cor-primaria-clara);
 }
 
+/* ===== Selos "preenchido sozinho" (ícone de nuvem) =====
+   Azul = veio do Mercado Livre; cinza = não veio (tela aberta à mão, o ML não
+   trouxe, ou a Ana mudou). O fundo azulado do campo segue o ícone azul (:has;
+   em navegador antigo sem :has só o ícone muda). */
+
+.nd-aviso-selos {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 12px;
+    border: 1px solid #b4d3ec;
+    border-radius: 8px;
+    background-color: #eef5fb;
+    color: #3a3a3a;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.nd-aviso-selos i {
+    color: var(--cor-primaria-clara);
+    font-size: 15px;
+    margin-top: 1px;
+}
+
+.nd-aviso-selos a {
+    color: var(--cor-primaria);
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.nd-label-linha {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.nd-selo {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    color: #8a97a6;
+    font-size: 15px;
+    cursor: help;
+    outline: none;
+}
+
+.nd-selo.nd-selo-auto {
+    color: var(--cor-primaria-clara);
+}
+
+.nd-selo:focus-visible {
+    border-radius: 4px;
+    box-shadow: 0 0 0 2px var(--cor-primaria-clara);
+}
+
+.nd-selo-dica {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: -8px;
+    z-index: 30;
+    width: 250px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.45;
+    text-align: left;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.12s;
+    pointer-events: none;
+}
+
+.nd-selo:hover .nd-selo-dica,
+.nd-selo:focus .nd-selo-dica {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* colunas da direita: a dica abre pra esquerda, pra não sair da tela
+   (:where mantém a especificidade baixa, pra regra do celular poder sobrescrever) */
+:where(.nd-grid-4 > .nd-campo:nth-child(n+3), .nd-grid-2 > .nd-campo:nth-child(2)) .nd-selo-dica {
+    left: auto;
+    right: -8px;
+}
+
+.nd-campo:has(.nd-selo-auto) input,
+.nd-campo:has(.nd-selo-auto) select {
+    background-color: #eef5fb;
+    border-color: #b4d3ec;
+}
+
+.nd-campo:has(.nd-selo-auto) input:focus,
+.nd-campo:has(.nd-selo-auto) select:focus {
+    border-color: var(--cor-primaria-clara);
+}
+
+.nd-secao:has(> .nd-secao-titulo .nd-selo-auto) .nd-produto-card {
+    background-color: #eef5fb;
+    border-color: #b4d3ec;
+}
+
 /* ===== Mobile ===== */
 
 @media (max-width: 720px) {
+    /* celular: a dica ocupa a largura da linha do rótulo (o ícone fica no meio da
+       tela e 250px a partir dele estourariam pro lado) */
+    .nd-label-linha,
+    .nd-secao-titulo,
+    .nd-fotos-cliente-titulo {
+        position: relative;
+    }
+
+    .nd-selo {
+        position: static;
+    }
+
+    .nd-selo-dica {
+        left: 0;
+        right: 0;
+        width: auto;
+    }
+
     .nd-grid-2,
     .nd-grid-3,
     .nd-grid-4 {

@@ -486,8 +486,146 @@ def _importar_fotos_do_cliente_do_ml(devolucao, claim_id, fotos):
     return importadas, falhas
 
 
+# * [EXPLICAÇÃO] → "Selos" de campo preenchido sozinho da Nova devolução (decisão de
+#   Matheus, 04/10/2026). Cada campo que a Consultar Pedido consegue mandar ganha um
+#   ícone de nuvem ao lado do nome:
+#   - AZUL (e fundo azulado no campo): veio sozinho do Mercado Livre;
+#   - CINZA: não veio sozinho — porque a tela foi aberta à mão (aí é um lembrete de
+#     que ela poderia estar fazendo de forma automática), porque o ML não trouxe
+#     aquele dado, ou porque a Ana mudou o valor depois;
+#   a dica ao passar o mouse diz qual dos casos é. Só existe na Nova devolução
+#   (nunca na Editar devolução). Os valores originais viajam num campo escondido
+#   ('selos_originais') pra os selos sobreviverem a um erro de validação.
+CHAVES_COM_SELO = (
+    'nome_plataforma', 'tipo_venda', 'numero_pedido', 'nome_cliente', 'preco_produto',
+    'data_venda', 'data_recebimento_cliente', 'data_reclamacao_cliente', 'data_recebimento_por_nos',
+    'produto', 'fotos_cliente',
+)
+TAMANHO_MAXIMO_SELOS_JSON = 4000
+TEXTO_SELO_PADRAO = {
+    'auto': 'Preenchido sozinho pela consulta do pedido (Mercado Livre). Confira antes de salvar.',
+    'alterado': 'Você alterou este valor. O Mercado Livre trouxe: {original}.',
+    'sem_dado': 'O Mercado Livre não trouxe este dado neste pedido. Digite à mão.',
+    'lembrete': 'Este campo pode ser preenchido sozinho. Pesquise o pedido na Consultar Pedido e clique em "Criar devolução".',
+}
+TEXTO_SELO_POR_CAMPO = {
+    'data_recebimento_por_nos': {
+        'sem_dado': 'O Mercado Livre não trouxe este dado neste pedido (por exemplo, quando a devolução chega por transportadora). Digite à mão.',
+    },
+    'produto': {
+        'alterado': 'Você trocou o produto que o sistema tinha escolhido sozinho.',
+        'sem_dado': 'Nenhum produto cadastrado bateu sozinho com o anúncio (SKU ou código de barras). Escolha na busca.',
+    },
+    'fotos_cliente': {
+        'auto': 'Fotos que o cliente mandou no chat da reclamação do Mercado Livre. Serão anexadas ao salvar.',
+        'alterado': 'Você tirou as fotos que vieram do Mercado Livre.',
+        'sem_dado': 'O Mercado Livre não trouxe fotos do cliente neste pedido. Adicione à mão, se tiver.',
+        'lembrete': 'As fotos do cliente podem vir sozinhas. Pesquise o pedido na Consultar Pedido e clique em "Criar devolução".',
+    },
+}
+
+
+def _selos_originais_da_ponte(valores, produto_automatico, fotos_cliente_ml):
+    """O que a Consultar Pedido mandou COM valor aproveitável, por campo —
+    só esses ganham o selo azul. Valor que o formulário não conseguiria
+    mostrar (opção que não existe, data fora de aaaa-mm-dd) não conta, pra o
+    selo nunca dizer 'veio sozinho' de um campo que na tela está vazio."""
+    originais = {}
+    for campo in CHAVES_COM_SELO:
+        if campo in ('produto', 'fotos_cliente'):
+            continue
+        valor = (valores.get(campo) or '').strip()
+        if not valor:
+            continue
+        if campo == 'nome_plataforma' and valor not in dict(Devolucao.PLATAFORMA_CHOICES):
+            continue
+        if campo == 'tipo_venda' and valor not in dict(Devolucao.TIPO_VENDA_CHOICES):
+            continue
+        if campo.startswith('data_') and not re.fullmatch(r'\d{4}-\d{2}-\d{2}', valor):
+            continue
+        if campo == 'preco_produto':
+            numero = _parse_decimal_opcional(valor)
+            if numero is None or not numero.is_finite():
+                continue
+        originais[campo] = valor
+    if produto_automatico:
+        originais['produto'] = str(produto_automatico.id)
+    if fotos_cliente_ml:
+        originais['fotos_cliente'] = str(len(fotos_cliente_ml))
+    return originais
+
+
+def _ler_selos_originais(texto):
+    """Lê o campo escondido 'selos_originais' do POST (JSON). Vem do
+    navegador, então é só dado: qualquer coisa fora do formato esperado vira
+    {} (a tela cai no modo 'aberta à mão') e só chaves conhecidas, com texto
+    curto, passam. Nunca levanta erro."""
+    if not texto or len(texto) > TAMANHO_MAXIMO_SELOS_JSON:
+        return {}
+    try:
+        dados = json.loads(texto)
+    except ValueError:
+        return {}
+    if not isinstance(dados, dict):
+        return {}
+    return {
+        chave: valor for chave, valor in dados.items()
+        if chave in CHAVES_COM_SELO and isinstance(valor, str) and valor and len(valor) <= 200
+    }
+
+
+def _exibir_original_do_selo(campo, original):
+    """O valor que o ML trouxe, do jeito que a Ana lê (dd/mm/aaaa, R$ 366,00,
+    nome da opção) — vai dentro da dica 'Você alterou este valor…'."""
+    if campo.startswith('data_') and re.fullmatch(r'\d{4}-\d{2}-\d{2}', original):
+        return f'{original[8:10]}/{original[5:7]}/{original[:4]}'
+    if campo == 'preco_produto':
+        numero = _parse_decimal_opcional(original)
+        if numero is not None and numero.is_finite():
+            return f'R$ {numero:.2f}'.replace('.', ',')
+    if campo == 'nome_plataforma':
+        return dict(Devolucao.PLATAFORMA_CHOICES).get(original, original)
+    if campo == 'tipo_venda':
+        return dict(Devolucao.TIPO_VENDA_CHOICES).get(original, original)
+    return original
+
+
+def _montar_selos(selos_originais, valores, produto_selecionado, fotos_cliente_ml, produto_origem_automatica=''):
+    """Estado e textos do selo de cada campo (dict campo -> dict), já prontos
+    pro template. 'auto' = o valor atual ainda é o que o ML trouxe; 'alterado'
+    = tinha vindo do ML e a Ana mudou; 'vazio' = nunca veio (tela aberta à mão
+    ou o ML não trouxe). A JS só troca entre os 3 textos já escritos aqui."""
+    veio_da_consulta = bool(selos_originais)
+    selos = {}
+    for campo in CHAVES_COM_SELO:
+        textos = {**TEXTO_SELO_PADRAO, **TEXTO_SELO_POR_CAMPO.get(campo, {})}
+        texto_auto = (
+            f'{produto_origem_automatica} Confira antes de salvar.'
+            if campo == 'produto' and produto_origem_automatica else textos['auto']
+        )
+        original = selos_originais.get(campo, '')
+        texto_alterado = textos['alterado'].replace('{original}', _exibir_original_do_selo(campo, original))
+        texto_vazio = textos['sem_dado'] if veio_da_consulta else textos['lembrete']
+        if not original:
+            estado, dica = 'vazio', texto_vazio
+        else:
+            if campo == 'produto':
+                atual = str(produto_selecionado.id) if produto_selecionado else ''
+            elif campo == 'fotos_cliente':
+                atual = original if fotos_cliente_ml else ''
+            else:
+                atual = (valores.get(campo) or '').strip()
+            estado, dica = ('auto', texto_auto) if atual == original else ('alterado', texto_alterado)
+        selos[campo] = {
+            'campo': campo, 'estado': estado, 'dica': dica, 'original': original,
+            'dica_auto': texto_auto, 'dica_alterado': texto_alterado, 'dica_vazio': texto_vazio,
+        }
+    return selos
+
+
 def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=None, busca_produto_sugerida='',
-                             fotos_cliente_ml=None, claim_id_fotos='', produto_origem_automatica=''):
+                             fotos_cliente_ml=None, claim_id_fotos='', produto_origem_automatica='',
+                             selos_originais=None):
     """Monta o contexto da tela de Nova Devolução (Fase 0 + busca/
     seleção de produto) — usada tanto pro GET simples quanto pra
     re-exibir o formulário com o que a pessoa digitou quando a
@@ -502,7 +640,12 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
     'fotos_cliente_ml'/'claim_id_fotos' (04/10/2026): fotos que o cliente
     mandou no chat da reclamação do ML, vindas do botão "Criar devolução" —
     viram miniaturas na seção de fotos e são importadas ao salvar.
-    'produto_origem_automatica': texto de por que o produto já veio marcado."""
+    'produto_origem_automatica': texto de por que o produto já veio marcado.
+
+    'selos_originais' (04/10/2026): o que a Consultar Pedido mandou (ver
+    _selos_originais_da_ponte) — vira os selos de "preenchido sozinho" ao lado
+    dos campos. Os selos só aparecem na Nova devolução: com 'devolucao'
+    preenchido (Editar devolução) nada deles vai pro template."""
     if valores is None:
         valores = {
             'nome_plataforma': '', 'tipo_venda': '',
@@ -515,6 +658,9 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
             'motivo_reclamacao': '',
         }
 
+    selos_originais = selos_originais or {}
+    mostrar_selos = devolucao is None
+
     return {
         'valores': valores,
         'produto_selecionado': produto_selecionado,
@@ -524,6 +670,13 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
         'fotos_cliente_ml': fotos_cliente_ml or [],
         'claim_id_fotos': claim_id_fotos,
         'produto_origem_automatica': produto_origem_automatica,
+        'mostrar_selos': mostrar_selos,
+        'veio_da_consulta': bool(selos_originais),
+        'selos': (
+            _montar_selos(selos_originais, valores, produto_selecionado, fotos_cliente_ml or [], produto_origem_automatica)
+            if mostrar_selos else {}
+        ),
+        'selos_originais_json': json.dumps(selos_originais, ensure_ascii=False) if selos_originais and mostrar_selos else '',
         'plataforma_choices': Devolucao.PLATAFORMA_CHOICES,
         'tipo_venda_choices': Devolucao.TIPO_VENDA_CHOICES,
         'pagina_ativa': 'nova_devolucao',
@@ -603,7 +756,12 @@ def nova_devolucao(request):
     valor_reembolsado fica de fora dessa ponte de propósito: não existe
     campo confiável pra isso na API do ML, então continua 100% manual.
     Os 2 campos (preco_produto, valor_reembolsado) são opcionais — dá
-    pra salvar a devolução sem preencher nenhum dos 2."""
+    pra salvar a devolução sem preencher nenhum dos 2.
+
+    Desde 04/10/2026 os campos que a ponte consegue preencher ganham um
+    selo (ícone de nuvem): azul quando vieram sozinhos do ML, cinza quando
+    não vieram — inclusive na tela aberta à mão, como lembrete de que dava
+    pra fazer pela Consultar Pedido (ver CHAVES_COM_SELO)."""
     if request.method == 'POST':
         valores = {
             'nome_plataforma': request.POST.get('nome_plataforma', '').strip(),
@@ -630,9 +788,14 @@ def nova_devolucao(request):
             request.POST.get('claim_id_fotos'), request.POST.getlist('foto_cliente_ml'), valores['numero_pedido'],
         )
 
+        selos_originais_post = _ler_selos_originais(request.POST.get('selos_originais', ''))
+
         rerenderizar = lambda: render(
             request, 'devolucoes/nova_devolucao.html',
-            _contexto_nova_devolucao(valores, produto, fotos_cliente_ml=fotos_cliente_ml, claim_id_fotos=claim_id_fotos),
+            _contexto_nova_devolucao(
+                valores, produto, fotos_cliente_ml=fotos_cliente_ml, claim_id_fotos=claim_id_fotos,
+                selos_originais=selos_originais_post,
+            ),
         )
 
         obrigatorios = [
@@ -759,6 +922,7 @@ def nova_devolucao(request):
                 busca_produto_sugerida='' if produto_automatico else produto_busca_sugerido,
                 fotos_cliente_ml=fotos_cliente_ml,
                 claim_id_fotos=claim_id_fotos,
+                selos_originais=_selos_originais_da_ponte(valores, produto_automatico, fotos_cliente_ml),
                 produto_origem_automatica=(
                     TEXTO_ORIGEM_PRODUTO_AUTOMATICO.get(request.GET.get('produto_origem', '').strip(), '')
                     if produto_automatico else ''

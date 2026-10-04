@@ -89,6 +89,7 @@
         buscaBloco.hidden = true;
         esconderResultados();
         buscaInput.value = '';
+        document.dispatchEvent(new Event('nd-atualizar-selos'));
     }
 
     function trocarProduto() {
@@ -98,6 +99,7 @@
         buscaBloco.hidden = false;
         buscaInput.value = '';
         buscaInput.focus();
+        document.dispatchEvent(new Event('nd-atualizar-selos'));
     }
 
     function executarBusca(termo, callback) {
@@ -461,6 +463,7 @@
         evento.preventDefault();
         processarColagem(texto);
         textarea.value = '';
+        document.dispatchEvent(new Event('nd-atualizar-selos'));
     });
 })();
 
@@ -473,3 +476,67 @@ document.addEventListener('click', function (evento) {
     var quadro = botao.closest('.cf-foto-item');
     if (quadro) quadro.remove();
 });
+
+// ===== Selos "preenchido sozinho" (ver CHAVES_COM_SELO no views.py) =====
+// Azul = o valor atual ainda é o que o Mercado Livre trouxe; cinza = a Ana
+// mudou (ou nunca veio: esses selos não têm data-original e ficam como estão).
+// Os 3 textos da dica já vêm escritos do servidor (data-dica-*): aqui só se
+// escolhe qual mostrar. Mudança por código (colar do ERP, escolher/trocar
+// produto) não dispara 'input', então esses pontos avisam por 'nd-atualizar-selos'.
+(function () {
+    var selos = Array.prototype.slice.call(document.querySelectorAll('.nd-selo[data-original]'))
+        .filter(function (selo) { return selo.getAttribute('data-original') !== ''; });
+    if (!selos.length) return;
+
+    function valorAtual(campo) {
+        if (campo === 'produto') {
+            var produtoId = document.getElementById('nd_produto_id');
+            return produtoId ? produtoId.value : '';
+        }
+        var campoForm = document.getElementById('id_' + campo);
+        return campoForm ? campoForm.value.trim() : '';
+    }
+
+    function continuaComOValorDoML(selo) {
+        var campo = selo.getAttribute('data-selo-campo');
+        var original = selo.getAttribute('data-original');
+        if (campo === 'fotos_cliente') {
+            return !!document.querySelector('input[name="foto_cliente_ml"]');
+        }
+        var atual = valorAtual(campo);
+        if (campo === 'preco_produto') {
+            return atual !== '' && parseFloat(atual) === parseFloat(original);
+        }
+        return atual === original;
+    }
+
+    function atualizarSelos() {
+        selos.forEach(function (selo) {
+            var igual = continuaComOValorDoML(selo);
+            var dica = selo.getAttribute(igual ? 'data-dica-auto' : 'data-dica-alterado');
+            var balao = selo.querySelector('.nd-selo-dica');
+            selo.classList.toggle('nd-selo-auto', igual);
+            // só mexe no DOM se o texto mudou (regravar o mesmo texto já bastaria pra um observador reagir de novo)
+            if (selo.getAttribute('aria-label') !== dica) selo.setAttribute('aria-label', dica);
+            if (balao.textContent !== dica) balao.textContent = dica;
+        });
+    }
+
+    var formulario = document.getElementById('form_nova_devolucao');
+    if (formulario) {
+        formulario.addEventListener('input', atualizarSelos);
+        formulario.addEventListener('change', atualizarSelos);
+    }
+    document.addEventListener('nd-atualizar-selos', atualizarSelos);
+
+    // X das fotos do ML e foto que não carrega (some sozinha) tiram o quadro do DOM.
+    // Vigia só o miolo das fotos (.cf-fotos), NUNCA o bloco inteiro: o selo das
+    // fotos fica no título desse bloco e o texto dele muda — vigiar o bloco
+    // faria cada atualização do selo disparar a si mesma sem parar.
+    var blocoFotos = document.querySelector('.nd-fotos-cliente .cf-fotos');
+    if (blocoFotos && window.MutationObserver) {
+        new MutationObserver(atualizarSelos).observe(blocoFotos, { childList: true, subtree: true });
+    }
+
+    atualizarSelos();
+})();
