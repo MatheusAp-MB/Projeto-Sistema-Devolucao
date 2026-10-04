@@ -9,10 +9,11 @@
 {% endblock %}
 
 {% block conteudo %}
-<div class="card mb-3">
+{# Depois que um pedido já está na tela, a busca vira uma barra fina de 1 linha (economiza altura no monitor de 20"); com a tela vazia continua grande, com a explicação. #}
+<div class="card mb-3{% if encontrado %} busca-compacta{% endif %}">
     <div class="card-body">
         <h5 class="card-title">Consultar pedido</h5>
-        <p class="text-muted small mb-3">Digite o que estiver legível no pacote — o número da venda, ou o ID do cliente que aparece do lado do nome na etiqueta.</p>
+        <p class="text-muted small mb-3 busca-ajuda">Digite o que estiver legível no pacote — o número da venda, ou o ID do cliente que aparece do lado do nome na etiqueta.</p>
         <form method="get" id="form-consultar-pedido" class="row gx-2 gy-2 align-items-end">
             <div class="col-12 col-md">
                 <label for="id_cliente" class="consultar-pedido-campo-rotulo text-muted text-uppercase fw-bold d-block mb-1">ID do Cliente</label>
@@ -241,151 +242,151 @@
 <div class="card mb-3 topo-pedido">
     <div class="topo-pedido-grupos">
 
-        {# ===== PRODUTO(S): foto, MLB do anúncio exato, SKU, quantidade, preço ===== #}
-        <section class="topo-pedido-grupo topo-pedido-grupo--produto" aria-label="Produto">
-            <div class="topo-pedido-titulo-grupo">
+        {# ===== DADOS DO PRODUTO: o item que está voltando — como aparece no anúncio do ML x como está no nosso cadastro interno ===== #}
+        <section class="topo-pedido-grupo topo-pedido-grupo--produto" aria-label="Dados do produto">
+            <div class="topo-pedido-cab">
                 <i class="fas fa-box-open"></i>
-                <span>{% if itens_pedido|length > 1 %}Produtos ({{ itens_pedido|length }}){% else %}Produto{% endif %}</span>
+                <span class="topo-pedido-titulo">Dados do produto{% if itens_pedido|length > 1 %} ({{ itens_pedido|length }} itens){% endif %}</span>
+                <span class="topo-pedido-dica">o item que está voltando</span>
             </div>
-            <div class="topo-pedido-itens">
-                {% for it in itens_pedido %}
-                <div class="topo-pedido-item{% if itens_pedido|length > 1 %} topo-pedido-item--compacto{% endif %}">
-                    <div class="topo-pedido-fotos">
-                        {# Foto do anúncio: a capa aparece na tela; as demais viram elementos escondidos só pra galeria do modal padrão (script_modal_fotos.js) — o navegador só baixa cada uma quando a Ana navega até ela. #}
-                        <div class="topo-pedido-foto-bloco">
-                            <div class="topo-pedido-foto{% if it.foto_url %} card-fotos-item{% else %} topo-pedido-foto--vazia{% endif %}"{% if it.foto_url %} data-fotos-id="topo-anuncio-{{ forloop.counter }}" data-titulo="{{ it.titulo }}" data-subtitulo="Foto do anúncio {{ it.mlb }}"{% endif %}>
-                                {% if it.foto_url %}<img src="{{ it.foto_url }}" data-original="{{ it.foto_url_original }}" alt="Foto do anúncio {{ it.mlb }}" loading="lazy" referrerpolicy="no-referrer" onerror="fotoDoTopoFalhou(this)">{% endif %}
-                                <span class="topo-pedido-foto-vazia-conteudo"><i class="far fa-image"></i><span>sem foto</span></span>
-                            </div>
-                            {% if it.foto_url %}{% for url_extra in it.fotos_extras %}<span class="card-fotos-item" hidden data-fotos-id="topo-anuncio-{{ forloop.parentloop.counter }}" data-url="{{ url_extra }}" data-titulo="{{ it.titulo }}" data-subtitulo="Foto do anúncio {{ it.mlb }}"></span>{% endfor %}{% endif %}
-                            <div class="topo-pedido-foto-legenda">Anúncio</div>
-                        </div>
-                        {% if it.produto_cadastrado %}
-                        <div class="topo-pedido-foto-bloco">
-                            <div class="topo-pedido-foto{% if it.foto_cadastro_url %} card-fotos-item{% else %} topo-pedido-foto--vazia{% endif %}" title="{{ it.produto_cadastrado_nome }}"{% if it.foto_cadastro_url %} data-fotos-id="topo-cadastro-{{ forloop.counter }}" data-titulo="{{ it.produto_cadastrado_nome }}" data-subtitulo="Cadastro interno"{% endif %}>
-                                {% if it.foto_cadastro_url %}<img src="{{ it.foto_cadastro_url }}" alt="Foto do cadastro interno: {{ it.produto_cadastrado_nome }}" loading="lazy" onerror="fotoDoTopoFalhou(this)">{% endif %}
-                                <span class="topo-pedido-foto-vazia-conteudo"><i class="far fa-image"></i><span>sem foto</span></span>
-                            </div>
-                            <div class="topo-pedido-foto-legenda">Cadastro interno</div>
-                        </div>
+            {% for it in itens_pedido %}
+            <div class="topo-pedido-lados{% if itens_pedido|length > 1 %} topo-pedido-lados--varios{% endif %}">
+
+                {# --- Lado 1: o que o Mercado Livre mostra do anúncio --- #}
+                <div class="topo-pedido-lado">
+                    <div class="topo-pedido-lado-titulo">
+                        <span>No anúncio do Mercado Livre</span>
+                        {% if it.link_anuncio %}
+                            <a href="{{ it.link_anuncio }}" target="_blank" rel="noopener" class="topo-pedido-link-anuncio">Ver anúncio <i class="fas fa-arrow-up-right-from-square"></i></a>
+                        {% elif it.rotulo_situacao_anuncio %}
+                            <span class="topo-pedido-nota">{{ it.rotulo_situacao_anuncio }}</span>
                         {% endif %}
                     </div>
-                    <div class="topo-pedido-item-corpo">
-                        <div class="topo-pedido-produto-titulo">{{ it.titulo }}</div>
-                        <div class="topo-pedido-campos">
-                            <div>
-                                <div class="topo-pedido-rotulo">SKU</div>
-                                <div class="topo-pedido-copiavel">
-                                    <span class="topo-pedido-valor topo-pedido-valor--mono">{{ it.sku }}</span>
-                                    {% if it.sku != '—' %}<button type="button" class="topo-pedido-copiar" data-copiar="{{ it.sku }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar SKU" title="Copiar SKU"><i class="far fa-copy"></i></button>{% endif %}
+                    <div class="topo-pedido-lado-corpo">
+                        {# Foto do anúncio: a capa aparece na tela; as demais viram elementos escondidos só pra galeria do modal padrão (script_modal_fotos.js) — o navegador só baixa cada uma quando a Ana navega até ela. #}
+                        <div class="topo-pedido-foto{% if it.foto_url %} card-fotos-item{% else %} topo-pedido-foto--vazia{% endif %}"{% if it.foto_url %} data-fotos-id="topo-anuncio-{{ forloop.counter }}" data-titulo="{{ it.titulo }}" data-subtitulo="Foto do anúncio {{ it.mlb }}"{% endif %}>
+                            {% if it.foto_url %}<img src="{{ it.foto_url }}" data-original="{{ it.foto_url_original }}" alt="Foto do anúncio {{ it.mlb }}" loading="lazy" referrerpolicy="no-referrer" onerror="fotoDoTopoFalhou(this)">{% endif %}
+                            <span class="topo-pedido-foto-vazia-conteudo"><i class="far fa-image"></i><span>sem foto</span></span>
+                        </div>
+                        {% if it.foto_url %}{% for url_extra in it.fotos_extras %}<span class="card-fotos-item" hidden data-fotos-id="topo-anuncio-{{ forloop.parentloop.counter }}" data-url="{{ url_extra }}" data-titulo="{{ it.titulo }}" data-subtitulo="Foto do anúncio {{ it.mlb }}"></span>{% endfor %}{% endif %}
+                        <div class="topo-pedido-lado-dados">
+                            <div class="topo-pedido-nome">{{ it.titulo }}</div>
+                            <div class="topo-pedido-campos">
+                                <div>
+                                    <div class="topo-pedido-rotulo">SKU</div>
+                                    <div class="topo-pedido-copiavel">
+                                        <span class="topo-pedido-valor topo-pedido-valor--mono">{{ it.sku }}</span>
+                                        {% if it.sku != '—' %}<button type="button" class="topo-pedido-copiar" data-copiar="{{ it.sku }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar SKU" title="Copiar SKU"><i class="far fa-copy"></i></button>{% endif %}
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="topo-pedido-rotulo">Anúncio (MLB)</div>
+                                    <div class="topo-pedido-copiavel">
+                                        <span class="topo-pedido-valor topo-pedido-valor--mono">{{ it.mlb }}</span>
+                                        {% if it.mlb != '—' %}<button type="button" class="topo-pedido-copiar" data-copiar="{{ it.mlb }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar MLB do anúncio" title="Copiar MLB do anúncio"><i class="far fa-copy"></i></button>{% endif %}
+                                    </div>
                                 </div>
                             </div>
-                            <div>
-                                <div class="topo-pedido-rotulo">Anúncio (MLB)</div>
-                                <div class="topo-pedido-copiavel">
-                                    <span class="topo-pedido-valor topo-pedido-valor--mono">{{ it.mlb }}</span>
-                                    {% if it.mlb != '—' %}<button type="button" class="topo-pedido-copiar" data-copiar="{{ it.mlb }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar MLB do anúncio" title="Copiar MLB do anúncio"><i class="far fa-copy"></i></button>{% endif %}
-                                </div>
-                                {% if it.link_anuncio %}
-                                    <a href="{{ it.link_anuncio }}" target="_blank" rel="noopener" class="topo-pedido-link-anuncio">Ver anúncio <i class="fas fa-arrow-up-right-from-square"></i></a>
-                                {% elif it.rotulo_situacao_anuncio %}
-                                    <span class="topo-pedido-nota">{{ it.rotulo_situacao_anuncio }}</span>
-                                {% endif %}
-                            </div>
-                            <div>
-                                <div class="topo-pedido-rotulo">Quantidade</div>
-                                <div class="topo-pedido-valor">{{ it.quantidade }} unidade{{ it.quantidade|pluralize }}</div>
-                            </div>
-                            {% if it.texto_unidades_voltando %}
-                            <div>
-                                <div class="topo-pedido-rotulo">Unidades voltando</div>
-                                <div class="topo-pedido-valor fw-semibold">{{ it.texto_unidades_voltando }}</div>
-                                {% if it.tipo_devolucao %}<div class="topo-pedido-ajuda">{{ it.tipo_devolucao }}</div>{% endif %}
-                            </div>
-                            {% endif %}
-                            {% if it.preco_unitario %}
-                            <div>
-                                <div class="topo-pedido-rotulo">Preço unitário</div>
-                                <div class="topo-pedido-valor fw-semibold">{{ it.preco_unitario }}</div>
-                            </div>
-                            {% endif %}
-                            {% if it.produto_cadastrado %}
-                            <div class="topo-pedido-campos-subtitulo">Cadastro interno</div>
-                            <div>
-                                <div class="topo-pedido-rotulo">Marca</div>
-                                <div class="topo-pedido-copiavel">
-                                    <span class="topo-pedido-valor">{{ it.produto_marca }}</span>
-                                    <button type="button" class="topo-pedido-copiar" data-copiar="{{ it.produto_marca }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar marca" title="Copiar marca"><i class="far fa-copy"></i></button>
-                                </div>
-                            </div>
-                            <div>
-                                <div class="topo-pedido-rotulo">Código de barras</div>
-                                <div class="topo-pedido-copiavel">
-                                    <span class="topo-pedido-valor topo-pedido-valor--mono">{{ it.produto_codigo_barras }}</span>
-                                    <button type="button" class="topo-pedido-copiar" data-copiar="{{ it.produto_codigo_barras }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar código de barras" title="Copiar código de barras"><i class="far fa-copy"></i></button>
-                                </div>
-                            </div>
-                            {% endif %}
                         </div>
                     </div>
                 </div>
-                {% endfor %}
+
+                {# --- Lado 2: o que a gente tem cadastrado aqui dentro (ou o aviso de que ainda não tem) --- #}
+                {% if it.produto_cadastrado %}
+                <div class="topo-pedido-lado">
+                    <div class="topo-pedido-lado-titulo"><span>No nosso cadastro interno</span></div>
+                    <div class="topo-pedido-lado-corpo">
+                        <div class="topo-pedido-foto{% if it.foto_cadastro_url %} card-fotos-item{% else %} topo-pedido-foto--vazia{% endif %}" title="{{ it.produto_cadastrado_nome }}"{% if it.foto_cadastro_url %} data-fotos-id="topo-cadastro-{{ forloop.counter }}" data-titulo="{{ it.produto_cadastrado_nome }}" data-subtitulo="Cadastro interno"{% endif %}>
+                            {% if it.foto_cadastro_url %}<img src="{{ it.foto_cadastro_url }}" alt="Foto do cadastro interno: {{ it.produto_cadastrado_nome }}" loading="lazy" onerror="fotoDoTopoFalhou(this)">{% endif %}
+                            <span class="topo-pedido-foto-vazia-conteudo"><i class="far fa-image"></i><span>sem foto</span></span>
+                        </div>
+                        <div class="topo-pedido-lado-dados">
+                            <div class="topo-pedido-nome">{{ it.produto_cadastrado_nome }}</div>
+                            <div class="topo-pedido-campos">
+                                <div>
+                                    <div class="topo-pedido-rotulo">Marca</div>
+                                    <div class="topo-pedido-copiavel">
+                                        <span class="topo-pedido-valor">{{ it.produto_marca }}</span>
+                                        <button type="button" class="topo-pedido-copiar" data-copiar="{{ it.produto_marca }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar marca" title="Copiar marca"><i class="far fa-copy"></i></button>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="topo-pedido-rotulo">Código de barras</div>
+                                    <div class="topo-pedido-copiavel">
+                                        <span class="topo-pedido-valor topo-pedido-valor--mono">{{ it.produto_codigo_barras }}</span>
+                                        <button type="button" class="topo-pedido-copiar" data-copiar="{{ it.produto_codigo_barras }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar código de barras" title="Copiar código de barras"><i class="far fa-copy"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="topo-pedido-lado topo-pedido-lado--vazio">
+                    <div class="topo-pedido-lado-titulo"><span>No nosso cadastro interno</span></div>
+                    <div class="topo-pedido-vazio"><i class="far fa-circle-question"></i> Esse produto ainda não está no cadastro interno.</div>
+                </div>
+                {% endif %}
+
             </div>
+            {% endfor %}
         </section>
 
-        {# ===== CLIENTE: nome + ID (o número da etiqueta) ===== #}
-        <section class="topo-pedido-grupo topo-pedido-grupo--cliente" aria-label="Cliente">
-            <div class="topo-pedido-titulo-grupo">
-                <i class="fas fa-user"></i>
-                <span>Cliente</span>
+        {# ===== DADOS DA VENDA: quem comprou, o número da venda, o que foi vendido e como foi enviado ===== #}
+        <section class="topo-pedido-grupo topo-pedido-grupo--venda" aria-label="Dados da venda">
+            <div class="topo-pedido-cab">
+                <i class="fas fa-receipt"></i>
+                <span class="topo-pedido-titulo">Dados da venda</span>
+                <span class="topo-pedido-dica">quem comprou e o que foi vendido</span>
             </div>
-            <div class="topo-pedido-pilha">
+            <div class="topo-pedido-grade">
                 <div>
-                    <div class="topo-pedido-rotulo">Nome</div>
+                    <div class="topo-pedido-rotulo">Cliente</div>
                     <div class="topo-pedido-copiavel">
                         <span class="topo-pedido-valor topo-pedido-valor--destaque">{{ nome_comprador }}</span>
                         {% if nome_comprador and nome_comprador != '—' %}<button type="button" class="topo-pedido-copiar" data-copiar="{{ nome_comprador }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar nome do cliente" title="Copiar nome do cliente"><i class="far fa-copy"></i></button>{% endif %}
                     </div>
                 </div>
                 <div>
-                    <div class="topo-pedido-rotulo">ID do cliente</div>
+                    <div class="topo-pedido-rotulo">ID do cliente <span class="topo-pedido-rotulo-dica">(da etiqueta)</span></div>
                     {% if id_comprador %}
                     <div class="topo-pedido-copiavel">
-                        <span class="topo-pedido-valor topo-pedido-valor--destaque topo-pedido-valor--mono">{{ id_comprador }}</span>
+                        <span class="topo-pedido-valor topo-pedido-valor--destaque topo-pedido-valor--mono topo-pedido-valor--inteiro">{{ id_comprador }}</span>
                         <button type="button" class="topo-pedido-copiar" data-copiar="{{ id_comprador }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar ID do cliente" title="Copiar ID do cliente"><i class="far fa-copy"></i></button>
                     </div>
-                    <div class="topo-pedido-ajuda">Mesmo número que aparece ao lado do nome na etiqueta.</div>
                     {% else %}
                     <div class="topo-pedido-valor">—</div>
                     {% endif %}
                 </div>
-            </div>
-        </section>
-
-        {# ===== PEDIDO: número da venda, data da compra, situação ===== #}
-        <section class="topo-pedido-grupo topo-pedido-grupo--pedido" aria-label="Pedido">
-            <div class="topo-pedido-titulo-grupo">
-                <i class="fas fa-receipt"></i>
-                <span>Pedido</span>
-            </div>
-            <div class="topo-pedido-pilha">
-                <div>
+                <div class="topo-pedido-numero">
                     <div class="topo-pedido-rotulo">Número da venda</div>
                     <div class="topo-pedido-copiavel">
-                        <span class="topo-pedido-valor topo-pedido-valor--destaque topo-pedido-valor--mono">{{ numero_pedido }}</span>
+                        <span class="topo-pedido-valor topo-pedido-valor--destaque topo-pedido-valor--mono topo-pedido-valor--inteiro">{{ numero_pedido }}</span>
                         <button type="button" class="topo-pedido-copiar" data-copiar="{{ numero_pedido }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar número da venda" title="Copiar número da venda"><i class="far fa-copy"></i></button>
                     </div>
                 </div>
-                <div>
-                    <div class="topo-pedido-rotulo">Comprado em</div>
-                    <div class="topo-pedido-valor">{{ data_compra|default:"—" }}</div>
+                <div class="topo-pedido-largo">
+                    <div class="topo-pedido-rotulo">Vendido</div>
+                    {% for it in itens_pedido %}
+                    <div class="topo-pedido-valor">{% if itens_pedido|length > 1 %}<span class="topo-pedido-valor--mono small">{{ it.mlb }}:</span> {% endif %}{{ it.quantidade }} unidade{{ it.quantidade|pluralize }}{% if it.preco_unitario %} <span class="text-nowrap">× <strong>{{ it.preco_unitario }}</strong></span>{% endif %}</div>
+                    {% endfor %}
                 </div>
                 <div>
                     <div class="topo-pedido-rotulo">Tipo de envio</div>
-                    <div class="topo-pedido-valor">{% if tipo_venda_sugerido == 'full' %}Venda FULL{% elif tipo_venda_sugerido == 'comum' %}Venda comum{% else %}<span class="text-muted">Não identificado</span>{% endif %}</div>
-                    {% if metodo_envio_ida %}<div class="topo-pedido-ajuda">Modalidade: {{ metodo_envio_ida }}</div>{% endif %}
+                    <div class="topo-pedido-valor">{% if tipo_venda_sugerido == 'full' %}Venda FULL{% elif tipo_venda_sugerido == 'comum' %}Venda comum{% else %}<span class="text-muted">Não identificado</span>{% endif %}{% if metodo_envio_ida %} <span class="topo-pedido-ajuda-inline" title="Modalidade de envio">· {{ metodo_envio_ida }}</span>{% endif %}</div>
                 </div>
-                <div>
+            </div>
+        </section>
+
+        {# ===== DEVOLUÇÃO / RECLAMAÇÃO: em que pé está o caso, quantas unidades voltam e se já está no nosso sistema ===== #}
+        <section class="topo-pedido-grupo topo-pedido-grupo--devolucao" aria-label="Devolução e reclamação">
+            <div class="topo-pedido-cab">
+                <i class="fas fa-rotate-left"></i>
+                <span class="topo-pedido-titulo">Devolução / reclamação</span>
+                <span class="topo-pedido-dica">como está o caso</span>
+            </div>
+            <div class="topo-pedido-grade topo-pedido-grade--dev">
+                <div class="topo-pedido-todo">
                     <div class="topo-pedido-rotulo">Situação</div>
                     {% if esta_encerrado %}
                         <span class="badge bg-success-subtle text-success-emphasis rounded-pill px-3 py-2 topo-pedido-situacao">
@@ -397,9 +398,50 @@
                         </span>
                     {% endif %}
                 </div>
+                {% if ha_unidades_voltando %}
+                <div>
+                    <div class="topo-pedido-rotulo">Unidades voltando</div>
+                    {% for it in itens_pedido %}{% if it.texto_unidades_voltando %}
+                    <div class="topo-pedido-valor fw-semibold">{% if itens_pedido|length > 1 %}<span class="topo-pedido-valor--mono small fw-normal">{{ it.mlb }}:</span> {% endif %}{{ it.texto_unidades_voltando }}{% if itens_pedido|length == 1 and tipo_devolucao_texto %} <span class="topo-pedido-ajuda-inline fw-normal">· {{ tipo_devolucao_texto }}</span>{% endif %}</div>
+                    {% endif %}{% endfor %}
+                    {% if itens_pedido|length > 1 and tipo_devolucao_texto %}<div class="topo-pedido-ajuda">{{ tipo_devolucao_texto }}</div>{% endif %}
+                </div>
+                {% endif %}
+                <div>
+                    <div class="topo-pedido-rotulo">No nosso sistema</div>
+                    {% if devolucao_no_sistema_id %}
+                        <span class="topo-pedido-chip topo-pedido-chip--ok"><i class="fas fa-check"></i> Já cadastrada</span>
+                    {% else %}
+                        <span class="topo-pedido-chip">Ainda não cadastrada</span>
+                    {% endif %}
+                </div>
             </div>
         </section>
 
+    </div>
+
+    {# ===== DATAS DO CASO: a linha do tempo do pedido, da venda até o fim da mediação, com o tempo entre as datas (os 6 passos aparecem sempre; os que ainda não aconteceram ficam com ponto vazio e linha tracejada) ===== #}
+    <div class="topo-pedido-datas" aria-label="Linha do tempo do caso">
+        <div class="topo-pedido-datas-cab">
+            <div class="topo-pedido-cab">
+                <i class="far fa-calendar-check"></i>
+                <span class="topo-pedido-titulo">Datas do caso</span>
+                <span class="topo-pedido-dica">da venda até o fim da mediação</span>
+            </div>
+        </div>
+        <ol class="topo-pedido-passos">
+            {% for d in datas_do_caso %}
+            <li class="topo-pedido-passo{% if not d.data %} topo-pedido-passo--vazio{% endif %}">
+                <div class="topo-pedido-trilho">
+                    <span class="topo-pedido-ponto" aria-hidden="true"></span>
+                    {% if not forloop.last %}<span class="topo-pedido-passo-linha{% if not d.liga %} topo-pedido-passo-linha--solta{% endif %}">{% if d.tempo %}<span class="topo-pedido-tempo topo-pedido-tempo--{{ d.tempo.tom }}"{% if d.tempo.titulo %} title="{{ d.tempo.titulo }}"{% endif %}>{{ d.tempo.texto }}{% if d.tempo.extra %}<span class="topo-pedido-tempo-extra"> · {{ d.tempo.extra }}</span><span class="topo-pedido-tempo-simbolo"> {{ d.tempo.simbolo }}</span>{% endif %}</span>{% endif %}</span>{% endif %}
+                </div>
+                <div class="topo-pedido-passo-rotulo">{{ d.rotulo }}</div>
+                {% if d.data %}<div class="topo-pedido-data">{{ d.data }}</div>{% else %}<div class="topo-pedido-data topo-pedido-data--vazia">{{ d.sem_registro }}</div>{% endif %}
+                {% if d.tempo_anterior %}<div class="topo-pedido-tempo-baixo topo-pedido-tempo-baixo--{{ d.tempo_anterior.tom }}">{{ d.tempo_anterior.depois }}{% if d.tempo_anterior.extra %} · {{ d.tempo_anterior.extra }}{% endif %}</div>{% endif %}
+            </li>
+            {% endfor %}
+        </ol>
     </div>
 
     {# ===== FAIXA DE AÇÕES: o botão principal depende de a devolução já existir no sistema ===== #}
@@ -409,12 +451,10 @@
                 <a href="{% url 'editar_devolucao' devolucao_no_sistema_id %}" target="_blank" rel="noopener" class="topo-pedido-botao-principal">
                     <i class="fas fa-file-lines"></i> Abrir devolução
                 </a>
-                <span class="topo-pedido-chip topo-pedido-chip--ok">Já cadastrada no sistema</span>
             {% else %}
                 <a href="{% url 'nova_devolucao' %}?numero_pedido={{ numero_pedido|urlencode }}&nome_cliente={{ nome_comprador_input|urlencode }}&data_venda={{ data_venda_input|urlencode }}&data_recebimento_cliente={{ data_recebimento_cliente_input|urlencode }}&data_reclamacao_cliente={{ data_reclamacao_cliente_input|urlencode }}&data_recebimento_por_nos={{ data_recebimento_por_nos_input|urlencode }}&data_finalizacao_mediacao={{ data_finalizacao_mediacao_input|urlencode }}&tipo_venda={{ tipo_venda_sugerido|urlencode }}&produto_busca={{ sku_item_input|urlencode }}&preco_produto={{ preco_produto_input|urlencode }}" target="_blank" rel="noopener" class="topo-pedido-botao-principal">
                     <i class="fas fa-rotate-left"></i> Criar devolução
                 </a>
-                <span class="topo-pedido-chip">Ainda não cadastrada no sistema</span>
             {% endif %}
         </div>
         <div class="topo-pedido-ml">

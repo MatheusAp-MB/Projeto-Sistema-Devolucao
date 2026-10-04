@@ -451,12 +451,22 @@
 
 
 /* =========================================================================
-   Topo do pedido — 3 grupos: PRODUTO / CLIENTE / PEDIDO + faixa de ações.
-   Desenhado com a Ana em mente: cada grupo diz "isso é sobre o quê", e o
-   botão principal fica sempre na mesma faixa de baixo.
+   Topo do pedido — 3 grupos por assunto (Dados do produto / Dados da venda /
+   Devolução-reclamação) + faixa "Datas do caso" + faixa de ações.
+   Desenhado com a Ana em mente: cada grupo diz "isso é sobre o quê" e "pra
+   que serve"; os dados ficam em cima e as ações embaixo.
+
+   [ATENÇÃO] Layout em FAIXAS (04/10/2026): o monitor da Ana é de 20"
+   (1440x900, ~735px de altura útil). Por padrão o Produto ocupa a faixa de
+   cima inteira e Venda + Devolução dividem a faixa de baixo. Só quando o
+   cartão tem 1500px ou mais (ex.: monitor 27") os 3 grupos ficam em colunas
+   — isso usa container query (@container), que o Chrome atual suporta; em
+   navegador antigo cai no layout de faixas, que também funciona.
    ========================================================================= */
 .topo-pedido {
     overflow: hidden;
+    container-type: inline-size;
+    container-name: topo;
 }
 
 .topo-pedido-grupos {
@@ -470,25 +480,46 @@
     min-width: 0;
     box-sizing: border-box;
     background: #ffffff;
-    padding: 18px 20px;
+    padding: 12px 16px 14px;
 }
 
-.topo-pedido-grupo--produto { flex: 2.4 1 380px; }
-.topo-pedido-grupo--cliente { flex: 1 1 210px; }
-.topo-pedido-grupo--pedido { flex: 1.2 1 240px; }
+.topo-pedido-grupo--produto { flex: 1 1 100%; }
+.topo-pedido-grupo--venda { flex: 3 1 0; min-width: min(380px, 100%); }
+.topo-pedido-grupo--devolucao { flex: 2.2 1 0; min-width: min(300px, 100%); }
 
-.topo-pedido-titulo-grupo {
+@container topo (min-width: 1500px) {
+    .topo-pedido-grupo--produto { flex: 3 1 0; min-width: 640px; }
+    .topo-pedido-grupo--venda { flex: 2 1 0; }
+    .topo-pedido-grupo--devolucao { flex: 1.6 1 0; }
+}
+
+/* ----- Cabeçalho de cada grupo: título + frase dizendo pra que serve ----- */
+.topo-pedido-cab {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 14px;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
+    margin-bottom: 10px;
     color: var(--cor-primaria);
-    font-size: 0.6875rem;
+}
+
+.topo-pedido-cab i {
+    font-size: 0.8rem;
+}
+
+.topo-pedido-titulo {
+    font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
 
+.topo-pedido-dica {
+    color: #5c6770;
+    font-size: 0.75rem;
+}
+
+/* ----- Rótulos e valores ----- */
 .topo-pedido-rotulo {
     margin-bottom: 3px;
     color: #5c6770;
@@ -496,6 +527,12 @@
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
+}
+
+.topo-pedido-rotulo-dica {
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
 }
 
 .topo-pedido-valor {
@@ -513,10 +550,16 @@
     font-family: "SFMono-Regular", Consolas, monospace;
 }
 
-.topo-pedido-pilha {
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
+/* Números de identificação (número da venda, ID do cliente): nunca quebram no meio */
+.topo-pedido-valor--inteiro {
+    overflow-wrap: normal;
+    white-space: nowrap;
+}
+
+/* Complemento na mesma linha do valor (ex.: "Venda comum · MEL Voluminoso") */
+.topo-pedido-ajuda-inline {
+    color: #5c6770;
+    font-size: 0.78rem;
 }
 
 .topo-pedido-ajuda {
@@ -527,30 +570,87 @@
 }
 
 .topo-pedido-nota {
-    display: inline-block;
-    margin-top: 2px;
     color: #5c6770;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
 }
 
-/* ----- Produto(s) ----- */
-.topo-pedido-itens {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-}
-
-.topo-pedido-item {
+/* ----- Dados do produto: duas caixas lado a lado (anúncio do ML x cadastro interno) ----- */
+.topo-pedido-lados {
     display: flex;
     flex-wrap: wrap;
-    gap: 16px;
+    gap: 12px;
+}
+
+.topo-pedido-lados + .topo-pedido-lados {
+    margin-top: 12px;
+}
+
+.topo-pedido-lado {
+    flex: 1 1 300px;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px 10px 10px;
+    border: 1px solid #e4e8ee;
+    border-radius: 8px;
+}
+
+.topo-pedido-lado--vazio {
+    border-style: dashed;
+    background: #fafbfc;
+}
+
+.topo-pedido-lado-titulo {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 8px;
+    color: #5c6770;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.topo-pedido-lado-corpo {
+    display: flex;
+    gap: 12px;
     align-items: flex-start;
 }
 
+.topo-pedido-lado-dados {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.topo-pedido-nome {
+    margin-bottom: 6px;
+    color: #212529;
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.topo-pedido-campos {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 6px 20px;
+}
+
+.topo-pedido-vazio {
+    padding: 10px 0;
+    color: #5c6770;
+    font-size: 0.8rem;
+}
+
 .topo-pedido-foto {
-    flex: 0 0 112px;
-    width: 112px;
-    height: 112px;
+    flex: 0 0 96px;
+    width: 96px;
+    height: 96px;
     box-sizing: border-box;
     border: 1px solid var(--cor-borda);
     border-radius: 8px;
@@ -590,45 +690,22 @@
     font-size: 1.6rem;
 }
 
-.topo-pedido-item--compacto .topo-pedido-foto {
+/* Pedido com mais de 1 produto: fotos menores */
+.topo-pedido-lados--varios .topo-pedido-foto {
     flex-basis: 72px;
     width: 72px;
     height: 72px;
-}
-
-.topo-pedido-item-corpo {
-    flex: 1 1 170px;
-    min-width: 0;
-}
-
-.topo-pedido-produto-titulo {
-    margin-bottom: 12px;
-    color: #212529;
-    font-size: 0.9375rem;
-    font-weight: 600;
-    line-height: 1.35;
-}
-
-.topo-pedido-item--compacto .topo-pedido-produto-titulo {
-    font-size: 0.875rem;
-    margin-bottom: 8px;
-}
-
-.topo-pedido-campos {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
-    gap: 10px 16px;
 }
 
 .topo-pedido-link-anuncio {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    margin-top: 2px;
-    padding: 2px 0;
     color: var(--cor-primaria-clara);
-    font-size: 0.78rem;
+    font-size: 0.75rem;
     font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
     text-decoration: none;
 }
 
@@ -641,35 +718,78 @@
     opacity: 0.7;
 }
 
+/* ----- Dados da venda / Devolução: campos lado a lado, quebram de linha só se faltar espaço ----- */
+.topo-pedido-grade {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+}
+
+.topo-pedido-grade > div {
+    flex: 1 1 165px;
+    min-width: 0;
+}
+
+.topo-pedido-grade > .topo-pedido-largo {
+    flex: 1.4 1 215px;
+}
+
+/* Número da venda: nunca fica mais estreito que o número + botão de copiar.
+   Com 4 campos na mesma linha ele era espremido e quebrava no meio (visto no teste de 04/10/2026);
+   com esse mínimo, o campo que não couber é que vai pra linha de baixo. */
+.topo-pedido-grade > .topo-pedido-numero {
+    flex: 1 0 180px;
+}
+
+.topo-pedido-grade--dev > div {
+    flex: 1 1 140px;
+}
+
+.topo-pedido-grade > .topo-pedido-todo {
+    flex: 1 0 100%;
+}
+
 /* ----- Valor com botão de copiar ao lado ----- */
 .topo-pedido-copiavel {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 4px;
 }
 
+/* Botão de copiar: só o ícone, pequeno (20px) — o valor é o protagonista, o botão é um apoio.
+   Ganha fundo ao passar o mouse; o ::after aumenta a área de clique sem ocupar espaço na tela. */
 .topo-pedido-copiar {
-    flex: 0 0 32px;
+    position: relative;
+    flex: 0 0 20px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 20px;
+    height: 20px;
     padding: 0;
-    border: 1px solid var(--cor-borda);
-    border-radius: 6px;
-    background: #ffffff;
-    color: #5c6770;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #6c757d;
+    font-size: 0.72rem;
+    line-height: 1;
     cursor: pointer;
 }
 
+.topo-pedido-copiar::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+}
+
 .topo-pedido-copiar:hover {
-    border-color: var(--cor-primaria-clara);
+    background: #e7f0fa;
     color: var(--cor-primaria-clara);
 }
 
-.topo-pedido-copiar--copiado {
-    border-color: var(--cor-positivo);
+.topo-pedido-copiar--copiado,
+.topo-pedido-copiar--copiado:hover {
+    background: #d1e7dd;
     color: var(--cor-positivo);
 }
 
@@ -684,14 +804,212 @@
     line-height: 1.3;
 }
 
+.topo-pedido-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #e9ecef;
+    color: #495057;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.topo-pedido-chip--ok {
+    background: #d1e7dd;
+    color: #0a3622;
+}
+
+/* ----- Faixa "Datas do caso": a linha do tempo do pedido (venda → fim da mediação) -----
+   6 passos sempre visíveis. Cada passo = ponto + rótulo + data; entre 2 passos fica uma
+   linha com o TEMPO em cima (etiqueta). Linha cheia = os 2 pontos têm data; tracejada =
+   falta uma das datas (o passo ainda não aconteceu ou não tem registro). */
+.topo-pedido-datas {
+    padding: 10px 16px 10px;
+    background: #ffffff;
+    border-top: 1px solid #e4e8ee;
+}
+
+.topo-pedido-datas-cab .topo-pedido-cab {
+    margin-bottom: 6px;
+}
+
+.topo-pedido-passos {
+    display: flex;
+    flex-wrap: wrap;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.topo-pedido-passo {
+    flex: 1 1 100px;
+    min-width: 0;
+}
+
+.topo-pedido-trilho {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 22px;
+    margin-bottom: 3px;
+}
+
+.topo-pedido-ponto {
+    flex: 0 0 10px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--cor-primaria-clara);
+    box-shadow: 0 0 0 3px #e7f0fa;
+}
+
+.topo-pedido-passo--vazio .topo-pedido-ponto {
+    background: #ffffff;
+    border: 2px solid #adb5bd;
+    box-shadow: none;
+}
+
+.topo-pedido-passo-linha {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 12px;
+    height: 0;
+    margin-right: 8px;
+    border-top: 2px solid #cfe0f2;
+}
+
+.topo-pedido-passo-linha--solta {
+    border-top: 2px dashed #ced4da;
+}
+
+/* Etiqueta de tempo: centralizada em cima da linha. Só o trecho dos 7 dias ganha cor. */
+.topo-pedido-tempo {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 1px 7px;
+    border: 1px solid #cfe0f2;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #495057;
+    font-size: 0.72rem;
+    font-weight: 600;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+.topo-pedido-tempo--ok {
+    border-color: #a3cfbb;
+    background: #d1e7dd;
+    color: #0a3622;
+}
+
+.topo-pedido-tempo--alerta {
+    border-color: #f1aeb5;
+    background: #f8d7da;
+    color: #58151c;
+}
+
+/* Versão curta da etiqueta ("2 dias ✓") — só em cartão mais estreito, onde o texto longo não cabe na linha */
+.topo-pedido-tempo-simbolo {
+    display: none;
+}
+
+.topo-pedido-passo-rotulo {
+    color: #5c6770;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.topo-pedido-passo--vazio .topo-pedido-passo-rotulo {
+    color: #6c757d;
+}
+
+.topo-pedido-data {
+    color: #212529;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.topo-pedido-data--vazia {
+    color: #5c6770;
+    font-size: 0.8rem;
+    font-weight: 400;
+    font-style: italic;
+}
+
+/* Tempo "embaixo da data" — só aparece no celular, onde as linhas somem */
+.topo-pedido-tempo-baixo {
+    display: none;
+    margin-top: 2px;
+    color: #495057;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.topo-pedido-tempo-baixo--ok {
+    color: #146c43;
+}
+
+.topo-pedido-tempo-baixo--alerta {
+    color: #b02a37;
+}
+
+/* Cartão médio (ex.: janela pequena): a etiqueta usa a versão curta */
+@container topo (max-width: 1020px) {
+    .topo-pedido-tempo-extra {
+        display: none;
+    }
+
+    .topo-pedido-tempo-simbolo {
+        display: inline;
+    }
+}
+
+/* Cartão estreito (tablet): os 6 rótulos não cabem em 1 linha cada — quebram em 2 (com altura
+   fixa pra as datas continuarem alinhadas) */
+@container topo (max-width: 900px) {
+    .topo-pedido-passo-rotulo {
+        min-height: 2.4em;
+        line-height: 1.2;
+        white-space: normal;
+    }
+}
+
+/* Cartão estreito (celular): sem linhas entre os passos, 2 passos por linha; o tempo vai pra baixo da data */
+@container topo (max-width: 700px) {
+    .topo-pedido-passo {
+        flex-basis: 45%;
+    }
+
+    .topo-pedido-passo-rotulo {
+        min-height: 0;
+    }
+
+    .topo-pedido-passo-linha {
+        display: none;
+    }
+
+    .topo-pedido-tempo-baixo {
+        display: block;
+    }
+}
+
 /* ----- Faixa de ações ----- */
 .topo-pedido-rodape {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
-    gap: 12px 24px;
-    padding: 12px 20px;
+    gap: 8px 24px;
+    padding: 8px 16px;
     background: #f6f8fb;
     border-top: 1px solid var(--cor-borda);
 }
@@ -707,7 +1025,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    min-height: 44px;
+    min-height: 40px;
     padding: 0 18px;
     border-radius: 6px;
     background: var(--cor-primaria-clara);
@@ -721,22 +1039,6 @@
     background: var(--cor-primaria);
     color: var(--cor-texto-claro);
     text-decoration: none;
-}
-
-.topo-pedido-chip {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 12px;
-    border-radius: 999px;
-    background: #e9ecef;
-    color: #495057;
-    font-size: 0.75rem;
-    font-weight: 700;
-}
-
-.topo-pedido-chip--ok {
-    background: #d1e7dd;
-    color: #0a3622;
 }
 
 .topo-pedido-ml {
@@ -756,48 +1058,55 @@
 }
 
 .topo-pedido-ml .consultar-pedido-atalho {
-    min-height: 36px;
+    min-height: 32px;
 }
 
-
-/* ----- Duas fotos lado a lado: anúncio e cadastro interno ----- */
-.topo-pedido-fotos {
-    flex: 0 0 auto;
+/* =========================================================================
+   Busca fina — depois que um pedido já está na tela (classe .busca-compacta,
+   ligada no template por {% if encontrado %}). Some o texto explicativo e os
+   rótulos ficam ao lado dos campos: o cartão cai de ~162px pra ~64px.
+   Com a tela vazia a busca continua grande, com a explicação.
+   ========================================================================= */
+.busca-compacta .card-body {
     display: flex;
-    gap: 12px;
-    align-items: flex-start;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    padding: 12px 16px;
 }
 
-.topo-pedido-foto-bloco {
-    width: 112px;
-}
-
-.topo-pedido-fotos .topo-pedido-foto {
-    flex: none;
-}
-
-.topo-pedido-foto-legenda {
-    margin-top: 4px;
-    color: #5c6770;
-    font-size: 0.6875rem;
+.busca-compacta .card-title {
+    margin: 0;
+    font-size: 1rem;
     font-weight: 600;
-    line-height: 1.2;
-    text-align: center;
+    white-space: nowrap;
 }
 
-.topo-pedido-item--compacto .topo-pedido-foto-bloco {
-    width: 72px;
+.busca-compacta .busca-ajuda {
+    display: none;
 }
 
-/* ----- Subtítulo dentro da grade do produto (separa os dados do anúncio dos do cadastro interno) ----- */
-.topo-pedido-campos-subtitulo {
-    grid-column: 1 / -1;
-    margin-top: 4px;
-    padding-top: 10px;
-    border-top: 1px dashed var(--cor-borda);
-    color: var(--cor-primaria);
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+.busca-compacta #form-consultar-pedido {
+    flex: 1 1 520px;
+    align-items: center !important; /* o .row do Bootstrap fixa align-items-end com !important */
+}
+
+.busca-compacta #form-consultar-pedido > .col-md {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.busca-compacta #form-consultar-pedido .consultar-pedido-campo-rotulo {
+    margin: 0 !important;
+    white-space: nowrap;
+}
+
+.busca-compacta #form-consultar-pedido .form-control {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.busca-compacta #form-consultar-pedido > .col-md-auto {
+    padding-bottom: 0 !important;
 }

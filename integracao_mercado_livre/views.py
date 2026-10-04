@@ -95,6 +95,136 @@ def _formatar_data_para_input(valor_iso):
     return instante.strftime("%Y-%m-%d")
 
 
+def _dia_local(valor_iso):
+    """Mesma conversão de fuso de _formatar_data, mas devolvendo só o DIA como
+    objeto date (ou None). É o que a faixa "Datas do caso" do topo da tela usa
+    pra mostrar o dia e pra contar quantos dias passaram entre uma data e a
+    seguinte (decisão de Matheus, 04/10/2026). Sem valor ou valor ilegível →
+    None, e a tela mostra o "sem registro" daquele passo."""
+    if not valor_iso or not isinstance(valor_iso, str):
+        return None
+    try:
+        instante = datetime.fromisoformat(valor_iso)
+    except ValueError:
+        return None
+    return instante.astimezone(FUSO_HORARIO_EXIBICAO).date()
+
+
+def _tempo_entre(dia_de, dia_ate, regra_dos_7_dias=False):
+    """Tempo entre 2 datas vizinhas da faixa "Datas do caso", pronto pro
+    template (a "etiqueta" que fica em cima da linha que liga os 2 pontos).
+
+    * [EXPLICAÇÃO] → conta DIAS CORRIDOS entre os 2 dias — a mesma conta que
+      Devolucao.dias_ate_reclamacao faz com os campos de data do cadastro.
+      Com regra_dos_7_dias=True (trecho "Recebido (cliente) → Reclamação
+      aberta") aplica a mesma regra de Devolucao.reclamacao_dentro_do_prazo:
+      até 7 dias corridos conta como DENTRO — assim essa tela e o Visualizar
+      nunca discordam. Só esse trecho ganha cor (verde/vermelho); os outros
+      ficam neutros, só informativos. Se uma das datas não existe → None (sem
+      etiqueta, a linha fica tracejada). Se a data seguinte for ANTERIOR à
+      anterior (dado esquisito vindo do ML), não inventa número negativo:
+      mostra um aviso curto."""
+    if dia_de is None or dia_ate is None:
+        return None
+    dias = (dia_ate - dia_de).days
+    if dias < 0:
+        texto = 'antes da entrega' if regra_dos_7_dias else 'fora de ordem'
+        return {
+            'texto': texto, 'depois': texto, 'tom': 'neutro', 'extra': None, 'simbolo': None,
+            'titulo': 'Essa data é anterior à data do passo anterior — vale conferir no Mercado Livre',
+        }
+    if dias == 0:
+        texto, depois = 'mesmo dia', 'no mesmo dia'
+    else:
+        texto = f'{dias} dia' if dias == 1 else f'{dias} dias'
+        depois = f'{texto} depois'
+    tempo = {'texto': texto, 'depois': depois, 'tom': 'neutro', 'extra': None, 'simbolo': None, 'titulo': None}
+    if regra_dos_7_dias:
+        dentro = dias <= 7
+        tempo.update(
+            tom='ok' if dentro else 'alerta',
+            extra='dentro dos 7' if dentro else 'fora dos 7',
+            simbolo='✓' if dentro else '✕',
+            titulo=('Reclamou dentro dos 7 dias corridos depois de receber'
+                    if dentro else 'Reclamou depois dos 7 dias corridos do recebimento'),
+        )
+    return tempo
+
+
+def _montar_datas_do_caso(*, dia_venda, dia_entrega_cliente, dia_reclamacao, dia_chegada_nos,
+                          dia_mediacao_aberta, dia_mediacao_encerrada,
+                          sem_devolucao_fisica, caso_encerrado, eh_mediacao, devolucao_cadastrada):
+    """Monta a faixa "Datas do caso" do topo: a linha do tempo COMPLETA do
+    pedido, da venda até o fim da mediação, sempre com os 6 passos — mesmo os
+    que ainda não aconteceram (a Ana vê em que fase o pedido está). Pedido de
+    Matheus, 04/10/2026: a Consultar Pedido é o ponto de entrada pra ver tudo
+    de um pedido, em qualquer fase.
+
+    * [EXPLICAÇÃO] → de onde vem cada data:
+      - Venda, Recebido (cliente), Reclamação aberta, Recebido (nós): API do ML
+        (são as 4 datas obrigatórias do formulário de Nova Devolução).
+      - Mediação aberta: SÓ o que a Ana registrou no cadastro da devolução
+        (decisão de 03/10/2026: é o dia em que ELA abriu a mediação pra
+        contestar o cliente; a API não sabe essa data). Sem cadastro → a tela
+        diz "ainda não cadastrada".
+      - Mediação encerrada: a data de fechamento que o ML informa (a mesma que
+        o botão "Criar devolução" já leva pro formulário), ou a do cadastro se
+        o ML não trouxe. Só aparece se o caso TEVE mediação (eh_mediacao, ou a
+        Ana registrou a abertura) — um caso que fechou sem mediação mostra "—".
+    Cada passo que ainda não tem data diz o motivo ("sem mediação", "em
+    andamento"...) em vez de ficar em branco."""
+    teve_mediacao = eh_mediacao or dia_mediacao_aberta is not None
+    if not teve_mediacao:
+        dia_mediacao_encerrada = None
+
+    if sem_devolucao_fisica:
+        sem_chegada = 'sem devolução física'
+    elif caso_encerrado:
+        sem_chegada = 'sem registro de entrega'
+    else:
+        sem_chegada = 'ainda não chegou'
+
+    if not eh_mediacao and dia_mediacao_aberta is None:
+        sem_abertura = 'sem mediação'
+    elif devolucao_cadastrada:
+        sem_abertura = 'sem data registrada'
+    else:
+        sem_abertura = 'ainda não cadastrada'
+
+    if not teve_mediacao:
+        sem_fim = '—'
+    elif caso_encerrado:
+        sem_fim = 'sem data informada'
+    else:
+        sem_fim = 'em andamento'
+
+    passos = [
+        {'rotulo': 'Venda', 'dia': dia_venda, 'sem_registro': 'sem registro'},
+        {'rotulo': 'Recebido (cliente)', 'dia': dia_entrega_cliente, 'sem_registro': 'sem registro de entrega'},
+        {'rotulo': 'Reclamação aberta', 'dia': dia_reclamacao, 'sem_registro': 'sem registro'},
+        {'rotulo': 'Recebido (nós)', 'dia': dia_chegada_nos, 'sem_registro': sem_chegada},
+        {'rotulo': 'Mediação aberta', 'dia': dia_mediacao_aberta, 'sem_registro': sem_abertura},
+        {'rotulo': 'Mediação encerrada', 'dia': dia_mediacao_encerrada, 'sem_registro': sem_fim},
+    ]
+    resultado = []
+    for posicao, passo in enumerate(passos):
+        proximo = passos[posicao + 1] if posicao + 1 < len(passos) else None
+        resultado.append({
+            'rotulo': passo['rotulo'],
+            'data': passo['dia'].strftime('%d/%m/%Y') if passo['dia'] else None,
+            'sem_registro': passo['sem_registro'],
+            # linha cheia só quando os 2 pontos têm data; senão fica tracejada
+            'liga': bool(proximo and passo['dia'] and proximo['dia']),
+            # etiqueta de tempo que fica em cima da linha ENTRE este passo e o seguinte
+            'tempo': _tempo_entre(passo['dia'], proximo['dia'], regra_dos_7_dias=(posicao == 1)) if proximo else None,
+            'tempo_anterior': None,
+        })
+    # No celular as linhas somem; aí o tempo aparece embaixo da data do passo seguinte ("9 dias depois").
+    for posicao in range(1, len(resultado)):
+        resultado[posicao]['tempo_anterior'] = resultado[posicao - 1]['tempo']
+    return resultado
+
+
 def _primeiro_evento_com_status(eventos, status_procurado):
     for evento in eventos:
         if evento.get("status") == status_procurado:
@@ -1046,6 +1176,28 @@ def view_consultar_pedido(request):
             'nome_comprador': nome_comprador,
             'nickname_comprador': nickname_comprador,
             'data_compra': _formatar_data(pedido.get('date_created')),
+            # * [EXPLICAÇÃO] → faixa "Datas do caso" do topo: linha do tempo completa,
+            #   da venda até o fim da mediação, com o tempo entre as datas (decisão
+            #   de Matheus, 04/10/2026). Toda a regra está em _montar_datas_do_caso.
+            'datas_do_caso': _montar_datas_do_caso(
+                dia_venda=_dia_local(pedido.get('date_created')),
+                dia_entrega_cliente=_dia_local(data_entrega_cliente),
+                dia_reclamacao=_dia_local(claim.get('date_created')),
+                dia_chegada_nos=_dia_local(data_chegada_nos),
+                dia_mediacao_aberta=devolucao_no_sistema.data_abertura_mediacao if devolucao_no_sistema is not None else None,
+                dia_mediacao_encerrada=(
+                    _dia_local((claim.get('resolution') or {}).get('date_created') if sem_devolucao_fisica else devolucao.get('date_closed'))
+                    or (devolucao_no_sistema.data_finalizacao_mediacao if devolucao_no_sistema is not None else None)
+                ),
+                sem_devolucao_fisica=sem_devolucao_fisica,
+                caso_encerrado=esta_encerrado,
+                eh_mediacao=eh_mediacao,
+                devolucao_cadastrada=devolucao_no_sistema is not None,
+            ),
+            # Pro grupo "Devolução / reclamação" saber se mostra "Unidades voltando"
+            # (só aparece quando a devolução física do ML trouxe essa informação).
+            'ha_unidades_voltando': any(i.get('texto_unidades_voltando') for i in itens_pedido),
+            'tipo_devolucao_texto': tipo_devolucao_texto,
             'titulo_item': titulo_item,
             'sku_item': sku_item,
             'quantidade_item': quantidade_item,
