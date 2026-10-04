@@ -29,7 +29,7 @@ from api_mercado_livre.core.estrutura_api.cliente_api import (
 from api_mercado_livre.core.auth.gerenciador_token import FalhaAutenticacao
 from integracao_mercado_livre.traducoes_devolucao import (
     traduzir_evento_envio, traduzir_tipo_e_etapa_claim,
-    traduzir_resolucao,
+    traduzir_resolucao, descrever_desfecho,
 )
 from devolucoes.models import Devolucao, Produto
 
@@ -154,11 +154,11 @@ def _tempo_entre(dia_de, dia_ate, regra_dos_7_dias=False):
     return tempo
 
 
-def _montar_datas_do_caso(*, dia_venda, dia_entrega_cliente, dia_reclamacao, dia_chegada_nos,
+def _montar_datas_do_caso(*, dia_venda, dia_entrega_cliente, dia_reclamacao, dia_virou_devolucao, dia_chegada_nos,
                           dia_mediacao_aberta, dia_mediacao_encerrada,
                           sem_devolucao_fisica, caso_encerrado, eh_mediacao, devolucao_cadastrada):
     """Monta a faixa "Datas do caso" do topo: a linha do tempo COMPLETA do
-    pedido, da venda até o fim da mediação, sempre com os 6 passos — mesmo os
+    pedido, da venda até o fim da mediação, sempre com os 7 passos — mesmo os
     que ainda não aconteceram (a Ana vê em que fase o pedido está). Pedido de
     Matheus, 04/10/2026: a Consultar Pedido é o ponto de entrada pra ver tudo
     de um pedido, em qualquer fase.
@@ -166,6 +166,11 @@ def _montar_datas_do_caso(*, dia_venda, dia_entrega_cliente, dia_reclamacao, dia
     * [EXPLICAÇÃO] → de onde vem cada data:
       - Venda, Recebido (cliente), Reclamação aberta, Recebido (nós): API do ML
         (são as 4 datas obrigatórias do formulário de Nova Devolução).
+      - Virou devolução: API do ML (/returns, campo date_created) — o dia em que
+        a reclamação virou devolução. Entrou na faixa em 04/10/2026, a pedido
+        de Matheus, quando a camada "Reclamação" do acordeão foi removida (era
+        o único lugar da tela que mostrava essa data). Sem devolução física no
+        ML ela não existe: o passo diz "sem devolução física".
       - Mediação aberta: SÓ o que a Ana registrou no cadastro da devolução
         (decisão de 03/10/2026: é o dia em que ELA abriu a mediação pra
         contestar o cliente; a API não sabe essa data). Sem cadastro → a tela
@@ -205,6 +210,8 @@ def _montar_datas_do_caso(*, dia_venda, dia_entrega_cliente, dia_reclamacao, dia
         {'rotulo': 'Venda', 'dia': dia_venda, 'sem_registro': 'sem registro'},
         {'rotulo': 'Recebido (cliente)', 'dia': dia_entrega_cliente, 'sem_registro': 'sem registro de entrega'},
         {'rotulo': 'Reclamação aberta', 'dia': dia_reclamacao, 'sem_registro': 'sem registro'},
+        {'rotulo': 'Virou devolução', 'dia': dia_virou_devolucao,
+         'sem_registro': 'sem devolução física' if sem_devolucao_fisica else 'sem registro'},
         {'rotulo': 'Recebido (nós)', 'dia': dia_chegada_nos, 'sem_registro': sem_chegada},
         {'rotulo': 'Mediação aberta', 'dia': dia_mediacao_aberta, 'sem_registro': sem_abertura},
         {'rotulo': 'Mediação encerrada', 'dia': dia_mediacao_encerrada, 'sem_registro': sem_fim},
@@ -438,8 +445,17 @@ def _colunas_grade_anexos(quantidade):
     return -(-quantidade // linhas)
 
 
+def _meu_papel_na_claim(claim, meu_user_id):
+    """Papel da nossa conta na claim (complainant/respondent), olhando os
+    players; None se a nossa conta não aparecer ou o /users/me não veio."""
+    for player in claim.get("players", []):
+        if player.get("user_id") == meu_user_id:
+            return player.get("role")
+    return None
+
+
 def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_cliente, numero_pedido):
-    """Monta a lista de mensagens da claim pro Bloco 4, já classificada em
+    """Monta a lista de mensagens da claim pro Chat do ML (camada 3 do acordeão), já classificada em
     ML / você / cliente (mesma lógica do varredura_respostas_mediacao.py:
     sender_role == 'mediator' é o ML, sender_role == o seu papel nos players
     é você, o resto é a cliente) e com o texto pronto pra exibir no chat.
@@ -447,11 +463,7 @@ def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_
     devolucoes/varredura_mediacoes.py. Desde 04/10/2026 viram miniatura
     (via proxy_anexo_claim, ver _url_anexo_mensagem) em vez do ícone-link
     que pedia login no Mercado Livre."""
-    meu_papel = None
-    for player in claim.get("players", []):
-        if player.get("user_id") == meu_user_id:
-            meu_papel = player.get("role")
-            break
+    meu_papel = _meu_papel_na_claim(claim, meu_user_id)
 
     try:
         resposta = chamar_api(
@@ -1123,6 +1135,7 @@ def view_consultar_pedido(request):
                 'link_anuncio': anuncio.get("permalink") if situacao_anuncio == 'active' else None,
                 'rotulo_situacao_anuncio': ROTULO_SITUACAO_ANUNCIO.get(situacao_anuncio),
                 'produto_cadastrado': produto_do_item is not None,
+                'produto_cadastrado_id': produto_do_item.pk if produto_do_item is not None else None,
                 'produto_cadastrado_nome': produto_do_item.nome if produto_do_item is not None else None,
                 'foto_cadastro_url': foto_cadastro_url,
                 'produto_marca': produto_do_item.marca.nome if produto_do_item is not None else None,
@@ -1233,9 +1246,11 @@ def view_consultar_pedido(request):
 
         claim_id = claim.get('id')
 
-        # ----- Conversa da claim (Bloco 4) -----
+        # ----- Conversa da claim (camada 3 do acordeão, "Chat do ML") -----
+        meu_papel = None
         try:
             me = chamar_api("GET", "/users/me", pasta_logs=PASTA_LOGS_ML, conta=conta).json()
+            meu_papel = _meu_papel_na_claim(claim, me.get('id'))
             mensagens_mediacao = _construir_mensagens_mediacao(
                 claim_id, conta, me.get('id'), claim, (nome_comprador[:1] or "C").upper(), numero_pedido,
             )
@@ -1259,6 +1274,13 @@ def view_consultar_pedido(request):
         else:
             esta_encerrado = bool(devolucao.get('date_closed'))
             data_encerramento = _formatar_data(devolucao.get('date_closed'))
+
+        # * [EXPLICAÇÃO] → linha de desfecho abaixo do selo "Encerrado" do topo
+        #   (decisão de Matheus, 04/10/2026): quem a mediação favoreceu + se teve
+        #   cobertura, como a API informa. Só com o caso encerrado e a claim
+        #   trazendo `resolution`; em claim cancelada pela venda (resolution
+        #   vazio) não aparece nada.
+        desfecho = descrever_desfecho(claim.get("resolution"), meu_papel) if esta_encerrado else None
 
         # * [EXPLICAÇÃO] → só "404 em todas" prova que o ML não registra devolução
         #   física. Qualquer outro erro no /returns (500, 400, 401...) é falha de
@@ -1289,6 +1311,7 @@ def view_consultar_pedido(request):
                 dia_venda=_dia_local(pedido.get('date_created')),
                 dia_entrega_cliente=_dia_local(data_entrega_cliente),
                 dia_reclamacao=_dia_local(claim.get('date_created')),
+                dia_virou_devolucao=_dia_local(devolucao.get('date_created')),
                 dia_chegada_nos=_dia_local(data_chegada_nos),
                 dia_mediacao_aberta=devolucao_no_sistema.data_abertura_mediacao if devolucao_no_sistema is not None else None,
                 dia_mediacao_encerrada=(
@@ -1319,12 +1342,10 @@ def view_consultar_pedido(request):
             'linha_tempo_ida': _montar_linha_do_tempo(historico_ida, endereco_origem_ida, endereco_destino_ida),
             'data_inicio_ida': _formatar_data(historico_ida_ordenado[0]['date']) if historico_ida_ordenado else None,
             'data_fim_ida': _formatar_data(historico_ida_ordenado[-1]['date']) if historico_ida_ordenado else None,
-            'data_abertura_claim': _formatar_data(claim.get('date_created')),
             'tipo_etapa': traduzir_tipo_e_etapa_claim(claim.get("type"), claim.get("stage")),
             # * [EXPLICAÇÃO] → sem 'motivo' (decisão de Matheus, 03/10/2026): o
             #   motivo que importa é o que o cliente escreveu, registrado à mão
             #   pela Ana — não o código padronizado do ML traduzido.
-            'data_virou_devolucao': _formatar_data(devolucao.get('date_created')),
             'shipments_volta': historicos_volta,
             'data_postagem_cliente': _formatar_data(data_postagem_cliente),
             'data_chegada_nos': _formatar_data(data_chegada_nos),
@@ -1334,6 +1355,7 @@ def view_consultar_pedido(request):
             'eh_mediacao': eh_mediacao,
             'status_devolucao': traduzir_evento_envio(devolucao.get("status"), None) if devolucao.get("status") else None,
             'resolucao': resolucao,
+            'desfecho': desfecho,
             'data_encerramento': data_encerramento,
             'status_dinheiro': devolucao.get('status_money'),
             'mensagens_mediacao': mensagens_mediacao,

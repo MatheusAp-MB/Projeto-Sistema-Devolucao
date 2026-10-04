@@ -110,3 +110,38 @@ def traduzir_resolucao(resolucao):
         'motivo_curto': motivo_texto or motivo_bruto,
         'confirmado': confirmado,
     }
+
+
+def descrever_desfecho(resolucao, meu_papel=None):
+    """Linha curta do topo da tela: quem a mediação favoreceu e se houve cobertura.
+
+    Só repete o que a API disse em `benefited` e `applied_coverage` — não
+    interpreta o efeito financeiro da cobertura. `meu_papel` é o papel da
+    nossa conta na claim (complainant/respondent); sem ele, usa o nome do
+    lado como a API informa. Sem resolução (ex.: claim cancelada pela
+    venda), não há desfecho: devolve None.
+    """
+    if not resolucao:
+        return None
+    beneficiados = resolucao.get("benefited") or []
+    partes = []
+    if beneficiados:
+        if meu_papel is None:
+            nomes = ["do " + TRADUCAO_PAPEL.get(papel, papel) for papel in beneficiados]
+            partes.append("a favor " + " e ".join(nomes))
+        else:
+            a_nosso_favor = meu_papel in beneficiados
+            a_favor_do_cliente = any(papel != meu_papel for papel in beneficiados)
+            if a_nosso_favor and a_favor_do_cliente:
+                partes.append("a favor dos dois lados")
+            elif a_nosso_favor:
+                partes.append("a nosso favor")
+            else:
+                partes.append("a favor do cliente")
+    cobertura = resolucao.get("applied_coverage")
+    if cobertura is not None:
+        partes.append("cobertura aplicada" if cobertura else "sem cobertura aplicada")
+    if not partes:
+        return None
+    texto = " · ".join(partes)
+    return texto[:1].upper() + texto[1:]

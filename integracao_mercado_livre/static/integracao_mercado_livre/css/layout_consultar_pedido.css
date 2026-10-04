@@ -920,7 +920,7 @@
 }
 
 /* ----- Faixa "Datas do caso": a linha do tempo do pedido (venda → fim da mediação) -----
-   6 passos sempre visíveis. Cada passo = ponto + rótulo + data; entre 2 passos fica uma
+   7 passos sempre visíveis. Cada passo = ponto + rótulo + data; entre 2 passos fica uma
    linha com o TEMPO em cima (etiqueta). Linha cheia = os 2 pontos têm data; tracejada =
    falta uma das datas (o passo ainda não aconteceu ou não tem registro). */
 .topo-pedido-datas {
@@ -1060,8 +1060,10 @@
     color: #b02a37;
 }
 
-/* Cartão médio (ex.: janela pequena): a etiqueta usa a versão curta */
-@container topo (max-width: 1020px) {
+/* Cartão médio (ex.: janela pequena): a etiqueta usa a versão curta.
+   Limite subiu de 1020 pra 1120px quando a faixa passou de 6 pra 7 passos (04/10/2026):
+   cada coluna ficou mais estreita, então a etiqueta longa precisa trocar antes. */
+@container topo (max-width: 1120px) {
     .topo-pedido-tempo-extra {
         display: none;
     }
@@ -1071,9 +1073,10 @@
     }
 }
 
-/* Cartão estreito (tablet): os 6 rótulos não cabem em 1 linha cada — quebram em 2 (com altura
-   fixa pra as datas continuarem alinhadas) */
-@container topo (max-width: 900px) {
+/* Cartão estreito (tablet): os 7 rótulos não cabem em 1 linha cada — quebram em 2 (com altura
+   fixa pra as datas continuarem alinhadas). Limite subiu de 900 pra 1060px com o 7º passo:
+   medido na réplica, "Mediação encerrada" deixava de caber em 1 linha abaixo de ~1010px. */
+@container topo (max-width: 1060px) {
     .topo-pedido-passo-rotulo {
         min-height: 2.4em;
         line-height: 1.2;

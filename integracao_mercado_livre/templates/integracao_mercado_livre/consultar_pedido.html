@@ -294,7 +294,13 @@
                 {# --- Lado 2: o que a gente tem cadastrado aqui dentro (ou o aviso de que ainda não tem) --- #}
                 {% if it.produto_cadastrado %}
                 <div class="topo-pedido-lado">
-                    <div class="topo-pedido-lado-titulo"><span>No nosso cadastro interno</span></div>
+                    <div class="topo-pedido-lado-titulo">
+                        <span>No nosso cadastro interno</span>
+                        {# Mesmo padrão do "Ver anúncio": abre em outra aba pra não perder o pedido que está sendo consultado (decisão de Matheus, 04/10/2026). #}
+                        {% if it.produto_cadastrado_id %}
+                            <a href="{% url 'visualizar_produto' it.produto_cadastrado_id %}" target="_blank" rel="noopener" class="topo-pedido-link-anuncio">Ver cadastro <i class="fas fa-arrow-up-right-from-square"></i></a>
+                        {% endif %}
+                    </div>
                     <div class="topo-pedido-lado-corpo">
                         <div class="topo-pedido-foto{% if it.foto_cadastro_url %} card-fotos-item{% else %} topo-pedido-foto--vazia{% endif %}" title="{{ it.produto_cadastrado_nome }}"{% if it.foto_cadastro_url %} data-fotos-id="topo-cadastro-{{ forloop.counter }}" data-titulo="{{ it.produto_cadastrado_nome }}" data-subtitulo="Cadastro interno"{% endif %}>
                             {% if it.foto_cadastro_url %}<img src="{{ it.foto_cadastro_url }}" alt="Foto do cadastro interno: {{ it.produto_cadastrado_nome }}" loading="lazy" onerror="fotoDoTopoFalhou(this)">{% endif %}
@@ -392,6 +398,7 @@
                         <span class="badge bg-success-subtle text-success-emphasis rounded-pill px-3 py-2 topo-pedido-situacao">
                             <i class="fas fa-check"></i> Encerrado — {{ resolucao.motivo_curto }}
                         </span>
+                        {% if desfecho %}<div class="topo-pedido-ajuda">{{ desfecho }}</div>{% endif %}
                     {% else %}
                         <span class="badge bg-danger-subtle text-danger-emphasis rounded-pill px-3 py-2 topo-pedido-situacao">
                             <i class="fas fa-circle"></i> {{ tipo_etapa.texto }}
@@ -510,32 +517,11 @@
         </div>
     </div>
 
-    <div class="accordion-item">
-        <h2 class="accordion-header">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bloco2">
-                <span class="badge rounded-pill bg-primary me-2">2</span>
-                Reclamação (cliente descobre o problema)
-                <span class="text-muted small ms-2">Aberta em {{ data_abertura_claim }}</span>
-            </button>
-        </h2>
-        <div id="bloco2" class="accordion-collapse collapse" data-bs-parent="#acordeaoConsultarPedido">
-            <div class="accordion-body">
-                <p><strong>Data de abertura:</strong> {{ data_abertura_claim }}</p>
-                <p><strong>Tipo / Etapa:</strong> {{ tipo_etapa.texto }}{% if not tipo_etapa.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
-                <p><strong>Motivo:</strong> <span class="text-muted">registre com as palavras do cliente — veja a Conversa no bloco 4</span></p>
-                {% if sem_devolucao_fisica %}
-                <p class="mb-0"><strong>Data em que virou devolução:</strong> — (sem devolução física registrada, veja o aviso no topo)</p>
-                {% else %}
-                <p class="mb-0"><strong>Data em que virou devolução:</strong> {{ data_virou_devolucao }}</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
-
+    {# Camadas visíveis: 1 Compra e envio de ida, 2 Devolução física, 3 Chat do ML. Os ids bloco3/bloco4 são de quando existia a camada "Reclamação" (removida em 04/10/2026, a data de "virou devolução" foi pra faixa "Datas do caso") -- mantidos de propósito pra não mexer no abrir/fechar. #}
     <div class="accordion-item">
         <h2 class="accordion-header">
             <button class="accordion-button{% if mensagens_mediacao %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#bloco3">
-                <span class="badge rounded-pill bg-primary me-2">3</span>
+                <span class="badge rounded-pill bg-primary me-2">2</span>
                 Devolução física e envio de volta (Histórico CLIENTE &rarr; NÓS)
                 <span class="text-muted small ms-2">
                     {% if sem_devolucao_fisica %}sem devolução física{% else %}{{ data_postagem_cliente|default:"ainda não despachado" }} &rarr; {{ data_chegada_nos|default:"ainda não chegou" }}{% endif %}
@@ -594,15 +580,15 @@
     <div class="accordion-item">
         <h2 class="accordion-header">
             <button class="accordion-button{% if not mensagens_mediacao %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#bloco4">
-                <span class="badge rounded-pill bg-primary me-2">4</span>
-                Recebimento e mediação/resolução
+                <span class="badge rounded-pill bg-primary me-2">3</span>
+                Chat do ML
                 <span class="text-muted small ms-2">{% if data_encerramento %}Encerrado em {{ data_encerramento }}{% elif esta_encerrado %}Encerrado{% else %}Ainda em aberto{% endif %}</span>
             </button>
         </h2>
-        {# Camada aberta por padrão (decisão de Matheus, 04/10/2026): quando existe conversa, a tela abre direto na camada 4 (Recebimento e mediação/resolução, onde fica o chat) em vez da 3, e o chat começa na PRIMEIRA mensagem -- é onde está o motivo do cliente. Sem conversa, continua abrindo a camada 3 como antes. #}
+        {# Camada aberta por padrão (decisão de Matheus, 04/10/2026): quando existe conversa, a tela abre direto na camada 3 (Chat do ML, onde fica a conversa; antes se chamava "Recebimento e mediação/resolução") em vez da 2, e o chat começa na PRIMEIRA mensagem -- é onde está o motivo do cliente. Sem conversa, continua abrindo a camada 2 (Devolução física) como antes. #}
         <div id="bloco4" class="accordion-collapse collapse{% if mensagens_mediacao %} show{% endif %}" data-bs-parent="#acordeaoConsultarPedido">
             <div class="accordion-body">
-                {# Camada 4 só com a conversa (decisão de Matheus, 04/10/2026): a grade Ramo / Status da devolução / Resolução / Data de encerramento / Status do dinheiro saiu -- não trazia nada que ajudasse a Ana (o resumo da resolução já aparece no topo e a data de encerramento no título da camada). #}
+                {# Camada 3 só com a conversa (decisão de Matheus, 04/10/2026): a grade Ramo / Status da devolução / Resolução / Data de encerramento / Status do dinheiro saiu -- não trazia nada que ajudasse a Ana (o resumo da resolução já aparece no topo e a data de encerramento no título da camada). #}
                 {% if mensagens_mediacao %}
                 <div>
                     <p class="text-uppercase text-muted small fw-bold mb-3"><i class="fas fa-comments"></i> Conversa</p>
