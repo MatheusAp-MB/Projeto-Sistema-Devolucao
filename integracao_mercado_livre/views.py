@@ -422,6 +422,22 @@ def _url_anexo_mensagem_fallback(numero_pedido, claim_id, conta, anexo):
     )
 
 
+MAX_FOTOS_POR_LINHA_CHAT = 5
+
+
+def _colunas_grade_anexos(quantidade):
+    """Quantas colunas a grade de miniaturas de UMA mensagem do chat usa --
+    decisão de Matheus, 04/10/2026: no máximo 5 fotos por linha, mas com as
+    linhas BALANCEADAS, pra nunca sobrar 1 foto sozinha na última linha.
+    1 a 5 fotos -> 1 linha; 6 -> 3+3; 7 -> 4+3; 8 -> 4+4; 9 -> 5+4; 10 -> 5+5.
+    Primeiro vê quantas linhas são necessárias (arredondando pra cima) e
+    depois divide as fotos igualmente entre elas."""
+    if quantidade <= 0:
+        return 0
+    linhas = -(-quantidade // MAX_FOTOS_POR_LINHA_CHAT)
+    return -(-quantidade // linhas)
+
+
 def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_cliente, numero_pedido):
     """Monta a lista de mensagens da claim pro Bloco 4, já classificada em
     ML / você / cliente (mesma lógica do varredura_respostas_mediacao.py:
@@ -472,6 +488,7 @@ def _construir_mensagens_mediacao(claim_id, conta, meu_user_id, claim, iniciais_
             "data": _formatar_data(m.get("date_created")),
             "texto_html": _preparar_mensagem_html(m.get("message")),
             "anexos": anexos,
+            "colunas_anexos": _colunas_grade_anexos(len(anexos)),
         })
     return resultado
 

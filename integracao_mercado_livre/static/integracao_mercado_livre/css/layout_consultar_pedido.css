@@ -62,10 +62,33 @@
     font-size: 0.7rem;
 }
 
+/* Teto de 900px (04/10/2026): em monitor grande a linha passava de 140
+   caracteres e cansava a leitura; no monitor de ~20" da Ana o 78% já é
+   menor que isso, então lá nada muda. */
+/* Rolagem interna do chat (decisão de Matheus, 04/10/2026): a conversa rola
+   dentro da própria caixa em vez de esticar a página inteira. Altura: 70% da
+   janela (na tela de ~20" da Ana cabe uma bolha + as fotos), com teto de
+   720px pra não virar uma caixa gigante em monitor grande. A barra fina
+   segue o mesmo visual da tela Mediações ML. */
+.consultar-pedido-chat-lista {
+    max-height: min(70vh, 720px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 14px 12px 14px 14px;
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: #c3cbd4 transparent;
+}
+.consultar-pedido-chat-lista::-webkit-scrollbar { width: 7px; }
+.consultar-pedido-chat-lista::-webkit-scrollbar-track { background: transparent; }
+.consultar-pedido-chat-lista::-webkit-scrollbar-thumb { background-color: #c3cbd4; border-radius: 20px; }
+.consultar-pedido-chat-lista::-webkit-scrollbar-thumb:hover { background-color: var(--cor-texto-muted); }
+
 .consultar-pedido-chat-msg {
     display: flex;
     gap: 10px;
-    max-width: 78%;
+    max-width: min(78%, 900px);
 }
 
 .consultar-pedido-chat-msg--dir {
@@ -73,18 +96,21 @@
     flex-direction: row-reverse;
 }
 
+/* 36px (era 30): a logo do Mercado Livre não ficava legível em 30px.
+   margin-top alinha o topo do círculo com o topo da bolha (altura da linha
+   nome/data + a margem de baixo dela). */
 .consultar-pedido-chat-avatar {
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    font-size: 0.7rem;
+    font-size: 0.8rem;
     font-weight: 700;
-    margin-top: 20px;
+    margin-top: 23px;
 }
 
 /* [ATENÇÃO] → código de cores por papel (ml/você/cliente) padronizado
@@ -132,7 +158,7 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     margin-bottom: 4px;
 }
 
@@ -141,14 +167,14 @@
 }
 
 .consultar-pedido-chat-nome { font-weight: 700; }
-.consultar-pedido-chat-nome--ml { color: var(--cor-papel-ml-forte); }
+.consultar-pedido-chat-nome--ml { color: var(--cor-papel-ml-texto); }
 .consultar-pedido-chat-nome--cliente { color: var(--cor-papel-cliente-forte); }
 .consultar-pedido-chat-nome--voce { color: var(--cor-papel-voce-forte); }
 
 .consultar-pedido-chat-bolha {
     padding: 10px 14px;
     border-radius: 14px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     line-height: 1.55;
     color: #2a2a2a;
 }
@@ -159,16 +185,21 @@
 .consultar-pedido-chat-bolha p { margin: 0; }
 .consultar-pedido-chat-bolha a { text-decoration: underline; }
 
-.consultar-pedido-chat-msg--esq .consultar-pedido-chat-bolha { border-top-left-radius: 4px; }
-.consultar-pedido-chat-msg--dir .consultar-pedido-chat-bolha { border-top-right-radius: 4px; }
+/* align-self: a bolha tem a largura do próprio texto (até o teto da mensagem)
+   em vez de esticar até a largura da fileira de miniaturas embaixo dela. */
+.consultar-pedido-chat-msg--esq .consultar-pedido-chat-bolha { border-top-left-radius: 4px; align-self: flex-start; }
+.consultar-pedido-chat-msg--dir .consultar-pedido-chat-bolha { border-top-right-radius: 4px; align-self: flex-end; }
 
 .consultar-pedido-chat-bolha--ml { background: var(--cor-papel-ml-bg); border: 1px solid var(--cor-papel-ml-borda); }
 .consultar-pedido-chat-bolha--cliente { background: var(--cor-papel-cliente-bg); border: 1px solid var(--cor-papel-cliente-borda); }
 .consultar-pedido-chat-bolha--voce { background: var(--cor-papel-voce-bg); border: 1px solid var(--cor-papel-voce-borda); }
 
+/* Grade de miniaturas com linhas balanceadas (decisão de Matheus,
+   04/10/2026): o backend calcula --colunas de cada mensagem (_colunas_grade_anexos
+   em views.py: no máximo 5 por linha, nunca 1 foto sozinha na última linha). */
 .consultar-pedido-chat-anexos {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(var(--colunas, 5), 120px);
     gap: 6px;
     margin-top: 8px;
 }
@@ -187,15 +218,29 @@
     overflow: hidden;
 }
 
+.consultar-pedido-chat-anexo {
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
 .consultar-pedido-chat-anexo:hover {
     border-color: var(--cor-primaria-clara);
     color: var(--cor-primaria-clara);
     text-decoration: none;
 }
 
+/* Miniatura que abre o modal de fotos (classe card-fotos-item só entra
+   depois que a imagem carrega): cursor de lupa e sombra no hover, em vez
+   do "apagado" padrão do .card-fotos-item (opacity .82). */
+.consultar-pedido-chat-anexo.card-fotos-item { cursor: zoom-in; }
+.consultar-pedido-chat-anexo.card-fotos-item:hover {
+    opacity: 1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
+}
+
 /* Miniatura do anexo (mesmo padrão da tela Mediações ML, 04/10/2026):
-   a imagem inteira, sem cortar. Se não carregar, o template liga
-   --falhou e volta o ícone pequeno de antes. */
+   a imagem inteira, sem cortar. Se não carregar (não é imagem -- PDF,
+   vídeo -- ou o download falhou), o template liga --falhou e o quadro
+   continua do MESMO tamanho (120x120), com ícone + "Abrir anexo". */
 .consultar-pedido-chat-anexo-img {
     width: 100%;
     height: 100%;
@@ -203,15 +248,17 @@
     display: block;
 }
 .consultar-pedido-chat-anexo-icone { display: none; }
+.consultar-pedido-chat-anexo-rotulo { display: none; }
 .consultar-pedido-chat-anexo--falhou {
-    width: 26px;
-    height: 26px;
-    border-radius: 6px;
+    flex-direction: column;
+    gap: 6px;
     background: #fff;
+    border-style: dashed;
 }
 .consultar-pedido-chat-anexo--falhou .consultar-pedido-chat-anexo-img { display: none; }
-.consultar-pedido-chat-anexo--falhou .consultar-pedido-chat-anexo-icone { display: inline; }
-.consultar-pedido-chat-msg--dir .consultar-pedido-chat-anexos { justify-content: flex-end; }
+.consultar-pedido-chat-anexo--falhou .consultar-pedido-chat-anexo-icone { display: block; font-size: 1.6rem; }
+.consultar-pedido-chat-anexo--falhou .consultar-pedido-chat-anexo-rotulo { display: block; font-weight: 600; }
+.consultar-pedido-chat-msg--dir .consultar-pedido-chat-anexos { justify-content: end; }
 
 /* Lista de desambiguação — buyer.id / Pack ID com mais de 1 pedido */
 .lista-pedidos-desambiguacao {

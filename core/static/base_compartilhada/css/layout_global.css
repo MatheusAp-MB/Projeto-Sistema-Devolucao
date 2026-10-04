@@ -30,6 +30,10 @@
     --cor-papel-ml-bg:          #fdf3d7;
     --cor-papel-ml-borda:       #f0dfa0;
     --cor-papel-ml-forte:       var(--cor-alerta);
+    /* Só o TEXTO do nome "Mercado Livre": o laranja do -forte sobre branco tem
+       contraste 2,15:1 (mínimo recomendado 4,5:1); este tom escuro dá ~5:1 e
+       mantém a cor do papel nos círculos e bolhas. 04/10/2026 — Matheus. */
+    --cor-papel-ml-texto:       #b45309;
 
     --cor-papel-voce-bg:        #e7f0fa;
     --cor-papel-voce-borda:     #cfe0f2;

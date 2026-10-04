@@ -534,7 +534,7 @@
 
     <div class="accordion-item">
         <h2 class="accordion-header">
-            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#bloco3">
+            <button class="accordion-button{% if mensagens_mediacao %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#bloco3">
                 <span class="badge rounded-pill bg-primary me-2">3</span>
                 Devolução física e envio de volta (Histórico CLIENTE &rarr; NÓS)
                 <span class="text-muted small ms-2">
@@ -543,7 +543,7 @@
                 </span>
             </button>
         </h2>
-        <div id="bloco3" class="accordion-collapse collapse show" data-bs-parent="#acordeaoConsultarPedido">
+        <div id="bloco3" class="accordion-collapse collapse{% if not mensagens_mediacao %} show{% endif %}" data-bs-parent="#acordeaoConsultarPedido">
             <div class="accordion-body">
                 {% for envio in shipments_volta %}
                 <p class="text-muted small font-monospace">Envio de devolução nº {{ envio.shipment_id }}</p>
@@ -593,45 +593,21 @@
 
     <div class="accordion-item">
         <h2 class="accordion-header">
-            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#bloco4">
+            <button class="accordion-button{% if not mensagens_mediacao %} collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#bloco4">
                 <span class="badge rounded-pill bg-primary me-2">4</span>
                 Recebimento e mediação/resolução
                 <span class="text-muted small ms-2">{% if data_encerramento %}Encerrado em {{ data_encerramento }}{% elif esta_encerrado %}Encerrado{% else %}Ainda em aberto{% endif %}</span>
             </button>
         </h2>
-        <div id="bloco4" class="accordion-collapse collapse" data-bs-parent="#acordeaoConsultarPedido">
+        {# Camada aberta por padrão (decisão de Matheus, 04/10/2026): quando existe conversa, a tela abre direto na camada 4 (Recebimento e mediação/resolução, onde fica o chat) em vez da 3, e o chat começa na PRIMEIRA mensagem -- é onde está o motivo do cliente. Sem conversa, continua abrindo a camada 3 como antes. #}
+        <div id="bloco4" class="accordion-collapse collapse{% if mensagens_mediacao %} show{% endif %}" data-bs-parent="#acordeaoConsultarPedido">
             <div class="accordion-body">
-                <div class="row row-cols-2 g-2 mb-3">
-                    <div class="col">
-                        <p class="text-uppercase text-muted fw-bold mb-1 consultar-pedido-campo-rotulo">Ramo</p>
-                        <p class="mb-0">{{ ramo }}</p>
-                    </div>
-                    {% if status_devolucao %}
-                    <div class="col">
-                        <p class="text-uppercase text-muted fw-bold mb-1 consultar-pedido-campo-rotulo">Status da devolução</p>
-                        <p class="mb-0">{{ status_devolucao.texto|default:status_devolucao.bruto }}{% if not status_devolucao.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
-                    </div>
-                    {% endif %}
-                    <div class="col">
-                        <p class="text-uppercase text-muted fw-bold mb-1 consultar-pedido-campo-rotulo">Resolução</p>
-                        <p class="mb-0">{{ resolucao.texto }}{% if not resolucao.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
-                    </div>
-                    <div class="col">
-                        <p class="text-uppercase text-muted fw-bold mb-1 consultar-pedido-campo-rotulo">Data de encerramento</p>
-                        <p class="mb-0">{% if data_encerramento %}{{ data_encerramento }}{% elif esta_encerrado %}encerrada (data não informada pela API){% else %}ainda em aberto{% endif %}</p>
-                    </div>
-                    {% if not sem_devolucao_fisica %}
-                    <div class="col">
-                        <p class="text-uppercase text-muted fw-bold mb-1 consultar-pedido-campo-rotulo">Status do dinheiro</p>
-                        <p class="mb-0">{{ status_dinheiro|default:"—" }} <span class="badge bg-warning text-dark">não confirmado</span></p>
-                    </div>
-                    {% endif %}
-                </div>
-
+                {# Camada 4 só com a conversa (decisão de Matheus, 04/10/2026): a grade Ramo / Status da devolução / Resolução / Data de encerramento / Status do dinheiro saiu -- não trazia nada que ajudasse a Ana (o resumo da resolução já aparece no topo e a data de encerramento no título da camada). #}
                 {% if mensagens_mediacao %}
-                <div class="pt-3 border-top">
+                <div>
                     <p class="text-uppercase text-muted small fw-bold mb-3"><i class="fas fa-comments"></i> Conversa</p>
-                    <div class="d-flex flex-column gap-3">
+                    {# Rolagem interna (decisão de Matheus, 04/10/2026): o chat rola dentro da própria caixa em vez de esticar a página inteira; começa na primeira mensagem (onde está o motivo do cliente). #}
+                    <div class="d-flex flex-column gap-3 consultar-pedido-chat-lista" id="consultar-pedido-chat-lista">
                         {% for msg in mensagens_mediacao %}
                         <div class="consultar-pedido-chat-msg consultar-pedido-chat-msg--{{ msg.lado }}">
                             {# Logo no lugar da inicial: Mercado Livre nas mensagens do ML e a logo da empresa ativa nas nossas; cliente continua com a inicial. A inicial fica sempre no HTML e só some quando a imagem do logo carrega de verdade (onload) -- se o arquivo não existir, continua a inicial de antes. #}
@@ -657,12 +633,13 @@
                                     {{ msg.texto_html|safe }}
                                 </div>
                                 {% if msg.anexos %}
-                                <div class="consultar-pedido-chat-anexos">
+                                <div class="consultar-pedido-chat-anexos" style="--colunas: {{ msg.colunas_anexos }};">
                                     {% for anexo in msg.anexos %}
-                                    {# Miniatura (mesmo padrão da tela Mediações ML): só vira item do modal de fotos (card-fotos-item) depois que a imagem carrega de verdade; se não carregar (ex.: não é imagem, ou o proxy caiu no link de segurança), vira o ícone pequeno de antes e o clique abre o anexo em nova guia. #}
+                                    {# Miniatura (mesmo padrão da tela Mediações ML): só vira item do modal de fotos (card-fotos-item) depois que a imagem carrega de verdade; se não carregar (ex.: não é imagem, ou o proxy caiu no link de segurança), vira um quadro do mesmo tamanho (ícone + "Abrir anexo") e o clique abre o anexo em nova guia. #}
                                     <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="consultar-pedido-chat-anexo" title="Ver imagem anexada" data-fotos-id="chat-msg-{{ forloop.parentloop.counter }}" data-titulo="Anexo de {{ msg.rotulo }}" data-subtitulo="{{ msg.data }}">
-                                        <img src="{{ anexo.url }}" alt="Anexo de {{ msg.rotulo }}" class="consultar-pedido-chat-anexo-img" loading="lazy" onload="this.parentNode.classList.add('card-fotos-item')" onerror="this.parentNode.classList.add('consultar-pedido-chat-anexo--falhou')">
-                                        <i class="fas fa-image consultar-pedido-chat-anexo-icone"></i>
+                                        <img src="{{ anexo.url }}" alt="Anexo de {{ msg.rotulo }}" class="consultar-pedido-chat-anexo-img" loading="lazy" onload="this.parentNode.classList.add('card-fotos-item')" onerror="this.parentNode.classList.add('consultar-pedido-chat-anexo--falhou'); this.parentNode.title='Abrir anexo em nova guia'">
+                                        <i class="fas fa-paperclip consultar-pedido-chat-anexo-icone"></i>
+                                        <span class="consultar-pedido-chat-anexo-rotulo">Abrir anexo</span>
                                     </a>
                                     {% endfor %}
                                 </div>
@@ -672,6 +649,8 @@
                         {% endfor %}
                     </div>
                 </div>
+                {% else %}
+                <p class="text-muted small mb-0">Nenhuma mensagem registrada nesta reclamação.</p>
                 {% endif %}
             </div>
         </div>
