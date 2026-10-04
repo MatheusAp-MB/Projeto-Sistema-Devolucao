@@ -100,6 +100,7 @@
                 <div class="nd-campo">
                     <label for="id_data_abertura_mediacao">Mediação aberta em</label>
                     <input type="date" id="id_data_abertura_mediacao" name="data_abertura_mediacao" value="{{ valores.data_abertura_mediacao }}">
+                    <small class="nd-campo-ajuda">Dia em que você abriu a mediação no ML.</small>
                 </div>
                 <div class="nd-campo">
                     <label for="id_data_finalizacao_mediacao">Mediação finalizada em</label>
@@ -117,6 +118,7 @@
             <div class="nd-campo">
                 <label for="id_valor_reembolsado">Valor reembolsado</label>
                 <input type="number" id="id_valor_reembolsado" name="valor_reembolsado" value="{{ valores.valor_reembolsado }}" step="0.01" min="0" placeholder="Ex: 495.00">
+                <small class="nd-campo-ajuda">Valor que o ML pagou à empresa pela compensação do produto devolvido. Preencha à mão depois que o ML confirmar.</small>
             </div>
             <div class="nd-campo">
                 <label for="id_anotacao_mediacao">Anotações sobre a mediação</label>
@@ -129,6 +131,7 @@
             <div class="nd-campo">
                 <label for="id_motivo_reclamacao">Motivo da reclamação *</label>
                 <textarea id="id_motivo_reclamacao" name="motivo_reclamacao" rows="3" required>{{ valores.motivo_reclamacao }}</textarea>
+                <small class="nd-campo-ajuda">Escreva do jeito que o cliente disse.</small>
             </div>
 
             <div class="nd-fotos-cliente">

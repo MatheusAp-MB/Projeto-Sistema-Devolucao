@@ -95,6 +95,11 @@
     resize: vertical;
 }
 
+.nd-campo-ajuda {
+    font-size: 12px;
+    color: #6b6b6b;
+}
+
 .nd-fotos-cliente {
     margin-top: 16px;
 }

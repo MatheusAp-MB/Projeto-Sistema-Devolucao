@@ -448,3 +448,313 @@
     font-weight: 600;
     color: #1c2530;
 }
+
+
+/* =========================================================================
+   Topo do pedido — 3 grupos: PRODUTO / CLIENTE / PEDIDO + faixa de ações.
+   Desenhado com a Ana em mente: cada grupo diz "isso é sobre o quê", e o
+   botão principal fica sempre na mesma faixa de baixo.
+   ========================================================================= */
+.topo-pedido {
+    overflow: hidden;
+}
+
+.topo-pedido-grupos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1px;
+    background: #e4e8ee; /* a "linha" entre os grupos é o fundo aparecendo pelo gap */
+}
+
+.topo-pedido-grupo {
+    min-width: 0;
+    box-sizing: border-box;
+    background: #ffffff;
+    padding: 18px 20px;
+}
+
+.topo-pedido-grupo--produto { flex: 2.4 1 380px; }
+.topo-pedido-grupo--cliente { flex: 1 1 210px; }
+.topo-pedido-grupo--pedido { flex: 1.2 1 240px; }
+
+.topo-pedido-titulo-grupo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    color: var(--cor-primaria);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.topo-pedido-rotulo {
+    margin-bottom: 3px;
+    color: #5c6770;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.topo-pedido-valor {
+    color: #212529;
+    font-size: 0.84rem;
+    overflow-wrap: anywhere;
+}
+
+.topo-pedido-valor--destaque {
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+
+.topo-pedido-valor--mono {
+    font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.topo-pedido-pilha {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.topo-pedido-ajuda {
+    margin-top: 4px;
+    color: #5c6770;
+    font-size: 0.72rem;
+    line-height: 1.4;
+}
+
+.topo-pedido-nota {
+    display: inline-block;
+    margin-top: 2px;
+    color: #5c6770;
+    font-size: 0.78rem;
+}
+
+/* ----- Produto(s) ----- */
+.topo-pedido-itens {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.topo-pedido-item {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.topo-pedido-foto {
+    flex: 0 0 112px;
+    width: 112px;
+    height: 112px;
+    box-sizing: border-box;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    background: #ffffff;
+    overflow: hidden;
+}
+
+.topo-pedido-foto img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.topo-pedido-foto-vazia-conteudo {
+    display: none;
+}
+
+.topo-pedido-foto--vazia {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-style: dashed;
+    border-color: #adb5bd;
+    color: #5c6770;
+}
+
+.topo-pedido-foto--vazia .topo-pedido-foto-vazia-conteudo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.6875rem;
+}
+
+.topo-pedido-foto--vazia .topo-pedido-foto-vazia-conteudo i {
+    font-size: 1.6rem;
+}
+
+.topo-pedido-item--compacto .topo-pedido-foto {
+    flex-basis: 72px;
+    width: 72px;
+    height: 72px;
+}
+
+.topo-pedido-item-corpo {
+    flex: 1 1 170px;
+    min-width: 0;
+}
+
+.topo-pedido-produto-titulo {
+    margin-bottom: 12px;
+    color: #212529;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.topo-pedido-item--compacto .topo-pedido-produto-titulo {
+    font-size: 0.875rem;
+    margin-bottom: 8px;
+}
+
+.topo-pedido-campos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px 16px;
+}
+
+.topo-pedido-link-anuncio {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+    padding: 2px 0;
+    color: var(--cor-primaria-clara);
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.topo-pedido-link-anuncio:hover {
+    text-decoration: underline;
+}
+
+.topo-pedido-link-anuncio i {
+    font-size: 0.65rem;
+    opacity: 0.7;
+}
+
+/* ----- Valor com botão de copiar ao lado ----- */
+.topo-pedido-copiavel {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.topo-pedido-copiar {
+    flex: 0 0 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    background: #ffffff;
+    color: #5c6770;
+    cursor: pointer;
+}
+
+.topo-pedido-copiar:hover {
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria-clara);
+}
+
+.topo-pedido-copiar--copiado {
+    border-color: var(--cor-positivo);
+    color: var(--cor-positivo);
+}
+
+/* ----- Situação do pedido (o badge do Bootstrap não quebra linha por padrão) ----- */
+.topo-pedido-situacao {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 100%;
+    white-space: normal;
+    text-align: left;
+    line-height: 1.3;
+}
+
+/* ----- Faixa de ações ----- */
+.topo-pedido-rodape {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 24px;
+    padding: 12px 20px;
+    background: #f6f8fb;
+    border-top: 1px solid var(--cor-borda);
+}
+
+.topo-pedido-acao {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.topo-pedido-botao-principal {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 18px;
+    border-radius: 6px;
+    background: var(--cor-primaria-clara);
+    color: var(--cor-texto-claro);
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.topo-pedido-botao-principal:hover {
+    background: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+    text-decoration: none;
+}
+
+.topo-pedido-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: #e9ecef;
+    color: #495057;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.topo-pedido-chip--ok {
+    background: #d1e7dd;
+    color: #0a3622;
+}
+
+.topo-pedido-ml {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 4px;
+}
+
+.topo-pedido-ml-rotulo {
+    margin-right: 6px;
+    color: #5c6770;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.topo-pedido-ml .consultar-pedido-atalho {
+    min-height: 36px;
+}

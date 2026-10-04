@@ -24,9 +24,10 @@ from api_mercado_livre.core.estrutura_api.cliente_api import (
 )
 from api_mercado_livre.core.auth.gerenciador_token import FalhaAutenticacao
 from integracao_mercado_livre.traducoes_devolucao import (
-    traduzir_evento_envio, traduzir_tipo_e_etapa_claim, categorizar_motivo,
+    traduzir_evento_envio, traduzir_tipo_e_etapa_claim,
     traduzir_resolucao,
 )
+from devolucoes.models import Devolucao
 
 CONTA_POR_EMPRESA = {
     EMPRESA_MAGAZINE: 'MB',
@@ -227,21 +228,6 @@ def _rotulo_confirmacao_endereco(resumo_endereco):
     if confirmacao == 'nao_bate':
         return '⚠️ não é o endereço oficial'
     return None
-
-
-def _data_abertura_disputa(claim_id, conta):
-    try:
-        resposta = chamar_api(
-            "GET", f"/post-purchase/v1/claims/{claim_id}/messages",
-            pasta_logs=PASTA_LOGS_ML, conta=conta,
-        )
-    except (ErroAPI, ErroAutenticacaoAPI):
-        return None
-    mensagens = resposta.json()
-    mensagens_dispute = [m for m in mensagens if m.get("stage") == "dispute"]
-    if not mensagens_dispute:
-        return None
-    return min(m.get("date_created") for m in mensagens_dispute if m.get("date_created"))
 
 
 def _preparar_mensagem_html(texto):
@@ -494,6 +480,83 @@ def _agrupar_e_ordenar_pedidos(pedidos):
     return blocos
 
 
+def _formatar_moeda_br(valor):
+    """1479.0 -> 'R$ 1.479,00'. Só pra exibir na tela (o valor que vai pro
+    formulário de Nova Devolução continua em preco_produto_input, com '.')."""
+    if valor is None:
+        return None
+    try:
+        texto_numero = f"{float(valor):,.2f}"
+    except (TypeError, ValueError):
+        return None
+    return "R$ " + texto_numero.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+# Só 'active' ganha o link "Ver anúncio"; os outros status viram um aviso
+# em texto (o anúncio de um pedido antigo muito provavelmente já foi encerrado).
+ROTULO_SITUACAO_ANUNCIO = {
+    'closed': 'Anúncio encerrado',
+    'paused': 'Anúncio pausado',
+    'under_review': 'Anúncio em revisão',
+    'inactive': 'Anúncio inativo',
+}
+
+
+def _buscar_dados_dos_anuncios(order_items, conta):
+    """Foto, link e situação dos anúncios (MLB) de um pedido, numa chamada só.
+
+    * [EXPLICAÇÃO] → o /orders traz o MLB (order_items[].item.id) mas NÃO traz
+      foto nem link. Os dois vêm do multiget GET /items?ids=MLB1,MLB2 (devolve
+      uma lista de {code, body}). Pedimos só os campos que a tela usa
+      (attributes=...) pra resposta ficar pequena. Se a chamada falhar, ou o
+      anúncio não vier (apagado, sem permissão), devolve {} e a tela mostra
+      "sem foto" — a consulta do pedido nunca quebra por causa disso.
+    * [NÃO CONFIRMADO] → comportamento pra anúncio já encerrado: esperado vir
+      com status 'closed' e as fotos antigas; o 1º teste real vai mostrar.
+    """
+    mlbs = []
+    for item_bruto in order_items:
+        mlb = (item_bruto.get('item') or {}).get('id')
+        if mlb and mlb not in mlbs:
+            mlbs.append(mlb)
+    if not mlbs:
+        return {}
+    try:
+        resposta = chamar_api(
+            "GET", "/items",
+            pasta_logs=PASTA_LOGS_ML, conta=conta,
+            params={"ids": ",".join(mlbs), "attributes": "id,status,permalink,thumbnail,pictures"},
+        )
+        lista = resposta.json()
+    except (ErroAPI, ErroAutenticacaoAPI, ValueError):
+        return {}
+    if not isinstance(lista, list):
+        return {}
+
+    dados = {}
+    for posicao, entrada in enumerate(lista):
+        if not isinstance(entrada, dict) or entrada.get('code') != 200:
+            continue
+        corpo = entrada.get('body') or {}
+        mlb = corpo.get('id') or (mlbs[posicao] if posicao < len(mlbs) else None)
+        if not mlb:
+            continue
+        fotos = corpo.get('pictures') or []
+        foto_url = None
+        if fotos and isinstance(fotos[0], dict):
+            foto_url = fotos[0].get('secure_url') or fotos[0].get('url')
+        if not foto_url:
+            foto_url = corpo.get('thumbnail')
+        if foto_url and foto_url.startswith('http://'):
+            foto_url = 'https://' + foto_url[len('http://'):]
+        dados[mlb] = {
+            'foto_url': foto_url,
+            'permalink': corpo.get('permalink'),
+            'status': corpo.get('status'),
+        }
+    return dados
+
+
 def view_consultar_pedido(request):
     empresa = obter_empresa_ativa()
     conta = CONTA_POR_EMPRESA.get(empresa)
@@ -686,17 +749,44 @@ def view_consultar_pedido(request):
         #   aplicado, que é o que Matheus confirmou usar em 19/09/2026).
         preco_unitario_item = item.get("unit_price")
 
+        # ----- Todos os produtos do pedido (antes só o 1º aparecia) -----
+        # * [EXPLICAÇÃO] → decisão de Matheus (04/10/2026): o topo da tela vira
+        #   Produto / Cliente / Pedido. Cada produto mostra foto, MLB do anúncio
+        #   exato em que o cliente comprou, SKU, quantidade e preço unitário.
+        #   O formulário de Nova Devolução só aceita 1 produto: quando o pedido
+        #   tem mais de 1, o link "Criar devolução" NÃO pré-preenche SKU nem
+        #   preço (melhor vazio do que o produto errado) — a Ana escolhe lá.
+        itens_brutos = pedido.get("order_items") or []
+        dados_anuncios = _buscar_dados_dos_anuncios(itens_brutos, conta)
+        itens_pedido = []
+        for item_bruto in itens_brutos:
+            dados_do_item = item_bruto.get("item") or {}
+            mlb_do_item = dados_do_item.get("id")
+            anuncio = dados_anuncios.get(mlb_do_item, {})
+            situacao_anuncio = anuncio.get("status")
+            itens_pedido.append({
+                'titulo': dados_do_item.get("title") or "—",
+                'sku': dados_do_item.get("seller_sku") or "—",
+                'mlb': mlb_do_item or "—",
+                'quantidade': item_bruto.get("quantity") or 1,
+                'preco_unitario': _formatar_moeda_br(item_bruto.get("unit_price")),
+                'foto_url': anuncio.get("foto_url"),
+                'link_anuncio': anuncio.get("permalink") if situacao_anuncio == 'active' else None,
+                'rotulo_situacao_anuncio': ROTULO_SITUACAO_ANUNCIO.get(situacao_anuncio),
+            })
+
+        # * [EXPLICAÇÃO] → a Ana precisa saber, ao olhar o pedido, se ele já foi
+        #   cadastrado no sistema (aí o botão vira "Abrir devolução"). Mesma
+        #   regra que nova_devolucao já usa: 1 devolução por numero_pedido.
+        devolucao_no_sistema_id = Devolucao.objects.filter(
+            numero_pedido=str(numero_pedido),
+        ).values_list('id', flat=True).first()
+
         shipping_id_ida = (pedido.get("shipping") or {}).get("id")
-        # * [EXPLICAÇÃO] → 'fulfillment' é o único logistic_type que
-        #   corresponde a venda FULL de verdade — usado só pra sugerir o
-        #   Tipo de venda no link "Criar devolução"; os valores
-        #   ('comum'/'full') têm que continuar batendo com
-        #   Devolucao.TIPO_VENDA_CHOICES.
-        logistic_type_pedido = (pedido.get("shipping") or {}).get("logistic_type")
-        tipo_venda_sugerido = 'full' if logistic_type_pedido == 'fulfillment' else 'comum'
         historico_ida = []
         endereco_origem_ida = None
         endereco_destino_ida = None
+        logistic_type_ida = None
         if shipping_id_ida:
             historico_ida = _buscar_historico_envio(shipping_id_ida, conta)
             try:
@@ -704,12 +794,32 @@ def view_consultar_pedido(request):
             except (ErroAPI, ErroAutenticacaoAPI):
                 shipment_ida_completo = None
             if shipment_ida_completo:
+                # * [EXPLICAÇÃO] → o tipo logístico do envio mora na RAIZ do
+                #   /shipments/{id} (chamado SEM x-format-new; nesse formato o
+                #   campo aninhado logistic.type vem ausente). Confirmado no
+                #   pedido real 2000018229470186: raiz = 'xd_drop_off'.
+                logistic_type_ida = shipment_ida_completo.get('logistic_type')
                 endereco_origem_ida = _resumir_endereco_para_exibicao(
                     shipment_ida_completo.get('sender_address'), conta,
                 )
                 endereco_destino_ida = _resumir_endereco_para_exibicao(
                     shipment_ida_completo.get('receiver_address'), conta,
                 )
+        # * [EXPLICAÇÃO] → decisão de Matheus (03/10/2026): a divisão FULL vs
+        #   não-FULL é a mesma do Sistema Interno V2 — 'fulfillment' é o único
+        #   tipo que vira FULL; qualquer outro vira 'comum'. A fonte é o ENVIO
+        #   de ida: o pedido do /orders não traz logistic_type (por isso a tela
+        #   antes sempre caía em 'comum'). Se o tipo não veio (envio não
+        #   carregou ou campo ausente), fica '' e o formulário mostra
+        #   "Selecione..." — melhor do que chutar 'comum'. Os valores
+        #   ('comum'/'full') têm que continuar batendo com
+        #   Devolucao.TIPO_VENDA_CHOICES.
+        if not logistic_type_ida:
+            tipo_venda_sugerido = ''
+        elif logistic_type_ida == 'fulfillment':
+            tipo_venda_sugerido = 'full'
+        else:
+            tipo_venda_sugerido = 'comum'
         historico_ida_ordenado = sorted(historico_ida, key=lambda e: e.get('date') or '')
         data_entrega_cliente = _ultimo_evento_com_status(historico_ida, "delivered") if historico_ida else None
 
@@ -761,11 +871,12 @@ def view_consultar_pedido(request):
         eh_mediacao = tem_mediador or claim.get("stage") == "dispute"
         ramo = "Mediação" if eh_mediacao else "Devolução simples (sem mediação)"
 
-        data_abertura_mediacao = None
-        data_dispute = None
-        if eh_mediacao:
-            data_dispute = _data_abertura_disputa(claim.get('id'), conta)
-            data_abertura_mediacao = _formatar_data(data_dispute) if data_dispute else None
+        # * [EXPLICAÇÃO] → decisão de Matheus (03/10/2026): "abertura da
+        #   mediação" é SEMPRE o dia em que a Ana recebeu a devolução, viu o
+        #   defeito e abriu a mediação no ML pra contestar o cliente — e a
+        #   devolução costuma ser cadastrada ANTES disso. A API não sabe essa
+        #   data (a 1ª mensagem de disputa do ML é outra coisa), então ela é
+        #   sempre manual: a tela não mostra e o link "Criar devolução" não leva.
 
         claim_id = claim.get('id')
 
@@ -821,6 +932,11 @@ def view_consultar_pedido(request):
             'titulo_item': titulo_item,
             'sku_item': sku_item,
             'quantidade_item': quantidade_item,
+            'itens_pedido': itens_pedido,
+            # str() de propósito: o Django não pode formatar o ID do cliente
+            # com separador de milhar (1.003.452.048 não bate com a etiqueta).
+            'id_comprador': str(comprador.get('id') or ''),
+            'devolucao_no_sistema_id': devolucao_no_sistema_id,
             'claim_id': claim_id,
             'url_ver_pedido': f'https://www.mercadolivre.com.br/vendas/{numero_pedido}/detalhe',
             'url_ver_reclamacao': f'https://www.mercadolivre.com.br/vendas/novo/mensagens/{numero_pedido}/reclamacao/{claim_id}',
@@ -830,7 +946,9 @@ def view_consultar_pedido(request):
             'data_fim_ida': _formatar_data(historico_ida_ordenado[-1]['date']) if historico_ida_ordenado else None,
             'data_abertura_claim': _formatar_data(claim.get('date_created')),
             'tipo_etapa': traduzir_tipo_e_etapa_claim(claim.get("type"), claim.get("stage")),
-            'motivo': categorizar_motivo(claim.get("reason_id")),
+            # * [EXPLICAÇÃO] → sem 'motivo' (decisão de Matheus, 03/10/2026): o
+            #   motivo que importa é o que o cliente escreveu, registrado à mão
+            #   pela Ana — não o código padronizado do ML traduzido.
             'data_virou_devolucao': _formatar_data(devolucao.get('date_created')),
             'shipments_volta': historicos_volta,
             'data_postagem_cliente': _formatar_data(data_postagem_cliente),
@@ -841,7 +959,6 @@ def view_consultar_pedido(request):
             'eh_mediacao': eh_mediacao,
             'status_devolucao': traduzir_evento_envio(devolucao.get("status"), None) if devolucao.get("status") else None,
             'resolucao': resolucao,
-            'data_abertura_mediacao': data_abertura_mediacao,
             'data_encerramento': data_encerramento,
             'status_dinheiro': devolucao.get('status_money'),
             'mensagens_mediacao': mensagens_mediacao,
@@ -855,20 +972,19 @@ def view_consultar_pedido(request):
             'data_recebimento_cliente_input': _formatar_data_para_input(data_entrega_cliente),
             'data_reclamacao_cliente_input': _formatar_data_para_input(claim.get('date_created')),
             'data_recebimento_por_nos_input': _formatar_data_para_input(data_chegada_nos),
-            'data_abertura_mediacao_input': _formatar_data_para_input(data_dispute),
             'data_finalizacao_mediacao_input': _formatar_data_para_input(devolucao.get('date_closed')),
             'tipo_venda_sugerido': tipo_venda_sugerido,
             # SKU do vendedor no anúncio do ML — não é código de barras,
             # mas alimenta a mesma busca de produto que já sabe achar por
             # código de barras exato OU por nome/SKU/cód. fabricante/marca
             # (ver produto_busca em nova_devolucao/script_nova_devolucao.js).
-            'sku_item_input': sku_item if sku_item != '—' else '',
+            'sku_item_input': '' if (len(itens_pedido) > 1 or sku_item == '—') else sku_item,
             # Preço do produto (pedido de Ana, 19/09/2026) — formatado já
             # com '.' (nunca deixa o Django localizar sozinho pro
             # template), pro <input type=number> de nova_devolucao.html
             # aceitar o value sem estranhar (ver nota em
             # devolucoes/views.py::_valores_da_devolucao).
-            'preco_produto_input': f'{preco_unitario_item:.2f}' if preco_unitario_item is not None else '',
+            'preco_produto_input': '' if (len(itens_pedido) > 1 or preco_unitario_item is None) else f'{preco_unitario_item:.2f}',
         })
 
     except (ErroAPI, ErroAutenticacaoAPI, FalhaAutenticacao) as erro:

@@ -238,53 +238,142 @@
     {% if aviso_sem_devolucao.total_claims > 1 %}Este pedido tem {{ aviso_sem_devolucao.total_claims }} reclamações; estamos mostrando a primeira.{% endif %}
 </div>
 {% endif %}
-<div class="card mb-3">
-    <div class="card-body py-3">
-        <div class="d-flex align-items-center gap-3 flex-wrap">
-            <h5 class="mb-0">Pedido {{ numero_pedido }}</h5>
-            {% if esta_encerrado %}
-                <span class="badge bg-success-subtle text-success-emphasis rounded-pill px-3 py-2">
-                    <i class="fas fa-check"></i> Encerrado — {{ resolucao.motivo_curto }}
-                </span>
+<div class="card mb-3 topo-pedido">
+    <div class="topo-pedido-grupos">
+
+        {# ===== PRODUTO(S): foto, MLB do anúncio exato, SKU, quantidade, preço ===== #}
+        <section class="topo-pedido-grupo topo-pedido-grupo--produto" aria-label="Produto">
+            <div class="topo-pedido-titulo-grupo">
+                <i class="fas fa-box-open"></i>
+                <span>{% if itens_pedido|length > 1 %}Produtos ({{ itens_pedido|length }}){% else %}Produto{% endif %}</span>
+            </div>
+            <div class="topo-pedido-itens">
+                {% for it in itens_pedido %}
+                <div class="topo-pedido-item{% if itens_pedido|length > 1 %} topo-pedido-item--compacto{% endif %}">
+                    <div class="topo-pedido-foto{% if not it.foto_url %} topo-pedido-foto--vazia{% endif %}">
+                        {% if it.foto_url %}<img src="{{ it.foto_url }}" alt="Foto do anúncio {{ it.mlb }}" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.classList.add('topo-pedido-foto--vazia'); this.remove();">{% endif %}
+                        <span class="topo-pedido-foto-vazia-conteudo"><i class="far fa-image"></i><span>sem foto</span></span>
+                    </div>
+                    <div class="topo-pedido-item-corpo">
+                        <div class="topo-pedido-produto-titulo">{{ it.titulo }}</div>
+                        <div class="topo-pedido-campos">
+                            <div>
+                                <div class="topo-pedido-rotulo">SKU</div>
+                                <div class="topo-pedido-valor topo-pedido-valor--mono">{{ it.sku }}</div>
+                            </div>
+                            <div>
+                                <div class="topo-pedido-rotulo">Anúncio (MLB)</div>
+                                <div class="topo-pedido-valor topo-pedido-valor--mono">{{ it.mlb }}</div>
+                                {% if it.link_anuncio %}
+                                    <a href="{{ it.link_anuncio }}" target="_blank" rel="noopener" class="topo-pedido-link-anuncio">Ver anúncio <i class="fas fa-arrow-up-right-from-square"></i></a>
+                                {% elif it.rotulo_situacao_anuncio %}
+                                    <span class="topo-pedido-nota">{{ it.rotulo_situacao_anuncio }}</span>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <div class="topo-pedido-rotulo">Quantidade</div>
+                                <div class="topo-pedido-valor">{{ it.quantidade }} unidade{{ it.quantidade|pluralize }}</div>
+                            </div>
+                            {% if it.preco_unitario %}
+                            <div>
+                                <div class="topo-pedido-rotulo">Preço unitário</div>
+                                <div class="topo-pedido-valor fw-semibold">{{ it.preco_unitario }}</div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+
+        {# ===== CLIENTE: nome + ID (o número da etiqueta) ===== #}
+        <section class="topo-pedido-grupo topo-pedido-grupo--cliente" aria-label="Cliente">
+            <div class="topo-pedido-titulo-grupo">
+                <i class="fas fa-user"></i>
+                <span>Cliente</span>
+            </div>
+            <div class="topo-pedido-pilha">
+                <div>
+                    <div class="topo-pedido-rotulo">Nome</div>
+                    <div class="topo-pedido-valor topo-pedido-valor--destaque">{{ nome_comprador }}</div>
+                </div>
+                <div>
+                    <div class="topo-pedido-rotulo">ID do cliente</div>
+                    {% if id_comprador %}
+                    <div class="topo-pedido-copiavel">
+                        <span class="topo-pedido-valor topo-pedido-valor--destaque topo-pedido-valor--mono">{{ id_comprador }}</span>
+                        <button type="button" class="topo-pedido-copiar" data-copiar="{{ id_comprador }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar ID do cliente" title="Copiar ID do cliente"><i class="far fa-copy"></i></button>
+                    </div>
+                    <div class="topo-pedido-ajuda">Mesmo número que aparece ao lado do nome na etiqueta.</div>
+                    {% else %}
+                    <div class="topo-pedido-valor">—</div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+        {# ===== PEDIDO: número da venda, data da compra, situação ===== #}
+        <section class="topo-pedido-grupo topo-pedido-grupo--pedido" aria-label="Pedido">
+            <div class="topo-pedido-titulo-grupo">
+                <i class="fas fa-receipt"></i>
+                <span>Pedido</span>
+            </div>
+            <div class="topo-pedido-pilha">
+                <div>
+                    <div class="topo-pedido-rotulo">Número da venda</div>
+                    <div class="topo-pedido-copiavel">
+                        <span class="topo-pedido-valor topo-pedido-valor--destaque topo-pedido-valor--mono">{{ numero_pedido }}</span>
+                        <button type="button" class="topo-pedido-copiar" data-copiar="{{ numero_pedido }}" onclick="copiarTextoDoTopo(this)" aria-label="Copiar número da venda" title="Copiar número da venda"><i class="far fa-copy"></i></button>
+                    </div>
+                </div>
+                <div>
+                    <div class="topo-pedido-rotulo">Comprado em</div>
+                    <div class="topo-pedido-valor">{{ data_compra|default:"—" }}</div>
+                </div>
+                <div>
+                    <div class="topo-pedido-rotulo">Situação</div>
+                    {% if esta_encerrado %}
+                        <span class="badge bg-success-subtle text-success-emphasis rounded-pill px-3 py-2 topo-pedido-situacao">
+                            <i class="fas fa-check"></i> Encerrado — {{ resolucao.motivo_curto }}
+                        </span>
+                    {% else %}
+                        <span class="badge bg-danger-subtle text-danger-emphasis rounded-pill px-3 py-2 topo-pedido-situacao">
+                            <i class="fas fa-circle"></i> {{ tipo_etapa.texto }}
+                        </span>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    {# ===== FAIXA DE AÇÕES: o botão principal depende de a devolução já existir no sistema ===== #}
+    <div class="topo-pedido-rodape">
+        <div class="topo-pedido-acao">
+            {% if devolucao_no_sistema_id %}
+                <a href="{% url 'editar_devolucao' devolucao_no_sistema_id %}" target="_blank" rel="noopener" class="topo-pedido-botao-principal">
+                    <i class="fas fa-file-lines"></i> Abrir devolução
+                </a>
+                <span class="topo-pedido-chip topo-pedido-chip--ok">Já cadastrada no sistema</span>
             {% else %}
-                <span class="badge bg-danger-subtle text-danger-emphasis rounded-pill px-3 py-2">
-                    <i class="fas fa-circle"></i> {{ tipo_etapa.texto }}
-                </span>
-            {% endif %}
-            <span class="flex-grow-1"></span>
-            <div class="d-flex flex-wrap gap-1">
-                <a href="{% url 'nova_devolucao' %}?numero_pedido={{ numero_pedido|urlencode }}&nome_cliente={{ nome_comprador_input|urlencode }}&data_venda={{ data_venda_input|urlencode }}&data_recebimento_cliente={{ data_recebimento_cliente_input|urlencode }}&data_reclamacao_cliente={{ data_reclamacao_cliente_input|urlencode }}&data_recebimento_por_nos={{ data_recebimento_por_nos_input|urlencode }}&data_abertura_mediacao={{ data_abertura_mediacao_input|urlencode }}&data_finalizacao_mediacao={{ data_finalizacao_mediacao_input|urlencode }}&tipo_venda={{ tipo_venda_sugerido|urlencode }}&produto_busca={{ sku_item_input|urlencode }}&preco_produto={{ preco_produto_input|urlencode }}" target="_blank" rel="noopener" class="consultar-pedido-atalho consultar-pedido-atalho--principal">
+                <a href="{% url 'nova_devolucao' %}?numero_pedido={{ numero_pedido|urlencode }}&nome_cliente={{ nome_comprador_input|urlencode }}&data_venda={{ data_venda_input|urlencode }}&data_recebimento_cliente={{ data_recebimento_cliente_input|urlencode }}&data_reclamacao_cliente={{ data_reclamacao_cliente_input|urlencode }}&data_recebimento_por_nos={{ data_recebimento_por_nos_input|urlencode }}&data_finalizacao_mediacao={{ data_finalizacao_mediacao_input|urlencode }}&tipo_venda={{ tipo_venda_sugerido|urlencode }}&produto_busca={{ sku_item_input|urlencode }}&preco_produto={{ preco_produto_input|urlencode }}" target="_blank" rel="noopener" class="topo-pedido-botao-principal">
                     <i class="fas fa-rotate-left"></i> Criar devolução
                 </a>
-                <a href="{{ url_ver_pedido }}" target="_blank" rel="noopener" class="consultar-pedido-atalho">
-                    <i class="fas fa-cart-shopping"></i> Pedido <i class="fas fa-arrow-up-right-from-square externo"></i>
-                </a>
-                <a href="{{ url_ver_reclamacao }}" target="_blank" rel="noopener" class="consultar-pedido-atalho">
-                    <i class="fas fa-message"></i> Reclamação <i class="fas fa-arrow-up-right-from-square externo"></i>
-                </a>
-                <a href="{{ url_ver_mediacao }}" target="_blank" rel="noopener" class="consultar-pedido-atalho">
-                    <i class="fas fa-scale-balanced"></i> Mediação <i class="fas fa-arrow-up-right-from-square externo"></i>
-                </a>
-            </div>
-        </div>
-        <div class="d-flex align-items-center gap-2 flex-wrap text-muted small mt-2">
-            <span>{{ nome_comprador }}</span>
-            <span class="opacity-50">·</span>
-            <span>{{ nickname_comprador }}</span>
-            <span class="opacity-50">·</span>
-            <span>Comprado em {{ data_compra }}</span>
-        </div>
-        <hr class="my-2">
-        <div class="d-flex align-items-baseline gap-2 flex-wrap small">
-            <span class="fw-semibold">{{ titulo_item }}</span>
-            <span class="text-muted opacity-50">—</span>
-            <span class="text-muted font-monospace">SKU {{ sku_item }}</span>
-            <span class="text-muted opacity-50">—</span>
-            <span class="text-muted">{{ quantidade_item }} unidade{{ quantidade_item|pluralize }}</span>
-            {% if preco_produto_input %}
-                <span class="text-muted opacity-50">—</span>
-                <span class="text-muted">R$ {{ preco_produto_input|floatformat:2 }}</span>
+                <span class="topo-pedido-chip">Ainda não cadastrada no sistema</span>
             {% endif %}
+        </div>
+        <div class="topo-pedido-ml">
+            <span class="topo-pedido-ml-rotulo">Ver no Mercado Livre</span>
+            <a href="{{ url_ver_pedido }}" target="_blank" rel="noopener" class="consultar-pedido-atalho">
+                <i class="fas fa-cart-shopping"></i> Pedido <i class="fas fa-arrow-up-right-from-square externo"></i>
+            </a>
+            <a href="{{ url_ver_reclamacao }}" target="_blank" rel="noopener" class="consultar-pedido-atalho">
+                <i class="fas fa-message"></i> Reclamação <i class="fas fa-arrow-up-right-from-square externo"></i>
+            </a>
+            <a href="{{ url_ver_mediacao }}" target="_blank" rel="noopener" class="consultar-pedido-atalho">
+                <i class="fas fa-scale-balanced"></i> Mediação <i class="fas fa-arrow-up-right-from-square externo"></i>
+            </a>
         </div>
     </div>
 </div>
@@ -339,7 +428,7 @@
             <div class="accordion-body">
                 <p><strong>Data de abertura:</strong> {{ data_abertura_claim }}</p>
                 <p><strong>Tipo / Etapa:</strong> {{ tipo_etapa.texto }}{% if not tipo_etapa.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
-                <p><strong>Motivo:</strong> {{ motivo.texto }}{% if not motivo.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
+                <p><strong>Motivo:</strong> <span class="text-muted">registre com as palavras do cliente — veja a Conversa no bloco 4</span></p>
                 {% if sem_devolucao_fisica %}
                 <p class="mb-0"><strong>Data em que virou devolução:</strong> — (sem devolução física registrada, veja o aviso no topo)</p>
                 {% else %}
@@ -433,12 +522,6 @@
                         <p class="text-uppercase text-muted fw-bold mb-1 consultar-pedido-campo-rotulo">Resolução</p>
                         <p class="mb-0">{{ resolucao.texto }}{% if not resolucao.confirmado %} <span class="badge bg-warning text-dark">não confirmado</span>{% endif %}</p>
                     </div>
-                    {% if eh_mediacao %}
-                    <div class="col">
-                        <p class="text-uppercase text-muted fw-bold mb-1 consultar-pedido-campo-rotulo">Data de abertura da mediação</p>
-                        <p class="mb-0">{{ data_abertura_mediacao|default:"não encontrada nas mensagens" }}</p>
-                    </div>
-                    {% endif %}
                     <div class="col">
                         <p class="text-uppercase text-muted fw-bold mb-1 consultar-pedido-campo-rotulo">Data de encerramento</p>
                         <p class="mb-0">{% if data_encerramento %}{{ data_encerramento }}{% elif esta_encerrado %}encerrada (data não informada pela API){% else %}ainda em aberto{% endif %}</p>
@@ -566,6 +649,40 @@
         } else {
             textoOrdenar.textContent = 'Ordenar por: mais antigos primeiro';
             iconeOrdenar.className = 'fas fa-arrow-up-short-wide';
+        }
+    }
+    // Botão de copiar do topo (ID do cliente / número da venda). Usa a área de
+    // transferência moderna quando o navegador deixa (localhost/https) e cai
+    // num método antigo quando o sistema é aberto por endereço de rede (http).
+    function copiarTextoDoTopo(botao) {
+        var texto = botao.getAttribute('data-copiar');
+        function mostrarCopiado() {
+            var icone = botao.querySelector('i');
+            var classeAntes = icone.className;
+            icone.className = 'fas fa-check';
+            botao.classList.add('topo-pedido-copiar--copiado');
+            setTimeout(function () {
+                icone.className = classeAntes;
+                botao.classList.remove('topo-pedido-copiar--copiado');
+            }, 1500);
+        }
+        function copiarPeloMetodoAntigo() {
+            var campo = document.createElement('textarea');
+            campo.value = texto;
+            campo.setAttribute('readonly', '');
+            campo.style.position = 'fixed';
+            campo.style.opacity = '0';
+            document.body.appendChild(campo);
+            campo.select();
+            try {
+                if (document.execCommand('copy')) { mostrarCopiado(); }
+            } catch (erro) { /* sem permissão: não faz nada */ }
+            document.body.removeChild(campo);
+        }
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(texto).then(mostrarCopiado, copiarPeloMetodoAntigo);
+        } else {
+            copiarPeloMetodoAntigo();
         }
     }
 </script>
