@@ -153,8 +153,10 @@
     color: #2a2a2a;
 }
 
-.consultar-pedido-chat-bolha p { margin: 0 0 8px 0; }
-.consultar-pedido-chat-bolha p:last-child { margin-bottom: 0; }
+/* Sem margem entre parágrafos (decisão de Matheus, 04/10/2026): o texto da
+   mensagem fica 100% como veio -- as linhas em branco que existem são só as
+   que a própria mensagem já tem (<br> do texto puro, <p><br></p> do ML). */
+.consultar-pedido-chat-bolha p { margin: 0; }
 .consultar-pedido-chat-bolha a { text-decoration: underline; }
 
 .consultar-pedido-chat-msg--esq .consultar-pedido-chat-bolha { border-top-left-radius: 4px; }
