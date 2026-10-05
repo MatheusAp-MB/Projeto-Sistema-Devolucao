@@ -993,3 +993,275 @@
 .dp-titulo-linha > .dp-btn {
     margin-top: 2px;
 }
+
+/* =========================================================
+   CELULAR — lista de Devoluções (decisão de Matheus, 05/10/2026)
+
+   Só vale em tela de até 700px e só nesta tela: tudo usa a
+   classe .dp-lista-pagina (que está nos 2 cartões da página),
+   porque a Análise e a Mediações ML usam este mesmo arquivo.
+   O computador não muda.
+   ========================================================= */
+
+/* ----- Ciclo 1: cada devolução vira um CARTÃO ----- */
+@media (max-width: 700px) {
+    .dp-cartao.dp-lista-pagina {
+        padding: 14px 12px;
+    }
+
+    /* A tabela de 1050px fixos (que só dava pra ver rolando de lado) some:
+       as devoluções ficam empilhadas, uma embaixo da outra. */
+    .dp-lista-pagina .dp-tabela-scroll {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        overflow-x: visible;
+    }
+
+    .dp-lista-pagina .dp-tabela-cabecalho {
+        display: none; /* "PRODUTO / LOJA / PEDIDO ..." não faz sentido em cartão */
+    }
+
+    .dp-lista-pagina .dp-tabela-item {
+        display: grid;
+        grid-template-columns: 78px minmax(0, 1fr) auto;
+        grid-template-areas:
+            "foto    produto produto"
+            "cliente cliente anot"
+            "acoes   acoes   acoes";
+        align-items: start;
+        gap: 12px 0;
+        min-width: 0;
+        padding: 12px;
+        border: 1px solid var(--cor-borda);
+        border-radius: 10px;
+    }
+
+    .dp-lista-pagina .dp-tabela-item:last-child {
+        border-bottom: 1px solid var(--cor-borda); /* a regra de tela larga tira a borda do último */
+    }
+
+    .dp-lista-pagina .dp-tabela-item:hover {
+        background-color: transparent; /* no toque o "hover" fica grudado */
+    }
+
+    /* foto + produto lado a lado */
+    .dp-lista-pagina .dp-tabela-foto {
+        grid-area: foto;
+        width: 78px;
+        height: 78px;
+    }
+
+    .dp-lista-pagina .dp-tabela-produto {
+        grid-area: produto;
+        margin-left: 12px;
+        max-width: none;
+        min-width: 0;
+    }
+
+    /* o nome do produto pode ocupar até 2 linhas (antes: 1 linha e "...") */
+    .dp-lista-pagina .dp-tabela-produto-nome {
+        white-space: normal;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        line-height: 1.3;
+    }
+
+    .dp-lista-pagina .dp-tabela-produto-linha {
+        white-space: normal;
+        flex-wrap: wrap;
+        gap: 2px 12px;
+        overflow: visible;
+    }
+
+    /* cliente embaixo, ocupando a largura toda; as anotações ficam à direita dele */
+    .dp-lista-pagina .dp-tabela-cliente {
+        grid-area: cliente;
+        max-width: none;
+        min-width: 0;
+    }
+
+    .dp-lista-pagina .dp-tabela-cliente-nome {
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .dp-lista-pagina .dp-tabela-anotacao {
+        grid-area: anot;
+        align-self: start;
+        justify-content: flex-end;
+        margin-left: 10px;
+    }
+
+    /* sem anotação nem evidência, a célula não ocupa espaço nenhum */
+    .dp-lista-pagina .dp-tabela-anotacao:not(:has(.dp-tabela-anotacao-icone, .dp-tabela-evidencia-icone)) {
+        display: none;
+    }
+
+    /* Selos (etapa, prazo, destino, reembolso...) têm "nowrap" na tela larga; em tela
+       estreita (320px) um selo comprido passava da borda do cartão. Aqui eles podem
+       quebrar de linha. */
+    .dp-lista-pagina .dp-badge,
+    .dp-lista-pagina .dp-tabela-badge-prazo,
+    .dp-lista-pagina .dp-tabela-badge-destino {
+        white-space: normal;
+        max-width: 100%;
+    }
+
+    /* botões embaixo: 2 colunas (o principal ocupa a linha toda, como na tela larga) */
+    .dp-lista-pagina .dp-tabela-acoes {
+        grid-area: acoes;
+        gap: 8px;
+    }
+
+    .dp-lista-pagina .dp-tabela-btn {
+        min-height: 40px;
+        padding: 8px;
+        font-size: 12px;
+    }
+
+    /* O botão principal sobe pro topo dos botões; os outros ficam em pares. Se sobrar
+       um botão sozinho no fim (o "Excluir"), ele ocupa a linha toda em vez de ficar
+       meio vazio. */
+    .dp-lista-pagina .dp-tabela-btn--principal {
+        order: -1;
+    }
+
+    .dp-lista-pagina .dp-tabela-acoes > a:last-child:nth-child(even),
+    .dp-lista-pagina .dp-tabela-acoes > form:last-child:nth-child(even) .dp-tabela-btn {
+        grid-column: 1 / -1;
+    }
+}
+
+/* ----- Ciclo 2: PARTE DE CIMA da tela (título, busca, abas, barra de filtros) ----- */
+@media (max-width: 700px) {
+    /* "Abrir Análise" sobe pra mesma linha do título; o texto explicativo vai embaixo */
+    .dp-lista-pagina .dp-titulo-linha {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "tit bot"
+            "sub sub";
+        gap: 0 12px;
+        align-items: center;
+    }
+
+    .dp-lista-pagina .dp-titulo-linha > div:first-child {
+        display: contents;
+    }
+
+    .dp-lista-pagina .dp-titulo {
+        grid-area: tit;
+    }
+
+    .dp-lista-pagina .dp-subtitulo {
+        grid-area: sub;
+        margin-bottom: 12px;
+    }
+
+    .dp-lista-pagina .dp-titulo-linha > .dp-btn {
+        grid-area: bot;
+        margin-top: 0;
+        min-height: 40px;
+    }
+
+    .dp-lista-pagina .dp-campo-busca input {
+        min-height: 44px;
+        font-size: 14px;
+    }
+
+    /* As 5 abas viram UMA fila que desliza pro lado (antes ficavam empilhadas e
+       ocupavam ~220px antes da primeira devolução). A aba ativa é trazida pra
+       vista pelo script. A fila vai até a borda do cartão pra mostrar que continua. */
+    .dp-lista-pagina .dp-abas-nav {
+        position: relative;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        gap: 2px;
+        margin: 12px -12px 0 -12px;
+        padding: 0 12px;
+        scrollbar-width: none;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+    }
+
+    .dp-lista-pagina .dp-abas-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .dp-lista-pagina .dp-aba-btn {
+        flex: 0 0 auto;
+        min-height: 44px;
+        padding: 10px 12px;
+    }
+
+    /* barra de Ordenar / filtros: os botões se espalham pela largura, sem o risquinho */
+    .dp-lista-pagina .dp-barra {
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .dp-lista-pagina .dp-barra-sep {
+        display: none;
+    }
+
+    .dp-lista-pagina .dp-barra .dp-chip-pop {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+}
+
+/* ----- Ciclo 3: TOQUE (alvos de 40px ou mais) e janelinhas ----- */
+@media (max-width: 700px) {
+    .dp-lista-pagina .dp-chip-filtro {
+        min-height: 40px;
+        padding: 8px 14px;
+    }
+
+    .dp-lista-pagina .dp-filtro-secundario {
+        margin: 12px 0 4px 0;
+    }
+
+    .dp-lista-pagina .dp-bt {
+        min-height: 40px;
+        padding: 8px 12px;
+    }
+
+    .dp-lista-pagina .dp-link {
+        display: inline-flex;
+        align-items: center;
+        min-height: 40px;
+        padding: 6px 4px;
+    }
+
+    /* ícones de anotação / evidência (abrem a janelinha) */
+    .dp-lista-pagina .dp-tabela-anotacao-icone,
+    .dp-lista-pagina .dp-tabela-evidencia-icone {
+        width: 40px;
+        height: 40px;
+        font-size: 15px;
+    }
+
+    /* a janelinha de anotação/evidência tinha 360px fixos: estourava em tela de 360px */
+    .dp-tabela-popover {
+        max-width: calc(100vw - 20px);
+    }
+
+    /* janelinha de Ordenar / Plataforma / Marca / Período / Mais filtros */
+    .dp-pop--lista .dp-op {
+        min-height: 44px;
+        padding: 9px 10px;
+    }
+
+    .dp-pop--lista .dp-op input {
+        width: 20px;
+        height: 20px;
+    }
+
+    .dp-pop--lista .dp-link {
+        display: inline-flex;
+        align-items: center;
+        min-height: 40px;
+    }
+}

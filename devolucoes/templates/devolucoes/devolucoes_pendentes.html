@@ -14,7 +14,8 @@
 {% endblock %}
 
 {% block conteudo %}
-    <div class="dp-cartao">
+    {# dp-lista-pagina: marca só os cartões DESTA tela — as regras de celular (≤700px) usam essa classe pra não vazar pra Análise/Mediações, que usam o mesmo CSS #}
+    <div class="dp-cartao dp-lista-pagina">
         <div class="dp-titulo-linha">
             <div>
                 <p class="dp-titulo">Devoluções</p>
@@ -52,7 +53,7 @@
     </div>
 
     {% if total_devolucoes %}
-    <div class="dp-cartao">
+    <div class="dp-cartao dp-lista-pagina">
 
         <!-- ===== 1. AGUARDANDO CONFERÊNCIA ===== -->
         <div class="dp-tab-panel dp-tab-panel--ativa" data-painel="aguardando_conferencia">

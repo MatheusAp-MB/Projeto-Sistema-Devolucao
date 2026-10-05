@@ -468,6 +468,202 @@
     function mostrarPainel(nomeAba) {
         abas.forEach(function (a) { a.classList.toggle('dp-aba-btn--ativa', a.getAttribute('data-aba') === nomeAba); });
         paineis.forEach(function (p) { p.classList.toggle('dp-tab-panel--ativa', p.getAttribute('data-painel') === nomeAba); });
+        trazerAbaParaVista(nomeAba);
+        lembrarAba(nomeAba);
+    }
+
+    // * [EXPLICAÇÃO] → pedido de Matheus (05/10/2026): estando em "Impressos" (ou qualquer
+    //   outra aba), atualizar a página (F5) voltava pra "Aguardando Conferência". Agora a
+    //   aba ativa fica guardada no navegador (sessionStorage: vale só pra essa guia do
+    //   navegador, some quando ela é fechada; uma chave por empresa) e é restaurada
+    //   SÓ quando a página é recarregada ou quando se volta/avança pelo histórico.
+    //   Abrir a tela pelo menu, por um link ou depois de salvar/excluir/imprimir
+    //   continua abrindo em "Aguardando Conferência", como sempre foi — de propósito:
+    //   quem acabou de cadastrar uma devolução precisa ver ela na 1ª aba.
+    var CHAVE_ABA = 'dp-aba-ativa:' + NOME_EMPRESA;
+
+    function lembrarAba(nomeAba) {
+        try { window.sessionStorage.setItem(CHAVE_ABA, nomeAba); } catch (e) { /* sem armazenamento: segue sem lembrar */ }
+    }
+
+    function tipoDaNavegacao() {
+        try {
+            var entrada = window.performance.getEntriesByType('navigation')[0];
+            if (entrada && entrada.type) return entrada.type; // 'navigate' | 'reload' | 'back_forward' | 'prerender'
+        } catch (e) { /* tenta o jeito antigo abaixo */ }
+        try {
+            var antigo = window.performance.navigation && window.performance.navigation.type;
+            if (antigo === 1) return 'reload';
+            if (antigo === 2) return 'back_forward';
+        } catch (e) { /* desconhecido: trata como navegação normal */ }
+        return 'navigate';
+    }
+
+    function restaurarAbaAoRecarregar() {
+        var tipo = tipoDaNavegacao();
+        if (tipo !== 'reload' && tipo !== 'back_forward') return;
+        var salva = null;
+        try { salva = window.sessionStorage.getItem(CHAVE_ABA); } catch (e) { return; }
+        if (salva && Object.prototype.hasOwnProperty.call(painelDaAba, salva)) mostrarPainel(salva);
+    }
+
+    // * [EXPLICAÇÃO] → pedido de Matheus (05/10/2026): abrir uma devolução (Visualizar) e
+    //   apertar "Voltar" tem que devolver a lista EXATAMENTE como estava — mesma aba,
+    //   mesmos filtros, mesma ordem, mesma busca e na mesma posição da tela, pra pessoa
+    //   não ter que rolar de novo procurando a devolução. Como funciona:
+    //   1) ao sair da lista (clicar em Visualizar, ou a página fechar/trocar) a tela guarda
+    //      uma "foto" do estado: no sessionStorage (uma chave por empresa) e na própria
+    //      entrada do histórico (history.state — cada entrada do histórico fica com a
+    //      sua foto);
+    //   2) o botão "Voltar" da tela Visualizar abre a lista com ?voltar=<id da devolução>.
+    //      Se a foto guardada é de quando se saiu justamente por essa devolução, ela é
+    //      restaurada. Qualquer outra abertura (menu, salvar, excluir, imprimir) continua
+    //      em "Aguardando Conferência", como sempre foi;
+    //   3) o voltar do navegador/celular (back_forward) restaura a foto daquela entrada
+    //      do histórico. Quando o navegador já guardou a página inteira (o normal), ela
+    //      volta sozinha como estava e nada disso é preciso.
+    //   A posição é guardada como "a linha da devolução clicada estava a X px do topo da
+    //   tela": assim, mesmo que a lista tenha mudado um pouco (um aviso no topo que não
+    //   aparece mais, uma devolução que saiu de cima), a devolução volta pro mesmo lugar
+    //   da tela. Sem a linha (ou se ela sumiu da aba), usa a posição absoluta da rolagem.
+    var CHAVE_ESTADO = 'dp-estado:' + NOME_EMPRESA;
+    var cliqueNaLista = null; // { id, topo } da devolução aberta por último, enquanto a página não sai
+
+    function idDoLinkVisualizar(link) {
+        var achou = (link.getAttribute('href') || '').match(/\/devolucoes\/(\d+)\/visualizar\/?/);
+        return achou ? achou[1] : null;
+    }
+
+    function montarEstado() {
+        var porAba = {};
+        abas.forEach(function (botaoAba) {
+            var nomeAba = botaoAba.getAttribute('data-aba');
+            porAba[nomeAba] = clonar(V[nomeAba]);
+        });
+        return {
+            v: 1,
+            aba: nomeDaAbaAtual(),
+            busca: campoBusca ? campoBusca.value : '',
+            abas: porAba,
+            y: Math.round(window.pageYOffset || 0),
+            id: cliqueNaLista ? cliqueNaLista.id : null,
+            topo: cliqueNaLista ? cliqueNaLista.topo : null
+        };
+    }
+
+    function guardarEstado() {
+        var estado = montarEstado();
+        try { window.sessionStorage.setItem(CHAVE_ESTADO, JSON.stringify(estado)); } catch (e) { /* sem armazenamento: segue sem guardar */ }
+        try {
+            var atual = window.history.state;
+            var novo = (atual && typeof atual === 'object') ? Object.assign({}, atual) : {};
+            novo.dpEstado = estado;
+            window.history.replaceState(novo, '');
+        } catch (e) { /* sem histórico: segue sem guardar */ }
+    }
+
+    function estadoValido(estado) {
+        return !!estado && typeof estado === 'object' && estado.v === 1 && !!estado.abas && typeof estado.abas === 'object';
+    }
+
+    // devolve a "foto" a restaurar nesta abertura da tela, ou null (abertura normal)
+    function estadoParaRestaurar(tipo) {
+        // tira ?voltar=... do endereço (lê antes, limpa sempre) — atualizar a página não repete nada
+        var idVoltar = null;
+        try {
+            var parametros = new URLSearchParams(window.location.search);
+            idVoltar = parametros.get('voltar');
+            if (parametros.has('voltar')) {
+                parametros.delete('voltar');
+                var resto = parametros.toString();
+                window.history.replaceState(window.history.state, '', window.location.pathname + (resto ? '?' + resto : '') + window.location.hash);
+            }
+        } catch (e) { /* sem URLSearchParams/histórico: segue sem */ }
+
+        if (tipo === 'back_forward') {
+            var doHistorico = null;
+            try { doHistorico = window.history.state && window.history.state.dpEstado; } catch (e) { /* ignora */ }
+            return estadoValido(doHistorico) ? doHistorico : null;
+        }
+        if (!idVoltar || !/^\d+$/.test(idVoltar)) return null;
+        try {
+            var salvo = JSON.parse(window.sessionStorage.getItem(CHAVE_ESTADO) || 'null');
+            return (estadoValido(salvo) && String(salvo.id) === idVoltar) ? salvo : null;
+        } catch (e) { return null; }
+    }
+
+    // confere cada pedaço da foto antes de usar (mesmo cuidado do padrão salvo)
+    function aplicarEstado(estado) {
+        abas.forEach(function (botaoAba) {
+            var nomeAba = botaoAba.getAttribute('data-aba');
+            if (estado.abas[nomeAba]) V[nomeAba] = normalizar(estado.abas[nomeAba], nomeAba);
+            sincronizarChips(nomeAba);
+        });
+        if (campoBusca && typeof estado.busca === 'string') campoBusca.value = estado.busca.slice(0, 200);
+        if (typeof estado.aba === 'string' && Object.prototype.hasOwnProperty.call(painelDaAba, estado.aba)) mostrarPainel(estado.aba);
+    }
+
+    function posicionarNaFoto(estado) {
+        var alvoY = typeof estado.y === 'number' ? estado.y : 0;
+        if (estado.id && /^\d+$/.test(String(estado.id)) && typeof estado.topo === 'number') {
+            var painel = painelDaAba[nomeDaAbaAtual()];
+            var link = painel && painel.querySelector('a[href*="/' + estado.id + '/visualizar/"]');
+            var linha = link && link.closest('.dp-item');
+            if (linha && linha.getClientRects().length) {
+                alvoY = (window.pageYOffset || 0) + linha.getBoundingClientRect().top - estado.topo;
+            }
+        }
+        window.scrollTo({ top: Math.max(0, alvoY), left: 0, behavior: 'instant' });
+    }
+
+    // * [EXPLICAÇÃO] → o tamanho final das linhas só fica certo quando as fontes e as
+    //   imagens terminam de carregar; por isso a posição é refeita no "load" e quando as
+    //   fontes ficam prontas — mas só enquanto a pessoa ainda não mexeu na tela.
+    function restaurarRolagem(estado, retomarRolagemDoNavegador) {
+        var mexeu = false;
+        var marcar = function () { mexeu = true; };
+        ['wheel', 'touchstart', 'mousedown', 'keydown'].forEach(function (nomeEvento) {
+            window.addEventListener(nomeEvento, marcar, { passive: true, once: true });
+        });
+        var aplicar = function () { if (!mexeu) posicionarNaFoto(estado); };
+        var devolverAoNavegador = function () {
+            if (!retomarRolagemDoNavegador) return;
+            window.setTimeout(function () {
+                try { window.history.scrollRestoration = 'auto'; } catch (e) { /* ignora */ }
+            }, 400);
+        };
+        aplicar();
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(aplicar);
+        if (document.readyState === 'complete') {
+            devolverAoNavegador();
+        } else {
+            window.addEventListener('load', function () { aplicar(); devolverAoNavegador(); });
+        }
+    }
+
+    document.addEventListener('click', function (e) {
+        if (e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey || !e.target.closest) return;
+        var link = e.target.closest('a[href*="/visualizar/"]');
+        var linha = link && link.closest('.dp-item');
+        if (!linha) return;
+        cliqueNaLista = { id: idDoLinkVisualizar(link), topo: Math.round(linha.getBoundingClientRect().top) };
+        guardarEstado();
+    }, true);
+
+    window.addEventListener('pagehide', guardarEstado);
+    window.addEventListener('pageshow', function (e) { if (e.persisted) cliqueNaLista = null; });
+
+    // * [EXPLICAÇÃO] → no celular as abas viram uma fila que desliza pro lado (CSS).
+    //   Quando a aba ativa muda (toque, busca que pula de aba, "Ver na lista"
+    //   da Análise), a fila rola até ela ficar no meio. No computador as abas
+    //   quebram de linha e não rolam (scrollWidth = clientWidth), então aqui
+    //   não acontece nada.
+    function trazerAbaParaVista(nomeAba) {
+        var ativa = abas.filter(function (a) { return a.getAttribute('data-aba') === nomeAba; })[0];
+        var fila = ativa && ativa.parentNode;
+        if (!fila || fila.scrollWidth <= fila.clientWidth + 1) return;
+        var alvo = ativa.offsetLeft - (fila.clientWidth - ativa.offsetWidth) / 2;
+        fila.scrollLeft = Math.max(0, alvo);
     }
 
     function labelDaAba(aba) {
@@ -600,7 +796,7 @@
     // ===================================================================
 
     var janela = document.createElement('div');
-    janela.className = 'dp-pop';
+    janela.className = 'dp-pop dp-pop--lista'; // --lista: o CSS de celular só mexe na janelinha desta tela (a Análise usa a mesma classe)
     janela.id = 'dp-pop';
     janela.hidden = true;
     document.body.appendChild(janela);
@@ -682,6 +878,10 @@
         var esquerda = Math.min(Math.max(10, r.left), Math.max(10, window.innerWidth - largura - 10));
         var topo = r.bottom + 6;
         if (topo + altura > window.innerHeight - 10 && r.top - altura - 6 > 10) topo = r.top - altura - 6;
+        // * [EXPLICAÇÃO] → em tela baixa (celular) não cabia nem embaixo nem em cima do
+        //   botão e a janelinha saía da tela. Agora ela sobe o quanto precisar pra ficar
+        //   inteira à vista (cobrindo o botão, se for o caso). Se já cabia, não muda nada.
+        topo = Math.max(10, Math.min(topo, window.innerHeight - altura - 10));
         janela.style.left = esquerda + 'px';
         janela.style.top = topo + 'px';
     }
@@ -891,6 +1091,21 @@
         campoBusca.addEventListener('input', function () {
             atualizarTudo(true);
         });
+
+        // * [EXPLICAÇÃO] → no celular a caixa de busca é estreita e o texto-guia
+        //   comprido era cortado no meio ("...NF, c"). Lá ele fica curto; o texto
+        //   completo continua como nome acessível do campo. No computador não muda.
+        var textoGuiaCompleto = campoBusca.getAttribute('placeholder') || '';
+        var textoGuiaCurto = 'Cliente, pedido ou produto...';
+        var telaPequena = window.matchMedia ? window.matchMedia('(max-width: 700px)') : null;
+        var ajustarTextoGuia = function () {
+            var curto = !!(telaPequena && telaPequena.matches);
+            campoBusca.setAttribute('placeholder', curto ? textoGuiaCurto : textoGuiaCompleto);
+            if (curto) campoBusca.setAttribute('aria-label', textoGuiaCompleto);
+            else campoBusca.removeAttribute('aria-label');
+        };
+        ajustarTextoGuia();
+        if (telaPequena && telaPequena.addEventListener) telaPequena.addEventListener('change', ajustarTextoGuia);
     }
 
     document.addEventListener('click', function (e) {
@@ -948,7 +1163,20 @@
 
     // padrão salvo já vale desde a 1ª vez que a tela abre
     abas.forEach(function (botaoAba) { sincronizarChips(botaoAba.getAttribute('data-aba')); });
+    var tipoDeAbertura = tipoDaNavegacao();
+    var fotoParaRestaurar = estadoParaRestaurar(tipoDeAbertura);
+    if (fotoParaRestaurar) {
+        // só no voltar do histórico o navegador ainda tentaria rolar por conta própria: segura até terminar
+        if (tipoDeAbertura === 'back_forward') {
+            try { window.history.scrollRestoration = 'manual'; } catch (e) { /* ignora */ }
+        }
+        aplicarEstado(fotoParaRestaurar);
+    } else {
+        restaurarAbaAoRecarregar();
+    }
+    lembrarAba(nomeDaAbaAtual()); // guarda a aba com que a tela abriu (senão sobra a de uma visita antiga)
     atualizarTudo(false);
+    if (fotoParaRestaurar) restaurarRolagem(fotoParaRestaurar, tipoDeAbertura === 'back_forward');
 
     // * [EXPLICAÇÃO] → "Ver na lista" da tela Análise (05/10/2026) abre esta
     //   tela com ?aba=<aba>&busca=<número do pedido>: já cai na aba certa,
@@ -1003,6 +1231,12 @@
     var cacheHtmlPorId = {};
     var idAtual = null;
     var timeoutEsconder = null;
+    // * [EXPLICAÇÃO] → celular (sem mouse): o toque dispara "mouseover" e logo depois
+    //   "mouseout" de mentirinha, conforme o navegador, e a janelinha fechava sozinha
+    //   pouco depois de abrir. Aqui o toque no ícone FIXA a janelinha; ela só fecha
+    //   com um toque fora dela (ou rolando a página). No computador nada muda.
+    var semMouse = window.matchMedia ? window.matchMedia('(hover: none)') : null;
+    var fixadoPorToque = false;
 
     function posicionar(icone) {
         var retangulo = icone.getBoundingClientRect();
@@ -1030,6 +1264,7 @@
     function esconder() {
         popover.classList.remove('dp-tabela-popover--visivel');
         idAtual = null;
+        fixadoPorToque = false;
     }
 
     function mostrar(icone) {
@@ -1090,7 +1325,23 @@
         mostrar(icone);
     });
 
+    document.addEventListener('click', function (evento) {
+        if (!semMouse || !semMouse.matches) return;
+        var icone = evento.target.closest('.dp-tabela-evidencia-icone, .dp-tabela-anotacao-icone');
+        if (icone) {
+            clearTimeout(timeoutEsconder);
+            fixadoPorToque = true;
+            var chave = icone.getAttribute('data-popover-alvo') || icone.getAttribute('data-devolucao-id');
+            // o "mouseover" do próprio toque normalmente já abriu a janelinha: não busca de novo
+            if (idAtual !== chave || !popover.classList.contains('dp-tabela-popover--visivel')) mostrar(icone);
+            return;
+        }
+        if (popover.contains(evento.target)) return;
+        if (fixadoPorToque) esconder();
+    });
+
     document.addEventListener('mouseout', function (evento) {
+        if (fixadoPorToque) return;
         var icone = evento.target.closest('.dp-tabela-evidencia-icone, .dp-tabela-anotacao-icone');
         if (!icone) return;
         // * [EXPLICAÇÃO] → antes só considerava "ainda em cima" se o
@@ -1107,6 +1358,7 @@
     });
 
     popover.addEventListener('mouseleave', function () {
+        if (fixadoPorToque) return;
         timeoutEsconder = setTimeout(esconder, 300);
     });
 

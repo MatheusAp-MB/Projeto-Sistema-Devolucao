@@ -5,7 +5,8 @@
 {% block toolbar_titulo %}Visualizar Devolução{% endblock %}
 
 {% block toolbar_acoes %}
-<a href="{% url 'devolucoes_pendentes' %}" class="vd-btn"><i class="fas fa-arrow-left"></i> Voltar</a>
+{# ?voltar=<id>: a lista devolve a aba, os filtros, a busca e a rolagem de quando esta devolução foi aberta (script_devolucoes_pendentes.js) #}
+<a href="{% url 'devolucoes_pendentes' %}?voltar={{ devolucao.id }}" class="vd-btn"><i class="fas fa-arrow-left"></i> Voltar</a>
 {% endblock %}
 
 {% block head_extra %}
