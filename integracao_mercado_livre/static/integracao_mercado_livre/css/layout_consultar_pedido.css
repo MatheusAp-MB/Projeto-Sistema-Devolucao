@@ -23,6 +23,11 @@
 .evento-linha .evento-texto--codigo {
     font-family: "SFMono-Regular", Consolas, monospace;
     color: #92400e;
+    overflow-wrap: anywhere; /* códigos como "ready_to_ship/waiting_for_carrier_authorization" não têm espaço pra quebrar */
+}
+
+.evento-linha .flex-grow-1 {
+    min-width: 0; /* sem isso o texto não encolhe e o código comprido empurra a linha pra fora da camada */
 }
 
 .consultar-pedido-atalho {
@@ -1210,4 +1215,231 @@
 
 .busca-compacta #form-consultar-pedido > .col-md-auto {
     padding-bottom: 0 !important;
+}
+
+/* =========================================================================
+   CELULAR — Consultar Pedido (decisão de Matheus, 05/10/2026: "tela por tela
+   para uso no celular, começando pela Consultar Pedido")
+
+   Tudo daqui pra baixo só vale em tela estreita (até 700px de largura, ou
+   cartão de até 520px no caso das "Datas do caso"). Em monitor/notebook
+   NADA muda: cada regra está dentro de @media/@container. Ficam no FIM do
+   arquivo de propósito, pra ganhar das regras da tela larga que vêm antes.
+   ========================================================================= */
+
+/* ----- Ciclo 1: CHAT DO ML -----
+   Antes: o texto da bolha ficava com ~187px de largura (161px em celular
+   pequeno) por causa de caixa dentro de caixa + avatar + limite de 78%, e as
+   miniaturas (120px fixos, até 5 por linha) eram cortadas na borda. Agora: a
+   conversa usa a largura toda, o avatar é menor, as miniaturas se ajustam
+   à largura da tela, e o chat deixa de ter rolagem própria (no celular o
+   dedo ficava "preso" na lista; quem rola é a própria página). */
+@media (max-width: 700px) {
+    /* a camada do acordeão perde o recuo grande do Bootstrap (1.25rem de cada lado) */
+    #acordeaoConsultarPedido .accordion-body {
+        padding: 12px 10px;
+    }
+
+    .consultar-pedido-chat-lista {
+        max-height: none;
+        overflow: visible;
+        padding: 2px 0;
+        border: 0;
+        border-radius: 0;
+        gap: 0.75rem !important; /* o .gap-3 do Bootstrap (1rem) usa !important */
+    }
+
+    .consultar-pedido-chat-msg {
+        max-width: 96%;
+        gap: 6px;
+    }
+
+    .consultar-pedido-chat-avatar {
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        font-size: 0.7rem;
+    }
+
+    .consultar-pedido-chat-bolha {
+        padding: 8px 12px;
+        overflow-wrap: anywhere; /* link ou código comprido não pode estourar a bolha */
+    }
+
+    /* Miniaturas: --espaco é o que sobra de largura pra grade (tela menos recuos e avatar);
+       --colunas-cel (calculada no template: 1 foto = 1 coluna, 2 ou 4 = 2, o resto = 3)
+       divide esse espaço. Quadrado de 64px a 130px. */
+    .consultar-pedido-chat-anexos {
+        --espaco: calc(100vw - 112px);
+        --lado: clamp(64px, calc((var(--espaco) - (var(--colunas-cel, 3) - 1) * 6px) / var(--colunas-cel, 3)), 130px);
+        grid-template-columns: repeat(var(--colunas-cel, 3), var(--lado));
+    }
+
+    .consultar-pedido-chat-anexo {
+        width: var(--lado);
+        height: var(--lado);
+    }
+}
+
+/* ----- Ciclo 2: LINHA DO TEMPO DETALHADA + CABEÇALHO DAS CAMADAS ----- */
+@media (max-width: 700px) {
+    /* Cada evento vira 2 linhas: data/hora em cima (pequena), o que aconteceu embaixo, e o
+       endereço (coleta/entrega) por último, em largura total. Antes o endereço tinha 300px
+       fixos e saía da tela — o texto sumia. */
+    .evento-linha {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1px;
+        padding: 8px 0;
+    }
+
+    .evento-linha .evento-hora {
+        min-width: 0;
+        font-size: 0.75rem;
+    }
+
+    .evento-linha .flex-grow-1 {
+        flex-grow: 0;
+        max-width: 100%;
+    }
+
+    /* Evento "não confirmado" (ainda sem tradução): o código bruto, que pode ser bem comprido,
+       quebra dentro da linha, e o selo amarelo desce pra uma linha própria — sempre no mesmo lugar,
+       em vez de ora ao lado, ora embaixo, conforme o tamanho do código. */
+    .evento-linha .evento-texto--codigo {
+        display: block;
+        font-size: 0.8rem;
+        line-height: 1.35;
+    }
+
+    .evento-linha .evento-texto--codigo + .badge {
+        display: inline-block;
+        margin: 4px 0 0 !important; /* o .ms-2 do Bootstrap usa !important */
+    }
+
+    .evento-endereco {
+        flex-shrink: 1;
+        max-width: 100%;
+        text-align: left !important; /* o .text-end do Bootstrap usa !important */
+        overflow-wrap: anywhere;
+    }
+
+    /* Cabeçalho de cada camada: número + título + seta na 1ª linha; as datas descem
+       pra uma linha só delas (antes ficavam espremidas numa coluna de ~100px, em 4 linhas). */
+    #acordeaoConsultarPedido .accordion-button {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        padding: 12px;
+    }
+
+    #acordeaoConsultarPedido .accordion-button .badge {
+        grid-column: 1;
+        grid-row: 1;
+    }
+
+    #acordeaoConsultarPedido .accordion-button::after {
+        grid-column: 3;
+        grid-row: 1;
+        margin-left: 12px;
+    }
+
+    #acordeaoConsultarPedido .accordion-button .text-muted {
+        grid-column: 2 / 4;
+        grid-row: 2;
+        margin: 3px 0 0 !important; /* o .ms-2 do Bootstrap usa !important */
+    }
+}
+
+/* "Datas do caso" no celular: linha do tempo na VERTICAL, 1 passo embaixo do outro, com o
+   ponto e a linha à esquerda (antes eram 2 colunas, com pontos soltos e o último passo
+   sozinho). Vale pra cartão de até 520px — celular em pé. O tempo entre os passos continua
+   aparecendo, embaixo de cada data ("5 dias depois"). */
+@container topo (max-width: 520px) {
+    .topo-pedido-passos {
+        display: block;
+    }
+
+    .topo-pedido-passo {
+        display: grid;
+        grid-template-columns: 22px minmax(0, 1fr);
+        grid-template-rows: auto auto auto 14px; /* a última linha é só o respiro entre os passos */
+        column-gap: 10px;
+    }
+
+    .topo-pedido-passo:last-child {
+        grid-template-rows: auto auto auto 0;
+    }
+
+    .topo-pedido-trilho {
+        grid-column: 1;
+        grid-row: 1 / -1;
+        flex-direction: column;
+        align-items: center;
+        gap: 0;
+        height: auto;
+        margin: 0;
+    }
+
+    .topo-pedido-ponto {
+        margin: 3px 0 2px;
+    }
+
+    /* a linha que ligava os pontos na horizontal vira a linha vertical que desce até o próximo */
+    .topo-pedido-passo-linha {
+        display: block;
+        flex: 1 1 auto;
+        width: 0;
+        min-width: 0;
+        height: auto;
+        min-height: 8px;
+        margin: 0;
+        border-top: 0;
+        border-left: 2px solid #cfe0f2;
+    }
+
+    .topo-pedido-passo-linha--solta {
+        border-top: 0;
+        border-left: 2px dashed #ced4da;
+    }
+
+    /* a etiqueta que ficava em cima da linha horizontal não tem lugar na vertical:
+       o tempo já aparece embaixo da data (.topo-pedido-tempo-baixo) */
+    .topo-pedido-tempo {
+        display: none;
+    }
+
+    .topo-pedido-passo-rotulo,
+    .topo-pedido-data,
+    .topo-pedido-tempo-baixo {
+        grid-column: 2;
+    }
+}
+
+/* ----- Ciclo 3: ÁREA DE TOQUE ----- 
+   O dedo é bem mais largo que o mouse: botões e links pequenos ganham uma área
+   de toque maior (>= 40px) sem mudar o desenho. */
+@media (max-width: 700px) {
+    .topo-pedido-copiar::after {
+        inset: -10px -6px; /* ícone de 20px -> área de 32x40px */
+    }
+
+    .topo-pedido-link-anuncio {
+        position: relative;
+    }
+
+    .topo-pedido-link-anuncio::after {
+        content: "";
+        position: absolute;
+        inset: -12px -8px;
+    }
+
+    .topo-pedido-ml .consultar-pedido-atalho {
+        min-height: 40px;
+        padding: 8px 12px;
+    }
+
+    .filtro-ordenacao {
+        min-height: 40px;
+    }
 }

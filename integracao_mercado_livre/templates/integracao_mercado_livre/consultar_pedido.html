@@ -619,7 +619,8 @@
                                     {{ msg.texto_html|safe }}
                                 </div>
                                 {% if msg.anexos %}
-                                <div class="consultar-pedido-chat-anexos" style="--colunas: {{ msg.colunas_anexos }};">
+                                {# --colunas = grade da tela larga (até 5 por linha, ver _colunas_grade_anexos). --colunas-cel = grade do CELULAR (layout_consultar_pedido.css, bloco "Celular"): no máximo 3 por linha, e 4 fotos viram 2+2 em vez de 3+1. #}
+                                <div class="consultar-pedido-chat-anexos" style="--colunas: {{ msg.colunas_anexos }}; --colunas-cel: {% if msg.anexos|length == 1 %}1{% elif msg.anexos|length == 2 or msg.anexos|length == 4 %}2{% else %}3{% endif %};">
                                     {% for anexo in msg.anexos %}
                                     {# Miniatura (mesmo padrão da tela Mediações ML): só vira item do modal de fotos (card-fotos-item) depois que a imagem carrega de verdade; se não carregar (ex.: não é imagem, ou o proxy caiu no link de segurança), vira um quadro do mesmo tamanho (ícone + "Abrir anexo") e o clique abre o anexo em nova guia. #}
                                     <a href="{{ anexo.url }}" target="_blank" rel="noopener" class="consultar-pedido-chat-anexo" title="Ver imagem anexada" data-fotos-id="chat-msg-{{ forloop.parentloop.counter }}" data-titulo="Anexo de {{ msg.rotulo }}" data-subtitulo="{{ msg.data }}">

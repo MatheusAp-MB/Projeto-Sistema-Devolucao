@@ -173,4 +173,40 @@
         else if (evento.key === 'ArrowLeft') irParaAnterior();
         else if (evento.key === 'ArrowRight') irParaProxima();
     });
+
+    // Deslizar o dedo (celular — decisão de Matheus, 05/10/2026): pra ESQUERDA = próxima
+    // foto, pra DIREITA = anterior. Só conta o gesto de 1 dedo, mais horizontal que vertical
+    // e de pelo menos 50px — assim um toque, uma rolagem ou o "pinça" de zoom não viram
+    // troca de foto sem querer. Com a tela já ampliada (zoom), deslizar é mover a foto, não
+    // trocar. No computador (mouse) nada disso dispara: são eventos de toque.
+    var toqueInicial = null;
+
+    function zoomLigado() {
+        return !!(window.visualViewport && window.visualViewport.scale > 1.05);
+    }
+
+    overlay.addEventListener('touchstart', function (evento) {
+        if (evento.touches.length !== 1 || zoomLigado()) {
+            toqueInicial = null;
+            return;
+        }
+        toqueInicial = { x: evento.touches[0].clientX, y: evento.touches[0].clientY };
+    }, { passive: true });
+
+    overlay.addEventListener('touchend', function (evento) {
+        if (!toqueInicial || evento.changedTouches.length !== 1) {
+            toqueInicial = null;
+            return;
+        }
+        var dx = evento.changedTouches[0].clientX - toqueInicial.x;
+        var dy = evento.changedTouches[0].clientY - toqueInicial.y;
+        toqueInicial = null;
+        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        if (dx < 0) irParaProxima();
+        else irParaAnterior();
+    }, { passive: true });
+
+    overlay.addEventListener('touchcancel', function () {
+        toqueInicial = null;
+    }, { passive: true });
 })();

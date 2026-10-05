@@ -158,20 +158,104 @@
     display: none;
 }
 
+/* =========================================================================
+   CELULAR (decisão de Matheus, 05/10/2026, achado na Consultar Pedido):
+   antes, no celular em pé, as setas ficavam FORA da tela (a da esquerda
+   começava 19px antes da borda, a da direita terminava 19px depois dela) e
+   não dava pra passar de uma foto pra outra. Agora a foto usa a largura toda,
+   as setas ficam POR CIMA da foto (nas laterais, 44px) e dá pra deslizar o
+   dedo (ver script_modal_fotos.js). Tela larga: nada muda.
+   ========================================================================= */
 @media (max-width: 720px) {
+    .modal-fotos-overlay {
+        padding: 12px;
+    }
+
     .modal-fotos-cabecalho,
     .modal-fotos-legenda {
         width: 100%;
     }
 
+    .modal-fotos-cabecalho {
+        margin-bottom: 8px;
+        padding: 4px 4px 4px 14px;
+    }
+
+    .modal-fotos-legenda {
+        margin-top: 8px;
+    }
+
+    /* o X de fechar: 44x44px (era ~27x26) */
+    .modal-fotos-fechar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        font-size: 30px;
+    }
+
+    .modal-fotos-area {
+        position: relative;
+        justify-content: center;
+        width: 100%;
+        gap: 0;
+    }
+
+    /* Caixa da foto: largura da tela e altura de 4:5 (cabe bem foto de celular em pé),
+       sem passar do que sobra de altura da janela (cabeçalho e legenda ocupam ~170px). */
     .modal-fotos-corpo {
-        width: 85vmin;
-        height: 85vmin;
+        width: 100%;
+        max-width: 720px;
+        height: min(calc((100vw - 24px) * 1.25), calc(100vh - 170px), 720px);
+        height: min(calc((100vw - 24px) * 1.25), calc(100dvh - 170px), 720px);
     }
 
     .modal-fotos-nav {
-        width: 36px;
-        height: 36px;
-        font-size: 15px;
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 44px;
+        height: 44px;
+        font-size: 18px;
+        background: rgba(0, 0, 0, 0.5);
+    }
+
+    .modal-fotos-nav:hover {
+        background: rgba(0, 0, 0, 0.5);
+    }
+
+    #modal-fotos-anterior {
+        left: 8px;
+    }
+
+    #modal-fotos-proxima {
+        right: 8px;
+    }
+}
+
+/* Celular DEITADO (ou janela bem baixa): pouca altura — margens menores e a caixa da foto
+   ocupa o que sobra de altura (antes o cabeçalho encostava no topo da tela). */
+@media (max-height: 520px) {
+    .modal-fotos-overlay {
+        padding: 8px 12px;
+    }
+
+    .modal-fotos-cabecalho {
+        margin-bottom: 6px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
+
+    .modal-fotos-legenda {
+        margin-top: 6px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+    }
+
+    .modal-fotos-corpo {
+        height: min(80vmin, calc(100vh - 100px));
+        height: min(80vmin, calc(100dvh - 100px));
     }
 }
