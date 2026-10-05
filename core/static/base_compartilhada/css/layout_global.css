@@ -272,3 +272,197 @@ a:hover {
     border-left-color: var(--cor-primaria-clara);
     color: var(--cor-primaria);
 }
+
+/* =========================================================================
+   CELULAR E TABLET PEQUENO (até 900px) — Ciclo "celular 1", 05/10/2026
+   (pedido de Matheus: "focar um pouco no uso pelo celular")
+
+   [EXPLICAÇÃO] → Até aqui o layout só pensava em computador: a barra lateral
+   de 260px ficava sempre aberta e empurrava o conteúdo pra um cantinho de
+   ~150px. Agora, abaixo de 900px:
+   - a barra lateral vira uma "GAVETA": fica escondida fora da tela e abre POR
+     CIMA do conteúdo (com fundo escurecido atrás), em vez de empurrá-lo;
+   - o menu começa sempre fechado; quem liga/desliga é a classe 'menu-aberto'
+     no <body> (script_global.js) — separada da 'sidebar-oculta', que é a
+     preferência do computador e continua valendo lá, intacta;
+   - a barra de cima fica mais baixa e compacta, pra o título, os botões e a
+     etiqueta da empresa caberem lado a lado.
+   Acima de 900px NADA aqui vale: tudo está dentro das regras @media.
+   ========================================================================= */
+
+:root {
+    --gaveta-largura: min(86vw, 300px);
+}
+
+/* o X e o fundo escurecido só existem no celular */
+.sidebar-fechar,
+.sidebar-fundo {
+    display: none;
+}
+
+@media (max-width: 900px) {
+    /* [ATENÇÃO] → a barra lateral não ocupa mais lugar na página, então a
+       "largura que ela ocupa" passa a ser 0. Telas que se posicionam a partir
+       dessa variável (ex.: barra fixa de Salvar da edição, left: var(--sidebar-largura))
+       acompanham sozinhas, sem ter que mexer em cada uma. A largura da própria
+       gaveta vem de --gaveta-largura. */
+    :root {
+        --sidebar-largura: 0px;
+    }
+
+    .sidebar,
+    .sidebar-oculta .sidebar {
+        width: var(--gaveta-largura);
+        min-width: var(--gaveta-largura);
+    }
+
+    .sidebar {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        height: auto;
+        z-index: 101;
+        transform: translateX(-100%);
+        visibility: hidden; /* fechada, não deixa o Tab cair nos itens escondidos */
+        transition: transform 0.25s ease, visibility 0s linear 0.25s;
+    }
+
+    body.menu-aberto .sidebar {
+        transform: none;
+        visibility: visible;
+        box-shadow: 6px 0 28px rgba(0, 0, 0, 0.35);
+        transition: transform 0.25s ease, visibility 0s;
+    }
+
+    .sidebar-fundo {
+        display: block;
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 100;
+        background-color: rgba(10, 25, 41, 0.55);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+    }
+
+    body.menu-aberto .sidebar-fundo {
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 0.25s ease, visibility 0s;
+    }
+
+    /* com a gaveta aberta, a página de trás não rola */
+    body.menu-aberto {
+        overflow: hidden;
+    }
+
+    .sidebar-fechar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 15px;
+        right: 10px;
+        z-index: 1;
+        width: 40px;
+        height: 40px;
+        border: 0;
+        border-radius: 6px;
+        background: none;
+        color: var(--cor-texto-claro);
+        font-size: 1.2rem;
+        cursor: pointer;
+    }
+
+    .sidebar-fechar:hover {
+        background: rgba(255, 255, 255, 0.12);
+    }
+
+    /* o título cabe ao lado do X; se a gaveta for estreita, quebra em 2 linhas em vez de cortar */
+    .sidebar-logo {
+        padding-right: 56px;
+    }
+
+    .sidebar-logo span {
+        font-size: 0.95rem;
+        line-height: 1.2;
+        white-space: normal;
+    }
+
+    /* itens do menu mais altos: alvo de toque confortável pro dedo */
+    .sidebar-item {
+        padding: 14px 20px;
+        font-size: 1rem;
+    }
+
+    /* ----- barra de cima compacta ----- */
+
+    .toolbar {
+        height: 56px;
+        padding: 0 10px;
+        gap: 8px;
+    }
+
+    .toolbar-titulo {
+        min-width: 0;
+        font-size: 1rem;
+        line-height: 1.15;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+    }
+
+    .toolbar-acoes {
+        flex-shrink: 0;
+        gap: 6px;
+    }
+
+    .toolbar .badge-empresa {
+        flex-shrink: 1;
+        min-width: 0;
+        max-width: 46vw;
+        padding: 6px 10px;
+        font-size: 0.72rem;
+    }
+
+    .toolbar .badge-empresa span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+/* celular de verdade (até 600px): botões da barra de cima viram só o ícone
+   (o texto sai da tela mas continua lá pra leitor de tela), a etiqueta da
+   empresa perde o ícone e o conteúdo ganha margens menores */
+@media (max-width: 600px) {
+    .toolbar-acoes > a,
+    .toolbar-acoes > button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        font-size: 0;
+    }
+
+    .toolbar-acoes > a i,
+    .toolbar-acoes > button i {
+        font-size: 1rem;
+    }
+
+    .toolbar .badge-empresa i {
+        display: none;
+    }
+
+    .conteudo-principal {
+        padding: 14px 12px;
+    }
+}

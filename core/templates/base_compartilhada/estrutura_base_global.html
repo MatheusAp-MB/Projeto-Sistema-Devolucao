@@ -44,7 +44,11 @@
         </script>
         <div class="layout-container">
             <!-- SIDEBAR -->
-            <aside class="sidebar">
+            <aside class="sidebar" id="sidebar-menu">
+                <!-- X de fechar: só aparece no celular, onde o menu abre como "gaveta" por cima da tela (ver layout_global.css) -->
+                <button type="button" class="sidebar-fechar" id="btn-fechar-sidebar" aria-label="Fechar menu">
+                    <i class="fas fa-xmark"></i>
+                </button>
                 <a href="{% url 'home' %}" class="text-decoration-none">
                     <div class="sidebar-logo">
                         <img src="{% static empresa_logo %}" alt="Logo {{ empresa_ativa_nome }}">
@@ -89,11 +93,13 @@
                     </a>
                 </nav>
             </aside>
+            <!-- Fundo escurecido atrás da gaveta (só no celular): tocar nele fecha o menu -->
+            <div class="sidebar-fundo" id="sidebar-fundo"></div>
             <!-- ÁREA PRINCIPAL -->
             <div class="main-wrapper">
                 <header class="toolbar">
                     <!-- Botão para ocultar/exibir a sidebar -->
-                    <button class="toolbar-toggle" id="btn-toggle-sidebar">
+                    <button type="button" class="toolbar-toggle" id="btn-toggle-sidebar" aria-label="Abrir ou fechar o menu" aria-controls="sidebar-menu">
                         <i class="fas fa-bars"></i>
                     </button>
                     <h1 class="toolbar-titulo">{% block toolbar_titulo %}{% endblock %}</h1>
