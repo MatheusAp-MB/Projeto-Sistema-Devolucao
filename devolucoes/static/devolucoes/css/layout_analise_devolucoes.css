@@ -1,0 +1,243 @@
+/*
+* [RESUMO] → Layout da tela Análise (pedido de Matheus, 05/10/2026):
+* totais, tabela com colunas à escolha e paginação. A barra de filtros, a
+* linha do "padrão salvo", a janelinha de opções, o aviso rápido e o título
+* com botões vêm de layout_devolucoes_pendentes.css (a tela carrega os 2
+* arquivos) — aqui só o que é próprio da Análise.
+*/
+
+.an-resultado {
+    margin-top: 22px;
+    scroll-margin-top: 16px;
+}
+
+.an-voltar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    font-weight: 600;
+    margin-bottom: 10px;
+}
+
+.an-barra {
+    margin-top: 18px;
+}
+
+/* ----- totais ----- */
+
+.an-totais {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.an-totais > div {
+    flex: 1 1 180px;
+    background-color: #f7f9fc;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.an-totais span {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cor-texto-muted);
+}
+
+.an-totais b {
+    font-size: 20px;
+    color: var(--cor-primaria);
+    font-variant-numeric: tabular-nums;
+}
+
+.an-totais em {
+    font-style: normal;
+    font-size: 12.5px;
+    color: var(--cor-positivo);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.an-totais small {
+    font-size: 11.5px;
+    color: var(--cor-texto-muted);
+}
+
+/* ----- tabela ----- */
+
+.an-scroll {
+    overflow-x: auto;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+}
+
+.an-tab {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+
+.an-tab th {
+    background-color: #f7f9fc;
+    text-align: left;
+    border-bottom: 1px solid var(--cor-borda);
+    padding: 0;
+}
+
+.an-tab th button {
+    border: 0;
+    background: none;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cor-texto-muted);
+    cursor: pointer;
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    white-space: nowrap;
+    width: 100%;
+    font-family: inherit;
+}
+
+.an-tab th button:hover {
+    color: var(--cor-primaria);
+}
+
+.an-tab th button .fa-sort {
+    opacity: 0.35;
+}
+
+.an-th--ord button {
+    color: var(--cor-primaria);
+}
+
+.an-tab th.an-num button {
+    justify-content: flex-end;
+}
+
+.an-tab td {
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--cor-borda);
+    color: #333;
+    vertical-align: middle;
+}
+
+.an-tab tbody tr:hover {
+    background-color: #f7f9fc;
+}
+
+.an-tab tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+.an-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.an-nw {
+    white-space: nowrap;
+}
+
+.an-clip {
+    display: block;
+    max-width: 230px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* a coluna do botão "Ver na lista" fica sempre visível, mesmo quando a tabela rola de lado */
+.an-acao {
+    text-align: right;
+    width: 1%;
+    white-space: nowrap;
+    position: sticky;
+    right: 0;
+    background-color: #fff;
+    box-shadow: -8px 0 8px -8px rgba(0, 0, 0, 0.18);
+}
+
+.an-tab th.an-acao {
+    background-color: #f7f9fc;
+}
+
+.an-tab tbody tr:hover td.an-acao {
+    background-color: #f7f9fc;
+}
+
+.an-ver {
+    display: inline-flex;
+    width: auto;
+    white-space: nowrap;
+}
+
+.an-vazio {
+    text-align: center;
+    color: var(--cor-texto-muted);
+    padding: 24px 12px !important;
+}
+
+/* ----- paginação ----- */
+
+.an-pag {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 16px;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: var(--cor-texto-muted);
+}
+
+.an-pag-ctl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.an-pag-ctl label {
+    margin: 0;
+}
+
+.an-pag select {
+    border: 1px solid var(--cor-borda);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12.5px;
+    background-color: #fff;
+    font-family: inherit;
+}
+
+.an-pag-n {
+    white-space: nowrap;
+}
+
+.dp-btn[disabled] {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.dp-btn[disabled]:hover {
+    border-color: var(--cor-borda);
+    color: #444;
+}
+
+/* ----- janelinha de Colunas: 17 opções, mais alta que as outras ----- */
+
+.dp-pop.dp-pop--alto {
+    max-height: min(640px, 84vh);
+}

@@ -15,13 +15,19 @@
 
 {% block conteudo %}
     <div class="dp-cartao">
-        <p class="dp-titulo">Devoluções</p>
-        <p class="dp-subtitulo">Acompanhe cada devolução pelo estágio real dela — da chegada do pacote até o relatório impresso.</p>
+        <div class="dp-titulo-linha">
+            <div>
+                <p class="dp-titulo">Devoluções</p>
+                <p class="dp-subtitulo">Acompanhe cada devolução pelo estágio real dela — da chegada do pacote até o relatório impresso.</p>
+            </div>
+            {# tela adicional (05/10/2026): todas as etapas numa tabela só, com colunas à escolha e exportação pro Excel #}
+            <a href="{% url 'analise_devolucoes' %}" class="dp-btn" title="Veja as devoluções de todas as etapas juntas, escolha as colunas e exporte para o Excel"><i class="fas fa-table-list"></i> Abrir Análise</a>
+        </div>
 
         {% if total_devolucoes %}
         <div class="dp-campo-busca">
             <i class="fas fa-magnifying-glass"></i>
-            <input type="text" id="dp-busca" placeholder="Buscar por cliente, número do pedido ou produto...">
+            <input type="text" id="dp-busca" placeholder="Buscar por cliente, pedido, produto, NF, código de barras ou marca..." autocomplete="off">
         </div>
 
         <nav class="dp-abas-nav">
@@ -51,6 +57,7 @@
         <!-- ===== 1. AGUARDANDO CONFERÊNCIA ===== -->
         <div class="dp-tab-panel dp-tab-panel--ativa" data-painel="aguardando_conferencia">
             {% if aguardando_conferencia %}
+            <div class="dp-organiza" data-organiza></div>
             <div class="dp-tabela-wrapper">
             <div class="dp-tabela-scroll">
                 <div class="dp-tabela-grade dp-tabela-cabecalho">
@@ -61,7 +68,7 @@
                     <div>Ações</div>
                 </div>
                 {% for devolucao in aguardando_conferencia %}
-                <div class="dp-item dp-tabela-grade dp-tabela-item" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
+                <div class="dp-item dp-tabela-grade dp-tabela-item" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}" data-dp="{{ devolucao.dados_tela_json }}">
                     <div class="dp-tabela-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
                          {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
@@ -77,7 +84,7 @@
                         <p class="dp-tabela-produto-nome" title="{{ devolucao.produto.nome }}">{{ devolucao.produto.nome }}</p>
                         <p class="dp-tabela-produto-linha">
                             <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }}</span>
-                            <span><i class="fas fa-receipt"></i> Pedido {{ devolucao.numero_pedido }}</span>
+                            <span><i class="fas fa-receipt"></i> Pedido <span class="dp-pedido-num">{{ devolucao.numero_pedido }}</span></span>
                         </p>
                     </div>
                     <div class="dp-tabela-cliente">
@@ -141,6 +148,7 @@
                 <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todos">Todos</button>
             </div>
             {% if conferidos %}
+            <div class="dp-organiza" data-organiza></div>
             <div class="dp-tabela-wrapper">
             <div class="dp-tabela-scroll">
                 <div class="dp-tabela-grade dp-tabela-cabecalho">
@@ -151,7 +159,7 @@
                     <div>Ações</div>
                 </div>
                 {% for devolucao in conferidos %}
-                <div class="dp-item dp-tabela-grade dp-tabela-item" data-destino="{{ devolucao.destino_produto }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
+                <div class="dp-item dp-tabela-grade dp-tabela-item" data-destino="{{ devolucao.destino_produto }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}" data-dp="{{ devolucao.dados_tela_json }}">
                     <div class="dp-tabela-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
                          {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
@@ -172,7 +180,7 @@
                         <p class="dp-tabela-produto-nome" title="{{ devolucao.produto.nome }}">{{ devolucao.produto.nome }}</p>
                         <p class="dp-tabela-produto-linha">
                             <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }}</span>
-                            <span><i class="fas fa-receipt"></i> Pedido {{ devolucao.numero_pedido }}</span>
+                            <span><i class="fas fa-receipt"></i> Pedido <span class="dp-pedido-num">{{ devolucao.numero_pedido }}</span></span>
                         </p>
                     </div>
                     <div class="dp-tabela-cliente">
@@ -244,6 +252,7 @@
                 <button type="button" class="dp-chip-filtro dp-chip-filtro--ativa" data-filtro="todos">Todos</button>
             </div>
             {% if mediacoes_abertas %}
+            <div class="dp-organiza" data-organiza></div>
             <div class="dp-tabela-wrapper">
             <div class="dp-tabela-scroll">
                 <div class="dp-tabela-grade dp-tabela-cabecalho">
@@ -254,7 +263,7 @@
                     <div>Ações</div>
                 </div>
                 {% for devolucao in mediacoes_abertas %}
-                <div class="dp-item dp-tabela-grade dp-tabela-item" data-destino="{{ devolucao.destino_produto }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
+                <div class="dp-item dp-tabela-grade dp-tabela-item" data-destino="{{ devolucao.destino_produto }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}" data-dp="{{ devolucao.dados_tela_json }}">
                     <div class="dp-tabela-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
                          {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
@@ -285,7 +294,7 @@
                         <p class="dp-tabela-produto-nome" title="{{ devolucao.produto.nome }}">{{ devolucao.produto.nome }}</p>
                         <p class="dp-tabela-produto-linha">
                             <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }}</span>
-                            <span><i class="fas fa-receipt"></i> Pedido {{ devolucao.numero_pedido }}</span>
+                            <span><i class="fas fa-receipt"></i> Pedido <span class="dp-pedido-num">{{ devolucao.numero_pedido }}</span></span>
                         </p>
                     </div>
                     <div class="dp-tabela-cliente">
@@ -370,6 +379,7 @@
                 <button type="button" class="dp-chip-filtro" data-filtro="nao">Não reembolsados</button>
             </div>
             {% if mediacoes_encerradas %}
+            <div class="dp-organiza" data-organiza></div>
             <div class="dp-tabela-wrapper">
             <div class="dp-tabela-scroll">
                 <div class="dp-tabela-grade dp-tabela-cabecalho">
@@ -380,7 +390,7 @@
                     <div>Ações</div>
                 </div>
                 {% for devolucao in mediacoes_encerradas %}
-                <div class="dp-item dp-tabela-grade dp-tabela-item" data-destino="{{ devolucao.destino_produto }}" data-reembolso="{{ devolucao.reembolsado_filtro }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
+                <div class="dp-item dp-tabela-grade dp-tabela-item" data-destino="{{ devolucao.destino_produto }}" data-reembolso="{{ devolucao.reembolsado_filtro }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}" data-dp="{{ devolucao.dados_tela_json }}">
                     <div class="dp-tabela-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
                          {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
@@ -401,7 +411,7 @@
                         <p class="dp-tabela-produto-nome" title="{{ devolucao.produto.nome }}">{{ devolucao.produto.nome }}</p>
                         <p class="dp-tabela-produto-linha">
                             <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }}</span>
-                            <span><i class="fas fa-receipt"></i> Pedido {{ devolucao.numero_pedido }}</span>
+                            <span><i class="fas fa-receipt"></i> Pedido <span class="dp-pedido-num">{{ devolucao.numero_pedido }}</span></span>
                         </p>
                     </div>
                     <div class="dp-tabela-cliente">
@@ -484,6 +494,7 @@
                 <button type="button" class="dp-chip-filtro" data-filtro="nao">Não reembolsados</button>
             </div>
             {% if impressos %}
+            <div class="dp-organiza" data-organiza></div>
             <div class="dp-tabela-wrapper">
             <div class="dp-tabela-scroll">
                 <div class="dp-tabela-grade dp-tabela-cabecalho">
@@ -494,7 +505,7 @@
                     <div>Ações</div>
                 </div>
                 {% for devolucao in impressos %}
-                <div class="dp-item dp-tabela-grade dp-tabela-item" data-destino="{{ devolucao.destino_produto }}" data-reembolso="{{ devolucao.reembolsado_filtro }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}">
+                <div class="dp-item dp-tabela-grade dp-tabela-item" data-destino="{{ devolucao.destino_produto }}" data-reembolso="{{ devolucao.reembolsado_filtro }}" data-busca="{{ devolucao.nome_cliente|lower }} {{ devolucao.numero_pedido|lower }} {{ devolucao.produto.nome|lower }}" data-dp="{{ devolucao.dados_tela_json }}">
                     <div class="dp-tabela-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
                          {% if devolucao.produto.foto %}data-fotos-id="dp-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
                         {% if devolucao.produto.foto %}
@@ -515,7 +526,7 @@
                         <p class="dp-tabela-produto-nome" title="{{ devolucao.produto.nome }}">{{ devolucao.produto.nome }}</p>
                         <p class="dp-tabela-produto-linha">
                             <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }}</span>
-                            <span><i class="fas fa-receipt"></i> Pedido {{ devolucao.numero_pedido }}</span>
+                            <span><i class="fas fa-receipt"></i> Pedido <span class="dp-pedido-num">{{ devolucao.numero_pedido }}</span></span>
                         </p>
                     </div>
                     <div class="dp-tabela-cliente">
@@ -590,5 +601,11 @@
 {% endblock %}
 
 {% block scripts %}
+{% if total_devolucoes %}
+{# O JS lê os 2 blocos abaixo: padrões salvos da empresa ativa (por aba) e a configuração da tela (dia de hoje, nome da empresa, endereços de salvar/restaurar). O campo escondido do csrf é pro POST de "Salvar como padrão". #}
+{{ padroes_salvos_tela|json_script:"dp-padroes-salvos" }}
+{{ config_tela|json_script:"dp-config" }}
+<div hidden>{% csrf_token %}</div>
+{% endif %}
 <script src="{% static 'devolucoes/js/script_devolucoes_pendentes.js' %}"></script>
 {% endblock %}

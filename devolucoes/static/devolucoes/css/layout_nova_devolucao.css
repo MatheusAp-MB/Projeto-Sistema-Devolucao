@@ -431,6 +431,8 @@
 .nd-selo:focus .nd-selo-dica {
     opacity: 1;
     visibility: visible;
+    /* aberta, fica por cima da barra fixa de baixo (z-index 60 na edição) */
+    z-index: 70;
 }
 
 /* colunas da direita: a dica abre pra esquerda, pra não sair da tela
@@ -454,6 +456,177 @@
 .nd-secao:has(> .nd-secao-titulo .nd-selo-auto) .nd-produto-card {
     background-color: #eef5fb;
     border-color: #b4d3ec;
+}
+
+/* ===== Editar devolução (04/10/2026) ===== */
+
+/* botão Voltar na barra de cima */
+.nd-btn-voltar {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+    background-color: rgba(255, 255, 255, 0.12);
+    color: var(--cor-texto-claro);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.nd-btn-voltar:hover {
+    background-color: rgba(255, 255, 255, 0.22);
+    color: var(--cor-texto-claro);
+    text-decoration: none;
+}
+
+/* cabeçalho: qual devolução está sendo editada */
+.nd-cabecalho {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.nd-cabecalho-titulo {
+    margin: 0 0 6px 0;
+    font-size: 19px;
+    font-weight: 600;
+    color: var(--cor-primaria);
+}
+
+.nd-cabecalho-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    font-size: 13px;
+    color: #555;
+}
+
+.nd-cabecalho-selo {
+    padding: 5px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.nd-cabecalho-selo--ambar {
+    background-color: #fff3cd;
+    color: #7a5b00;
+}
+
+.nd-cabecalho-selo--verde {
+    background-color: #dff3e6;
+    color: #1f6b40;
+}
+
+/* mediação em andamento: sobe pro topo (ver _secao_mediacao.html) e ganha borda azul */
+.nd-secao--destaque {
+    border: 2px solid var(--cor-primaria-clara);
+    padding: 17px 19px;
+}
+
+.nd-aviso-mediacao {
+    margin-bottom: 14px;
+    padding: 9px 12px;
+    border: 1px solid #b4d3ec;
+    border-radius: 6px;
+    background-color: #eef5fb;
+    color: var(--cor-primaria);
+    font-size: 13px;
+}
+
+/* espaçamento: campo solto dentro da seção não gruda mais no de baixo, e o
+   último bloco da seção não soma uma folga extra com o respiro da seção */
+.nd-secao > .nd-campo:not(:last-child) {
+    margin-bottom: 14px;
+}
+
+.nd-secao > .nd-grid-2:last-child,
+.nd-secao > .nd-grid-3:last-child,
+.nd-secao > .nd-grid-4:last-child {
+    margin-bottom: 0;
+}
+
+/* fotos do cliente maiores; o nome do bloco não quebra em 2 linhas no celular */
+.nd-fotos-cliente .cf-foto-item {
+    width: 96px;
+    height: 96px;
+}
+
+.nd-fotos-cliente-titulo {
+    flex-wrap: wrap;
+}
+
+.nd-fotos-cliente-nome {
+    white-space: nowrap;
+}
+
+/* barra de ações: Cancelar + Salvar; na edição fica fixa no rodapé (fixed e não
+   sticky porque .conteudo-principal tem overflow, que desligaria o sticky). O
+   'left' acompanha a sidebar (aberta ou oculta). */
+.nd-acoes-conteudo {
+    display: flex;
+    gap: 10px;
+}
+
+.nd-botao-secundario {
+    display: inline-flex;
+    align-items: center;
+    padding: 12px 20px;
+    border: 1px solid #ced4da;
+    border-radius: 8px;
+    background-color: var(--cor-fundo-card);
+    color: #444;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.nd-botao-secundario:hover {
+    background-color: #f5f7fa;
+    color: #222;
+    text-decoration: none;
+}
+
+.nd-pagina--com-barra {
+    padding-bottom: 84px;
+}
+
+.nd-acoes--fixa {
+    position: fixed;
+    bottom: 0;
+    left: var(--sidebar-largura);
+    right: 0;
+    z-index: 60;
+    padding: 10px 24px;
+    background-color: var(--cor-fundo-card);
+    border-top: 1px solid var(--cor-borda);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+    transition: left 0.3s;
+}
+
+.nd-acoes--fixa .nd-acoes-conteudo {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    justify-content: flex-end;
+}
+
+body.sidebar-oculta .nd-acoes--fixa {
+    left: var(--sidebar-largura-min);
+}
+
+/* botão de enviar "padrão" fora da tela: faz o Enter num campo salvar a edição
+   (e não acionar o X de excluir foto, que é o 1º botão de enviar da página) */
+.nd-submit-padrao {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
 }
 
 /* ===== Mobile ===== */
@@ -481,5 +654,24 @@
     .nd-grid-3,
     .nd-grid-4 {
         grid-template-columns: 1fr;
+    }
+
+    .nd-cabecalho-selo {
+        white-space: normal;
+    }
+
+    /* celular: o Voltar do topo some (o Cancelar da barra de baixo faz a mesma coisa);
+       com ele a toolbar não cabe e a página ganha rolagem pro lado */
+    .nd-btn-voltar {
+        display: none;
+    }
+
+    .nd-acoes--fixa {
+        padding: 10px 16px;
+    }
+
+    .nd-acoes--fixa .nd-botao-primario {
+        flex: 1;
+        justify-content: center;
     }
 }

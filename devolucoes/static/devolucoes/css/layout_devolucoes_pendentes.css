@@ -658,3 +658,338 @@
         min-width: 1050px;
     }
 }
+
+/* =========================================================
+   Ordenar, filtros novos e padrão salvo (pedido de Matheus,
+   05/10/2026) — barra desenhada pelo JS dentro de
+   .dp-organiza, logo acima da tabela de cada aba. Reaproveita
+   os chips (.dp-chip-filtro) e os botões (.dp-btn) que a tela
+   já tinha; as classes abaixo são só o que faltava.
+   ========================================================= */
+
+.dp-organiza {
+    margin-top: 20px;
+}
+
+.dp-barra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    background-color: #f7f9fc;
+    border: 1px solid var(--cor-borda);
+    border-radius: 8px;
+}
+
+.dp-barra-sep {
+    width: 1px;
+    height: 20px;
+    background-color: var(--cor-borda);
+    margin: 0 2px;
+}
+
+.dp-chip-pop {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    max-width: 100%;
+    text-align: left;
+}
+
+.dp-chip-pop b {
+    font-weight: 700;
+}
+
+.dp-chip-pop .fa-chevron-down {
+    font-size: 9px;
+    margin-left: 2px;
+    opacity: 0.7;
+}
+
+.dp-direita {
+    margin-left: auto;
+}
+
+.dp-link {
+    border: 0;
+    background: none;
+    color: var(--cor-primaria-clara);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 2px;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.dp-link:hover {
+    text-decoration: underline;
+}
+
+.dp-estado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+    margin-top: 8px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+}
+
+.dp-estado--salvo {
+    background-color: #e7f0fa;
+    color: var(--cor-primaria);
+}
+
+.dp-estado--temp {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.dp-estado--temp .dp-link {
+    color: #92400e;
+    text-decoration: underline;
+}
+
+.dp-estado-bts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.dp-bt {
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    background-color: #fff;
+    color: #444;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.dp-bt:hover {
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-primaria-clara);
+}
+
+.dp-bt--forte {
+    background-color: var(--cor-primaria);
+    border-color: var(--cor-primaria);
+    color: var(--cor-texto-claro);
+}
+
+.dp-bt--forte:hover {
+    background-color: var(--cor-primaria-clara);
+    border-color: var(--cor-primaria-clara);
+    color: var(--cor-texto-claro);
+}
+
+.dp-resumo {
+    font-size: 12px;
+    color: var(--cor-texto-muted);
+    margin: 10px 2px 2px 2px;
+}
+
+.dp-aviso {
+    color: #92400e;
+}
+
+/* ----- janelinha de opções (Ordenar, Plataforma, Marca, ...) ----- */
+
+.dp-pop {
+    position: fixed;
+    z-index: 60;
+    background-color: #fff;
+    border: 1px solid var(--cor-borda);
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    min-width: 230px;
+    max-width: min(340px, calc(100vw - 20px));
+    max-height: min(420px, 72vh);
+    overflow: auto;
+    padding: 8px;
+    font-size: 13px;
+}
+
+.dp-pop[hidden] {
+    display: none;
+}
+
+.dp-pop h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--cor-texto-muted);
+    margin: 8px 9px 4px 9px;
+    font-weight: 700;
+}
+
+.dp-pop h4:first-child {
+    margin-top: 4px;
+}
+
+.dp-op {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+    padding: 7px 9px;
+    border: 0;
+    background: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #333;
+    font-size: 13px;
+    text-align: left;
+    font-family: inherit;
+    margin: 0;
+}
+
+.dp-op:hover {
+    background-color: #f1f5fa;
+}
+
+.dp-op .fa-check {
+    width: 12px;
+    font-size: 11px;
+    color: transparent;
+    flex-shrink: 0;
+}
+
+.dp-op--on {
+    font-weight: 700;
+}
+
+.dp-op--on .fa-check {
+    color: var(--cor-primaria-clara);
+}
+
+.dp-op em {
+    margin-left: auto;
+    font-style: normal;
+    color: var(--cor-texto-muted);
+    font-size: 11.5px;
+    font-weight: 400;
+}
+
+.dp-op input {
+    margin: 0;
+    accent-color: var(--cor-primaria-clara);
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+.dp-pop-rod {
+    border-top: 1px solid var(--cor-borda);
+    margin-top: 6px;
+    padding: 6px 9px 2px 9px;
+}
+
+/* ----- busca: onde a palavra foi achada ----- */
+
+.dp-achou {
+    font-size: 11.5px;
+    color: var(--cor-primaria-clara);
+    margin: 0;
+    font-weight: 600;
+    align-self: flex-start;
+}
+
+.dp-destaque {
+    background-color: #fff3b0;
+    border-radius: 2px;
+    color: inherit;
+}
+
+/* ----- aviso rápido ("Padrão salvo para ...") ----- */
+
+.dp-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translate(-50%, 20px);
+    background-color: #1b2b3d;
+    color: #fff;
+    padding: 11px 16px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    line-height: 1.4;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    z-index: 300;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s, transform 0.2s;
+    width: max-content;
+    max-width: min(560px, calc(100vw - 32px));
+}
+
+.dp-toast--visivel {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.dp-toast .fa-circle-check {
+    color: #5bd48a;
+    margin-top: 2px;
+}
+
+.dp-toast--erro {
+    background-color: #7a1f1f;
+}
+
+.dp-toast--erro .fa-triangle-exclamation {
+    color: #ffd0d0;
+    margin-top: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dp-toast {
+        transition: none;
+    }
+}
+
+@media (max-width: 700px) {
+    .dp-direita {
+        margin-left: 0;
+    }
+}
+
+/* =========================================================
+   Título com botão ao lado ("Abrir Análise" na tela
+   Devoluções; "Colunas" e "Exportar" na tela Análise —
+   pedido de Matheus, 05/10/2026).
+   ========================================================= */
+
+.dp-titulo-linha {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.dp-titulo-linha > div:first-child {
+    min-width: 0;
+    flex: 1 1 320px;
+}
+
+.dp-titulo-bts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 2px;
+}
+
+.dp-titulo-linha > .dp-btn {
+    margin-top: 2px;
+}

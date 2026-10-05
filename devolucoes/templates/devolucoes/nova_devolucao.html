@@ -3,6 +3,7 @@
 
 {% block titulo %}{% if devolucao %}Editar devolução{% else %}Nova devolução{% endif %}{% endblock %}
 {% block toolbar_titulo %}{% if devolucao %}Editar Devolução{% else %}Nova Devolução{% endif %}{% endblock %}
+{% block toolbar_acoes %}{% if devolucao %}<a href="{% url 'devolucoes_pendentes' %}" class="nd-btn-voltar" data-nd-voltar><i class="fas fa-arrow-left"></i> Voltar</a>{% endif %}{% endblock %}
 
 {% block head_extra %}
 <link rel="stylesheet" href="{% static 'devolucoes/css/layout_nova_devolucao.css' %}">
@@ -10,22 +11,51 @@
 {% endblock %}
 
 {% block conteudo %}
-    <form method="post" enctype="multipart/form-data" class="nd-pagina" id="form_nova_devolucao">
+    <form method="post" enctype="multipart/form-data" class="nd-pagina{% if devolucao %} nd-pagina--com-barra{% endif %}" id="form_nova_devolucao">
         {% csrf_token %}
+        {% if devolucao %}
+            {# Botão de enviar "padrão" (fica fora da tela): sem ele, apertar Enter num campo acionaria o 1º botão de enviar da página, que é o X de excluir foto. #}
+            <button type="submit" class="nd-submit-padrao" tabindex="-1" aria-hidden="true"></button>
 
-        {% if mostrar_selos %}
-            {# Selos "preenchido sozinho" (ver CHAVES_COM_SELO em views.py). Legenda: se a tela veio do "Criar devolução", explica azul x cinza; se foi aberta à mão, lembra que dava pra fazer pela Consultar Pedido. #}
-            <div class="nd-aviso-selos">
-                <i class="fas fa-cloud-arrow-down" aria-hidden="true"></i>
-                {% if veio_da_consulta %}
-                    <span>Os campos em azul foram preenchidos sozinhos pelo Mercado Livre. Confira antes de salvar. Nos de ícone cinza o dado não veio: preencha à mão.</span>
+            <div class="nd-secao nd-cabecalho">
+                <div>
+                    <h2 class="nd-cabecalho-titulo">Pedido {{ devolucao.numero_pedido }}</h2>
+                    <div class="nd-cabecalho-meta">
+                        <span><i class="fas fa-store"></i> {{ devolucao.nome_plataforma }} — {{ devolucao.get_tipo_venda_display }}</span>
+                        <span><i class="fas fa-user"></i> {{ devolucao.nome_cliente }}</span>
+                        <span><i class="fas fa-receipt"></i> NF {{ devolucao.numero_nota_fiscal }}</span>
+                    </div>
+                </div>
+                {% if devolucao.destino_produto %}
+                    <span class="nd-cabecalho-selo nd-cabecalho-selo--verde"><i class="fas fa-check-circle"></i> Conferida — {{ devolucao.get_destino_produto_display }}</span>
                 {% else %}
-                    <span>Estes campos podem vir sozinhos. Abra a <a href="{% url 'consultar_pedido_ml' %}">Consultar Pedido</a>, pesquise o pedido e clique em "Criar devolução".</span>
+                    <span class="nd-cabecalho-selo nd-cabecalho-selo--ambar"><i class="fas fa-clock"></i> Pendente de conferência</span>
                 {% endif %}
             </div>
-            {% if selos_originais_json %}<input type="hidden" name="selos_originais" value="{{ selos_originais_json }}">{% endif %}
         {% endif %}
 
+        {# Selos "preenchido sozinho" (ver CHAVES_COM_SELO em views.py). Na Nova devolução: azul x cinza, ou o lembrete de que a tela poderia ter sido preenchida pela Consultar Pedido. Na Editar devolução: o que ficou gravado quando a devolução foi criada (Devolucao.campos_automaticos_ml). #}
+        <div class="nd-aviso-selos">
+            <i class="fas fa-cloud-arrow-down" aria-hidden="true"></i>
+            {% if legenda_selos == 'consulta' %}
+                <span>Os campos em azul foram preenchidos sozinhos pelo Mercado Livre. Confira antes de salvar. Nos de ícone cinza o dado não veio: preencha à mão.</span>
+            {% elif legenda_selos == 'edicao_consulta' %}
+                <span>Os ícones azuis mostram o que veio sozinho do Mercado Livre quando esta devolução foi criada. Em cinza: foi digitado à mão ou alterado depois. Passe o mouse no ícone para ver.</span>
+            {% elif legenda_selos == 'edicao_manual' %}
+                <span>Esta devolução foi criada à mão, sem a Consultar Pedido: nenhum dado veio sozinho do Mercado Livre.</span>
+            {% elif legenda_selos == 'edicao_sem_registro' %}
+                <span>Esta devolução foi criada antes de o sistema guardar de onde vinham os dados, por isso os ícones ficam cinza.</span>
+            {% else %}
+                <span>Estes campos podem vir sozinhos. Abra a <a href="{% url 'consultar_pedido_ml' %}">Consultar Pedido</a>, pesquise o pedido e clique em "Criar devolução".</span>
+            {% endif %}
+        </div>
+        {% if selos_originais_json %}<input type="hidden" name="selos_originais" value="{{ selos_originais_json }}">{% endif %}
+
+        {% if devolucao %}
+            {% if mediacao_em_andamento %}
+                {% include 'devolucoes/_secao_mediacao.html' %}
+            {% endif %}
+        {% else %}
         <div class="nd-secao nd-colar-erp">
             <button type="button" id="nd_colar_toggle" class="nd-colar-toggle">
                 <i class="fas fa-paste"></i> Colar linha do ERP
@@ -39,14 +69,15 @@
                 <p id="nd_colar_status" class="nd-colar-status" hidden></p>
             </div>
         </div>
+        {% endif %}
 
         <div class="nd-secao">
             <p class="nd-secao-titulo"><i class="fas fa-store"></i> Plataforma e pedido</p>
-            <div class="nd-grid-2">
+            <div class="nd-grid-4">
                 <div class="nd-campo">
                     <div class="nd-label-linha">
                         <label for="id_nome_plataforma">Plataforma *</label>
-                        {% if mostrar_selos %}{% include 'devolucoes/_selo_automatico.html' with selo=selos.nome_plataforma %}{% endif %}
+                        {% include 'devolucoes/_selo_automatico.html' with selo=selos.nome_plataforma %}
                     </div>
                     <select id="id_nome_plataforma" name="nome_plataforma" required>
                         <option value="">Selecione...</option>
@@ -58,7 +89,7 @@
                 <div class="nd-campo">
                     <div class="nd-label-linha">
                         <label for="id_tipo_venda">Tipo de venda *</label>
-                        {% if mostrar_selos %}{% include 'devolucoes/_selo_automatico.html' with selo=selos.tipo_venda %}{% endif %}
+                        {% include 'devolucoes/_selo_automatico.html' with selo=selos.tipo_venda %}
                     </div>
                     <select id="id_tipo_venda" name="tipo_venda" required>
                         <option value="">Selecione...</option>
@@ -67,12 +98,10 @@
                         {% endfor %}
                     </select>
                 </div>
-            </div>
-            <div class="nd-grid-2">
                 <div class="nd-campo">
                     <div class="nd-label-linha">
                         <label for="id_numero_pedido">Número do pedido *</label>
-                        {% if mostrar_selos %}{% include 'devolucoes/_selo_automatico.html' with selo=selos.numero_pedido %}{% endif %}
+                        {% include 'devolucoes/_selo_automatico.html' with selo=selos.numero_pedido %}
                     </div>
                     <input type="text" id="id_numero_pedido" name="numero_pedido" value="{{ valores.numero_pedido }}" required>
                 </div>
@@ -81,19 +110,21 @@
                     <input type="text" id="id_numero_nota_fiscal" name="numero_nota_fiscal" value="{{ valores.numero_nota_fiscal }}" required>
                 </div>
             </div>
-            <div class="nd-campo">
-                <div class="nd-label-linha">
-                    <label for="id_nome_cliente">Nome do cliente *</label>
-                    {% if mostrar_selos %}{% include 'devolucoes/_selo_automatico.html' with selo=selos.nome_cliente %}{% endif %}
+            <div class="nd-grid-2">
+                <div class="nd-campo">
+                    <div class="nd-label-linha">
+                        <label for="id_nome_cliente">Nome do cliente *</label>
+                        {% include 'devolucoes/_selo_automatico.html' with selo=selos.nome_cliente %}
+                    </div>
+                    <input type="text" id="id_nome_cliente" name="nome_cliente" value="{{ valores.nome_cliente }}" required>
                 </div>
-                <input type="text" id="id_nome_cliente" name="nome_cliente" value="{{ valores.nome_cliente }}" required>
-            </div>
-            <div class="nd-campo">
-                <div class="nd-label-linha">
-                    <label for="id_preco_produto">Preço do produto</label>
-                    {% if mostrar_selos %}{% include 'devolucoes/_selo_automatico.html' with selo=selos.preco_produto %}{% endif %}
+                <div class="nd-campo">
+                    <div class="nd-label-linha">
+                        <label for="id_preco_produto">Preço do produto</label>
+                        {% include 'devolucoes/_selo_automatico.html' with selo=selos.preco_produto %}
+                    </div>
+                    <input type="number" id="id_preco_produto" name="preco_produto" value="{{ valores.preco_produto }}" step="0.01" min="0" placeholder="Ex: 366.00">
                 </div>
-                <input type="number" id="id_preco_produto" name="preco_produto" value="{{ valores.preco_produto }}" step="0.01" min="0" placeholder="Ex: 366.00">
             </div>
         </div>
 
@@ -103,68 +134,37 @@
                 <div class="nd-campo">
                     <div class="nd-label-linha">
                         <label for="id_data_venda">Data da venda *</label>
-                        {% if mostrar_selos %}{% include 'devolucoes/_selo_automatico.html' with selo=selos.data_venda %}{% endif %}
+                        {% include 'devolucoes/_selo_automatico.html' with selo=selos.data_venda %}
                     </div>
                     <input type="date" id="id_data_venda" name="data_venda" value="{{ valores.data_venda }}" required>
                 </div>
                 <div class="nd-campo">
                     <div class="nd-label-linha">
                         <label for="id_data_recebimento_cliente">Recebido pelo cliente em *</label>
-                        {% if mostrar_selos %}{% include 'devolucoes/_selo_automatico.html' with selo=selos.data_recebimento_cliente %}{% endif %}
+                        {% include 'devolucoes/_selo_automatico.html' with selo=selos.data_recebimento_cliente %}
                     </div>
                     <input type="date" id="id_data_recebimento_cliente" name="data_recebimento_cliente" value="{{ valores.data_recebimento_cliente }}" required>
                 </div>
                 <div class="nd-campo">
                     <div class="nd-label-linha">
                         <label for="id_data_reclamacao_cliente">Reclamação aberta em *</label>
-                        {% if mostrar_selos %}{% include 'devolucoes/_selo_automatico.html' with selo=selos.data_reclamacao_cliente %}{% endif %}
+                        {% include 'devolucoes/_selo_automatico.html' with selo=selos.data_reclamacao_cliente %}
                     </div>
                     <input type="date" id="id_data_reclamacao_cliente" name="data_reclamacao_cliente" value="{{ valores.data_reclamacao_cliente }}" required>
                 </div>
                 <div class="nd-campo">
                     <div class="nd-label-linha">
                         <label for="id_data_recebimento_por_nos">Recebido por nós em *</label>
-                        {% if mostrar_selos %}{% include 'devolucoes/_selo_automatico.html' with selo=selos.data_recebimento_por_nos %}{% endif %}
+                        {% include 'devolucoes/_selo_automatico.html' with selo=selos.data_recebimento_por_nos %}
                     </div>
                     <input type="date" id="id_data_recebimento_por_nos" name="data_recebimento_por_nos" value="{{ valores.data_recebimento_por_nos }}" required>
                 </div>
             </div>
         </div>
 
-        <div class="nd-secao">
-            <p class="nd-secao-titulo">
-                <i class="fas fa-scale-balanced"></i> Mediação
-                <span class="nd-secao-opcional">(opcional — pode ficar em aberto)</span>
-            </p>
-            <div class="nd-grid-3">
-                <div class="nd-campo">
-                    <label for="id_data_abertura_mediacao">Mediação aberta em</label>
-                    <input type="date" id="id_data_abertura_mediacao" name="data_abertura_mediacao" value="{{ valores.data_abertura_mediacao }}">
-                    <small class="nd-campo-ajuda">Dia em que você abriu a mediação no ML.</small>
-                </div>
-                <div class="nd-campo">
-                    <label for="id_data_finalizacao_mediacao">Mediação finalizada em</label>
-                    <input type="date" id="id_data_finalizacao_mediacao" name="data_finalizacao_mediacao" value="{{ valores.data_finalizacao_mediacao }}">
-                </div>
-                <div class="nd-campo">
-                    <label for="id_reembolsado">Reembolsado pela plataforma?</label>
-                    <select id="id_reembolsado" name="reembolsado">
-                        <option value="" {% if valores.reembolsado == '' %}selected{% endif %}>Ainda não sei</option>
-                        <option value="sim" {% if valores.reembolsado == 'sim' %}selected{% endif %}>Sim</option>
-                        <option value="nao" {% if valores.reembolsado == 'nao' %}selected{% endif %}>Não</option>
-                    </select>
-                </div>
-            </div>
-            <div class="nd-campo">
-                <label for="id_valor_reembolsado">Valor reembolsado</label>
-                <input type="number" id="id_valor_reembolsado" name="valor_reembolsado" value="{{ valores.valor_reembolsado }}" step="0.01" min="0" placeholder="Ex: 495.00">
-                <small class="nd-campo-ajuda">Valor que o ML pagou à empresa pela compensação do produto devolvido. Preencha à mão depois que o ML confirmar.</small>
-            </div>
-            <div class="nd-campo">
-                <label for="id_anotacao_mediacao">Anotações sobre a mediação</label>
-                <textarea id="id_anotacao_mediacao" name="anotacao_mediacao" rows="2">{{ valores.anotacao_mediacao }}</textarea>
-            </div>
-        </div>
+        {% if not mediacao_em_andamento %}
+            {% include 'devolucoes/_secao_mediacao.html' %}
+        {% endif %}
 
         <div class="nd-secao">
             <p class="nd-secao-titulo"><i class="fas fa-comment-dots"></i> Reclamação do cliente</p>
@@ -176,9 +176,9 @@
 
             <div class="nd-fotos-cliente">
                 <p class="nd-fotos-cliente-titulo">
-                    <i class="fas fa-camera"></i> Fotos do cliente
+                    <i class="fas fa-camera"></i> <span class="nd-fotos-cliente-nome">Fotos do cliente</span>
                     <span class="nd-secao-opcional">(opcional — as que o cliente mandou pra plataforma, se tiver)</span>
-                    {% if mostrar_selos %}{% include 'devolucoes/_selo_automatico.html' with selo=selos.fotos_cliente %}{% endif %}
+                    {% include 'devolucoes/_selo_automatico.html' with selo=selos.fotos_cliente %}
                 </p>
 
                 <div class="cf-fotos">
@@ -230,7 +230,7 @@
         <div class="nd-secao">
             <p class="nd-secao-titulo">
                 <i class="fas fa-box"></i> Produto *
-                {% if mostrar_selos %}{% include 'devolucoes/_selo_automatico.html' with selo=selos.produto %}{% endif %}
+                {% include 'devolucoes/_selo_automatico.html' with selo=selos.produto %}
             </p>
 
             <input type="hidden" name="produto_id" id="nd_produto_id" value="{{ produto_selecionado.id|default:'' }}">
@@ -262,10 +262,13 @@
             </div>
         </div>
 
-        <div class="nd-acoes">
-            <button type="submit" class="nd-botao-primario">
-                <i class="fas fa-floppy-disk"></i> {% if devolucao %}Salvar alterações{% else %}Salvar devolução{% endif %}
-            </button>
+        <div class="nd-acoes{% if devolucao %} nd-acoes--fixa{% endif %}">
+            <div class="nd-acoes-conteudo">
+                {% if devolucao %}<a href="{% url 'devolucoes_pendentes' %}" class="nd-botao-secundario" data-nd-voltar>Cancelar</a>{% endif %}
+                <button type="submit" class="nd-botao-primario">
+                    <i class="fas fa-floppy-disk"></i> {% if devolucao %}Salvar alterações{% else %}Salvar devolução{% endif %}
+                </button>
+            </div>
         </div>
     </form>
 {% endblock %}

@@ -135,6 +135,22 @@ class Devolucao(models.Model):
         help_text='Controle manual: o campo equivalente da API do Mercado Livre (due_date) existe mas nunca vem preenchido na prática (confirmado empiricamente, 20/09/2026) — preencha lendo o texto que o próprio ML manda no chat ("você tem até o dia X para responder").',
     )
 
+    # * [EXPLICAÇÃO] → "Selos" da tela Editar devolução (pedido de Matheus,
+    #   04/10/2026): guarda quais campos vieram sozinhos da API do Mercado
+    #   Livre quando a devolução foi criada (Consultar Pedido → "Criar
+    #   devolução"), cada um com o valor original que o ML trouxe. São 3
+    #   situações, de propósito diferentes:
+    #   - None → devolução criada ANTES desse controle existir (não dá pra
+    #     saber de onde vieram os dados);
+    #   - {}   → criada à mão (nada veio da API);
+    #   - {campo: valor, ...} → veio da consulta, só com os campos que o ML
+    #     realmente trouxe (chaves em views.CHAVES_COM_SELO).
+    #   Só serve pra mostrar os selos: nenhuma regra do sistema depende dele.
+    campos_automaticos_ml = models.JSONField(
+        'Campos preenchidos sozinhos pelo ML ao criar', null=True, blank=True, default=None,
+        help_text='Quais campos vieram sozinhos da API do Mercado Livre quando a devolução foi criada, com o valor que o ML trouxe — usado só pelos selos (ícone de nuvem) da tela Editar devolução. Vazio (None) = devolução criada antes desse controle; {} = criada à mão.',
+    )
+
     # ===== Sobre a reclamação feita pelo cliente =====
     motivo_reclamacao = models.TextField('Motivo da reclamação do cliente')
     # * [EXPLICAÇÃO] → as imagens do cliente moram em FotoReclamacaoCliente

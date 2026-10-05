@@ -1,0 +1,61 @@
+{% extends 'base_compartilhada/estrutura_base_global.html' %}
+{% load static %}
+
+{% block titulo %}Análise de devoluções{% endblock %}
+{% block toolbar_titulo %}Devoluções · Análise{% endblock %}
+
+{% block toolbar_acoes %}
+<a href="{% url 'nova_devolucao' %}" class="dp-botao-nova"><i class="fas fa-plus"></i> Nova devolução</a>
+{% endblock %}
+
+{% block head_extra %}
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_devolucoes_pendentes.css' %}">
+<link rel="stylesheet" href="{% static 'devolucoes/css/layout_analise_devolucoes.css' %}">
+{% endblock %}
+
+{% block conteudo %}
+    {# * [EXPLICAÇÃO] → tela adicional (pedido de Matheus, 05/10/2026): só consulta e exporta. Tudo que está dentro de #an-barra e #an-resultado é desenhado pelo script_analise_devolucoes.js a partir dos dados abaixo (bloco scripts). #}
+    <div class="dp-cartao">
+        <div class="dp-titulo-linha">
+            <div>
+                <a href="{% url 'devolucoes_pendentes' %}" class="an-voltar"><i class="fas fa-arrow-left"></i> Voltar para Devoluções</a>
+                <p class="dp-titulo">Análise de devoluções</p>
+                <p class="dp-subtitulo">Veja as devoluções de todas as etapas juntas, escolha as colunas e exporte. Aqui você só consulta: para mexer em uma devolução, use a tela Devoluções.</p>
+            </div>
+            {% if total_devolucoes %}
+            <div class="dp-titulo-bts">
+                <button type="button" class="dp-btn" data-an-act="pop" data-pop="cols" aria-haspopup="true"><i class="fas fa-table-columns"></i> <span>Colunas (<span id="an-ncols">0</span>)</span></button>
+                <button type="button" class="dp-btn dp-btn--principal" data-an-act="exportar"><i class="fas fa-file-excel"></i> Exportar para Excel</button>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if total_devolucoes %}
+        <div class="dp-campo-busca">
+            <i class="fas fa-magnifying-glass"></i>
+            <input type="text" id="an-busca" placeholder="Buscar por cliente, pedido, produto, NF, código de barras ou marca..." autocomplete="off">
+        </div>
+        <div id="an-barra"></div>
+        {% endif %}
+    </div>
+
+    {% if total_devolucoes %}
+    <div class="dp-cartao an-resultado" id="an-resultado"></div>
+    {% else %}
+    <div class="dp-cartao">
+        <p class="dp-vazio">Nenhuma devolução registrada no momento.</p>
+    </div>
+    {% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if total_devolucoes %}
+{# O JS lê os 3 blocos abaixo: as devoluções (só os campos que a tela usa), a configuração da tela (nomes das etapas, colunas, endereços) e o padrão salvo da empresa ativa (ou null, se não existe). #}
+{{ analise_dados|json_script:"an-dados" }}
+{{ analise_config|json_script:"an-config" }}
+{{ analise_padrao_salvo|json_script:"an-padrao" }}
+{# O campo escondido do csrf é pro POST de "Salvar como padrão" e de "Exportar para Excel" (o JS manda no cabeçalho). #}
+<div hidden>{% csrf_token %}</div>
+{% endif %}
+<script src="{% static 'devolucoes/js/script_analise_devolucoes.js' %}"></script>
+{% endblock %}

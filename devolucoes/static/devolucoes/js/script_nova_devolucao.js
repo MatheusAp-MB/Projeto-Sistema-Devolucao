@@ -477,6 +477,22 @@ document.addEventListener('click', function (evento) {
     if (quadro) quadro.remove();
 });
 
+// ===== Voltar / Cancelar da Editar devolução =====
+// O link já leva pra lista de devoluções (funciona sem JS). Com JS, se a pessoa
+// veio de outra tela do sistema (Visualizar, Mediações...), volta pra ela, no
+// mesmo ponto; depois de um erro de validação (a página anterior é esta mesma)
+// vale o link normal.
+document.querySelectorAll('[data-nd-voltar]').forEach(function (link) {
+    link.addEventListener('click', function (evento) {
+        if (!document.referrer || window.history.length < 2) return;
+        var origem;
+        try { origem = new URL(document.referrer); } catch (erro) { return; }
+        if (origem.origin !== window.location.origin || origem.pathname === window.location.pathname) return;
+        evento.preventDefault();
+        window.history.back();
+    });
+});
+
 // ===== Selos "preenchido sozinho" (ver CHAVES_COM_SELO no views.py) =====
 // Azul = o valor atual ainda é o que o Mercado Livre trouxe; cinza = a Ana
 // mudou (ou nunca veio: esses selos não têm data-original e ficam como estão).
@@ -484,7 +500,8 @@ document.addEventListener('click', function (evento) {
 // escolhe qual mostrar. Mudança por código (colar do ERP, escolher/trocar
 // produto) não dispara 'input', então esses pontos avisam por 'nd-atualizar-selos'.
 (function () {
-    var selos = Array.prototype.slice.call(document.querySelectorAll('.nd-selo[data-original]'))
+    // data-selo-estatico: selo que não muda ao vivo (fotos já salvas, na edição)
+    var selos = Array.prototype.slice.call(document.querySelectorAll('.nd-selo[data-original]:not([data-selo-estatico])'))
         .filter(function (selo) { return selo.getAttribute('data-original') !== ''; });
     if (!selos.length) return;
 

@@ -1,6 +1,6 @@
-{# Selo "preenchido sozinho" (ver CHAVES_COM_SELO e _montar_selos em views.py). Ícone de nuvem azul = o valor veio do Mercado Livre; cinza = não veio (tela aberta à mão, o ML não trouxe, ou a Ana mudou). A dica ao passar o mouse diz qual caso é. script_nova_devolucao.js só troca azul/cinza e escolhe um dos 3 textos data-dica-* quando o valor muda. #}
+{# Selo "preenchido sozinho" (ver CHAVES_COM_SELO e _montar_selos em views.py). Ícone de nuvem azul = o valor veio do Mercado Livre; cinza = não veio (tela aberta à mão, o ML não trouxe, ou a Ana mudou). A dica ao passar o mouse diz qual caso é. script_nova_devolucao.js só troca azul/cinza e escolhe um dos 3 textos data-dica-* quando o valor muda (exceto selos com data-selo-estatico: fotos já salvas na edição). #}
 <span class="nd-selo{% if selo.estado == 'auto' %} nd-selo-auto{% endif %}" tabindex="0" role="img"
-      aria-label="{{ selo.dica }}" data-selo-campo="{{ selo.campo }}" data-original="{{ selo.original }}"
+      aria-label="{{ selo.dica }}" data-selo-campo="{{ selo.campo }}" data-original="{{ selo.original }}"{% if selo.estatico %} data-selo-estatico="1"{% endif %}
       data-dica-auto="{{ selo.dica_auto }}" data-dica-alterado="{{ selo.dica_alterado }}" data-dica-vazio="{{ selo.dica_vazio }}">
     <i class="fas fa-cloud-arrow-down" aria-hidden="true"></i>
     <span class="nd-selo-dica" role="tooltip">{{ selo.dica }}</span>

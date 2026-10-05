@@ -1,0 +1,38 @@
+{# Seção Mediação. Na Editar devolução, quando a mediação está aberta e sem data de finalização (mediacao_em_andamento), ela é incluída no TOPO da tela e ganha destaque; nos demais casos fica no lugar de sempre, depois das Datas. #}
+<div class="nd-secao{% if mediacao_em_andamento %} nd-secao--destaque{% endif %}" id="nd_secao_mediacao">
+    <p class="nd-secao-titulo">
+        <i class="fas fa-scale-balanced"></i> Mediação
+        {% if not mediacao_em_andamento %}<span class="nd-secao-opcional">(opcional — pode ficar em aberto)</span>{% endif %}
+    </p>
+    {% if mediacao_em_andamento %}
+        <div class="nd-aviso-mediacao"><i class="fas fa-circle-info" aria-hidden="true"></i> Mediação em andamento: falta informar o fim e o reembolso.</div>
+    {% endif %}
+    <div class="nd-grid-3">
+        <div class="nd-campo">
+            <label for="id_data_abertura_mediacao">Mediação aberta em</label>
+            <input type="date" id="id_data_abertura_mediacao" name="data_abertura_mediacao" value="{{ valores.data_abertura_mediacao }}">
+            <small class="nd-campo-ajuda">Dia em que você abriu a mediação no ML.</small>
+        </div>
+        <div class="nd-campo">
+            <label for="id_data_finalizacao_mediacao">Mediação finalizada em</label>
+            <input type="date" id="id_data_finalizacao_mediacao" name="data_finalizacao_mediacao" value="{{ valores.data_finalizacao_mediacao }}">
+        </div>
+        <div class="nd-campo">
+            <label for="id_reembolsado">Reembolsado pela plataforma?</label>
+            <select id="id_reembolsado" name="reembolsado">
+                <option value="" {% if valores.reembolsado == '' %}selected{% endif %}>Ainda não sei</option>
+                <option value="sim" {% if valores.reembolsado == 'sim' %}selected{% endif %}>Sim</option>
+                <option value="nao" {% if valores.reembolsado == 'nao' %}selected{% endif %}>Não</option>
+            </select>
+        </div>
+    </div>
+    <div class="nd-campo">
+        <label for="id_valor_reembolsado">Valor reembolsado</label>
+        <input type="number" id="id_valor_reembolsado" name="valor_reembolsado" value="{{ valores.valor_reembolsado }}" step="0.01" min="0" placeholder="Ex: 495.00">
+        <small class="nd-campo-ajuda">Valor que o ML pagou à empresa pela compensação do produto devolvido. Preencha à mão depois que o ML confirmar.</small>
+    </div>
+    <div class="nd-campo">
+        <label for="id_anotacao_mediacao">Anotações sobre a mediação</label>
+        <textarea id="id_anotacao_mediacao" name="anotacao_mediacao" rows="2">{{ valores.anotacao_mediacao }}</textarea>
+    </div>
+</div>

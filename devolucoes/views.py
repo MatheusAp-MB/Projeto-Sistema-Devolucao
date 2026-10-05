@@ -15,19 +15,21 @@
 
 import json
 import logging
+import math
 import re
 import subprocess
 import threading
-from datetime import date
+import unicodedata
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from django.conf import settings
 from django.contrib import messages
 from django.core.files.base import ContentFile
-from django.db import transaction
+from django.db import DatabaseError, transaction
 from django.db.models import Count, Q
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -36,15 +38,16 @@ from django.utils.text import slugify
 
 from api_mercado_livre.core.auth.gerenciador_token import FalhaAutenticacao
 from api_mercado_livre.core.estrutura_api.cliente_api import chamar_api, ErroAPI, ErroAutenticacaoAPI
-from core.empresa import obter_alias_banco_ativo, obter_empresa_ativa
+from core.empresa import NOME_EXIBICAO_POR_EMPRESA, obter_alias_banco_ativo, obter_empresa_ativa
 from core.imagens import converter_heic_para_jpeg, jpeg_se_for_heic, parece_heic
 from integracao_mercado_livre.views import CONTA_POR_EMPRESA, PASTA_LOGS_ML
 
+from .exportacao_xlsx import TIPO_DATA, TIPO_DINHEIRO, TIPO_TEXTO, gerar_xlsx
 from .models import (
     ClaimMercadoLivre, Compatibilidade, ConferenciaPeca, Devolucao,
     FotoConferenciaPeca, FotoObservacaoGeral, FotoReclamacaoCliente,
-    GrupoFornecedor, Marca, MediacaoAvulsa, ModeloAnotacao, Peca, Produto,
-    StatusVarreduraMediacoes, TravaChatMediacao,
+    GrupoFornecedor, Marca, MediacaoAvulsa, ModeloAnotacao, Peca, PreferenciaTela,
+    Produto, StatusVarreduraMediacoes, TravaChatMediacao,
 )
 
 # * [EXPLICACAO] -> senha fixa da trava do chat de Mediacoes ML (ver
@@ -493,9 +496,13 @@ def _importar_fotos_do_cliente_do_ml(devolucao, claim_id, fotos):
 #   - CINZA: não veio sozinho — porque a tela foi aberta à mão (aí é um lembrete de
 #     que ela poderia estar fazendo de forma automática), porque o ML não trouxe
 #     aquele dado, ou porque a Ana mudou o valor depois;
-#   a dica ao passar o mouse diz qual dos casos é. Só existe na Nova devolução
-#   (nunca na Editar devolução). Os valores originais viajam num campo escondido
-#   ('selos_originais') pra os selos sobreviverem a um erro de validação.
+#   a dica ao passar o mouse diz qual dos casos é. Os valores originais viajam
+#   num campo escondido ('selos_originais') pra os selos sobreviverem a um erro
+#   de validação. Desde 04/10/2026 os selos também aparecem na Editar devolução
+#   (pedido de Matheus): ao salvar a devolução nova, o que veio do ML fica
+#   guardado em Devolucao.campos_automaticos_ml, e a edição mostra azul = veio
+#   sozinho e continua igual, cinza = digitado à mão, alterado depois, ou sem
+#   registro (devolução criada antes desse controle existir).
 CHAVES_COM_SELO = (
     'nome_plataforma', 'tipo_venda', 'numero_pedido', 'nome_cliente', 'preco_produto',
     'data_venda', 'data_recebimento_cliente', 'data_reclamacao_cliente', 'data_recebimento_por_nos',
@@ -521,6 +528,32 @@ TEXTO_SELO_POR_CAMPO = {
         'alterado': 'Você tirou as fotos que vieram do Mercado Livre.',
         'sem_dado': 'O Mercado Livre não trouxe fotos do cliente neste pedido. Adicione à mão, se tiver.',
         'lembrete': 'As fotos do cliente podem vir sozinhas. Pesquise o pedido na Consultar Pedido e clique em "Criar devolução".',
+    },
+}
+
+
+TEXTO_SELO_EDICAO = {
+    'auto': 'Veio sozinho do Mercado Livre quando a devolução foi criada (consulta do pedido).',
+    'alterado': 'Este valor foi alterado. O Mercado Livre trouxe: {original}.',
+    'sem_dado': 'O Mercado Livre não trouxe este dado quando a devolução foi criada. Foi digitado à mão.',
+    'a_mao': 'Este dado foi digitado à mão quando a devolução foi criada.',
+    'sem_registro': 'Sem registro de onde veio este dado: a devolução foi criada antes de o sistema guardar isso.',
+}
+TEXTO_SELO_EDICAO_POR_CAMPO = {
+    'data_recebimento_por_nos': {
+        'sem_dado': 'O Mercado Livre não trouxe este dado quando a devolução foi criada (por exemplo, quando a devolução chega por transportadora). Foi digitado à mão.',
+    },
+    'produto': {
+        'auto': 'O sistema escolheu este produto sozinho (SKU ou código de barras do anúncio) quando a devolução foi criada.',
+        'alterado': 'O sistema tinha escolhido outro produto sozinho; ele foi trocado.',
+        'sem_dado': 'Nenhum produto bateu sozinho com o anúncio quando a devolução foi criada. Foi escolhido à mão.',
+        'a_mao': 'O produto foi escolhido à mão na busca quando a devolução foi criada.',
+    },
+    'fotos_cliente': {
+        'auto': 'Parte destas fotos veio sozinha do chat da reclamação do Mercado Livre, quando a devolução foi criada.',
+        'alterado': 'As fotos que vieram do Mercado Livre foram removidas.',
+        'sem_dado': 'Nenhuma foto veio do Mercado Livre nesta devolução. As que existirem foram anexadas à mão.',
+        'a_mao': 'As fotos foram anexadas à mão.',
     },
 }
 
@@ -566,12 +599,32 @@ def _ler_selos_originais(texto):
         dados = json.loads(texto)
     except ValueError:
         return {}
+    return _filtrar_selos(dados)
+
+
+def _filtrar_selos(dados):
+    """Só chaves conhecidas, com texto curto e não vazio — o resto some. Serve
+    tanto pro que vem do navegador (POST) quanto pro que está gravado no banco
+    (Devolucao.campos_automaticos_ml): nenhum dos dois é confiado às cegas."""
     if not isinstance(dados, dict):
         return {}
     return {
         chave: valor for chave, valor in dados.items()
         if chave in CHAVES_COM_SELO and isinstance(valor, str) and valor and len(valor) <= 200
     }
+
+
+def _selos_para_gravar(selos_originais):
+    """O que vai pra Devolucao.campos_automaticos_ml ao criar a devolução. O preço
+    é gravado já no formato do banco (366.00), pra comparar certo na edição."""
+    gravar = dict(selos_originais)
+    if 'preco_produto' in gravar:
+        numero = _parse_decimal_opcional(gravar['preco_produto'])
+        if numero is not None and numero.is_finite():
+            gravar['preco_produto'] = f'{numero:.2f}'
+        else:
+            del gravar['preco_produto']
+    return gravar
 
 
 def _exibir_original_do_selo(campo, original):
@@ -590,35 +643,61 @@ def _exibir_original_do_selo(campo, original):
     return original
 
 
-def _montar_selos(selos_originais, valores, produto_selecionado, fotos_cliente_ml, produto_origem_automatica=''):
+def _mesmo_valor_do_selo(campo, atual, original):
+    """O valor atual do campo ainda é o que o ML trouxe? O preço compara como
+    número (366.0 = 366.00); os demais campos, como texto."""
+    if campo == 'preco_produto':
+        numero_atual = _parse_decimal_opcional(atual)
+        numero_original = _parse_decimal_opcional(original)
+        return numero_atual is not None and numero_original is not None and numero_atual == numero_original
+    return atual == original
+
+
+def _montar_selos(selos_originais, valores, produto_selecionado, fotos_cliente_ml, produto_origem_automatica='',
+                  edicao=False, origem_registrada=True, fotos_salvas=0):
     """Estado e textos do selo de cada campo (dict campo -> dict), já prontos
     pro template. 'auto' = o valor atual ainda é o que o ML trouxe; 'alterado'
-    = tinha vindo do ML e a Ana mudou; 'vazio' = nunca veio (tela aberta à mão
-    ou o ML não trouxe). A JS só troca entre os 3 textos já escritos aqui."""
+    = tinha vindo do ML e mudou; 'vazio' = nunca veio (tela aberta à mão, ou o
+    ML não trouxe). A JS só troca entre os 3 textos já escritos aqui.
+
+    'edicao' (Editar devolução, 04/10/2026): os textos falam de quando a
+    devolução foi criada; 'origem_registrada' é False nas devoluções criadas
+    antes do sistema guardar a origem (texto 'sem registro'); 'fotos_salvas' é
+    quantas fotos do cliente a devolução tem hoje (as fotos já foram baixadas,
+    então o selo delas não muda ao vivo: marca 'estatico')."""
     veio_da_consulta = bool(selos_originais)
     selos = {}
     for campo in CHAVES_COM_SELO:
-        textos = {**TEXTO_SELO_PADRAO, **TEXTO_SELO_POR_CAMPO.get(campo, {})}
-        texto_auto = (
-            f'{produto_origem_automatica} Confira antes de salvar.'
-            if campo == 'produto' and produto_origem_automatica else textos['auto']
-        )
+        if edicao:
+            textos = {**TEXTO_SELO_EDICAO, **TEXTO_SELO_EDICAO_POR_CAMPO.get(campo, {})}
+            texto_auto = textos['auto']
+            if not origem_registrada:
+                texto_vazio = textos['sem_registro']
+            else:
+                texto_vazio = textos['sem_dado'] if veio_da_consulta else textos['a_mao']
+        else:
+            textos = {**TEXTO_SELO_PADRAO, **TEXTO_SELO_POR_CAMPO.get(campo, {})}
+            texto_auto = (
+                f'{produto_origem_automatica} Confira antes de salvar.'
+                if campo == 'produto' and produto_origem_automatica else textos['auto']
+            )
+            texto_vazio = textos['sem_dado'] if veio_da_consulta else textos['lembrete']
         original = selos_originais.get(campo, '')
         texto_alterado = textos['alterado'].replace('{original}', _exibir_original_do_selo(campo, original))
-        texto_vazio = textos['sem_dado'] if veio_da_consulta else textos['lembrete']
         if not original:
             estado, dica = 'vazio', texto_vazio
         else:
             if campo == 'produto':
                 atual = str(produto_selecionado.id) if produto_selecionado else ''
             elif campo == 'fotos_cliente':
-                atual = original if fotos_cliente_ml else ''
+                atual = original if (fotos_salvas if edicao else fotos_cliente_ml) else ''
             else:
                 atual = (valores.get(campo) or '').strip()
-            estado, dica = ('auto', texto_auto) if atual == original else ('alterado', texto_alterado)
+            estado, dica = ('auto', texto_auto) if _mesmo_valor_do_selo(campo, atual, original) else ('alterado', texto_alterado)
         selos[campo] = {
             'campo': campo, 'estado': estado, 'dica': dica, 'original': original,
             'dica_auto': texto_auto, 'dica_alterado': texto_alterado, 'dica_vazio': texto_vazio,
+            'estatico': edicao and campo == 'fotos_cliente',
         }
     return selos
 
@@ -644,8 +723,12 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
 
     'selos_originais' (04/10/2026): o que a Consultar Pedido mandou (ver
     _selos_originais_da_ponte) — vira os selos de "preenchido sozinho" ao lado
-    dos campos. Os selos só aparecem na Nova devolução: com 'devolucao'
-    preenchido (Editar devolução) nada deles vai pro template."""
+    dos campos. Na Editar devolução (com 'devolucao' preenchido) os selos vêm
+    do que ficou gravado na própria devolução (campos_automaticos_ml).
+
+    'mediacao_em_andamento' (só na edição): mediação aberta e ainda sem data de
+    finalização — a seção Mediação sobe pro topo, em destaque (pedido de Matheus,
+    04/10/2026: muita gente abre a edição só pra encerrar a mediação)."""
     if valores is None:
         valores = {
             'nome_plataforma': '', 'tipo_venda': '',
@@ -658,25 +741,40 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
             'motivo_reclamacao': '',
         }
 
-    selos_originais = selos_originais or {}
-    mostrar_selos = devolucao is None
+    em_edicao = devolucao is not None
+    fotos_salvas = list(devolucao.fotos_reclamacao_cliente.all()) if em_edicao else []
+    if em_edicao:
+        registro = devolucao.campos_automaticos_ml
+        selos_originais = _filtrar_selos(registro)
+        legenda_selos = (
+            'edicao_sem_registro' if registro is None
+            else 'edicao_consulta' if selos_originais else 'edicao_manual'
+        )
+        selos = _montar_selos(
+            selos_originais, valores, produto_selecionado, [], edicao=True,
+            origem_registrada=registro is not None, fotos_salvas=len(fotos_salvas),
+        )
+    else:
+        selos_originais = selos_originais or {}
+        legenda_selos = 'consulta' if selos_originais else 'manual'
+        selos = _montar_selos(selos_originais, valores, produto_selecionado, fotos_cliente_ml or [], produto_origem_automatica)
 
     return {
         'valores': valores,
         'produto_selecionado': produto_selecionado,
         'devolucao': devolucao,
-        'fotos_reclamacao_cliente': devolucao.fotos_reclamacao_cliente.all() if devolucao else [],
+        'fotos_reclamacao_cliente': fotos_salvas,
         'busca_produto_sugerida': busca_produto_sugerida,
         'fotos_cliente_ml': fotos_cliente_ml or [],
         'claim_id_fotos': claim_id_fotos,
         'produto_origem_automatica': produto_origem_automatica,
-        'mostrar_selos': mostrar_selos,
         'veio_da_consulta': bool(selos_originais),
-        'selos': (
-            _montar_selos(selos_originais, valores, produto_selecionado, fotos_cliente_ml or [], produto_origem_automatica)
-            if mostrar_selos else {}
+        'legenda_selos': legenda_selos,
+        'selos': selos,
+        'selos_originais_json': json.dumps(selos_originais, ensure_ascii=False) if selos_originais and not em_edicao else '',
+        'mediacao_em_andamento': bool(
+            em_edicao and valores.get('data_abertura_mediacao') and not valores.get('data_finalizacao_mediacao')
         ),
-        'selos_originais_json': json.dumps(selos_originais, ensure_ascii=False) if selos_originais and mostrar_selos else '',
         'plataforma_choices': Devolucao.PLATAFORMA_CHOICES,
         'tipo_venda_choices': Devolucao.TIPO_VENDA_CHOICES,
         'pagina_ativa': 'nova_devolucao',
@@ -829,6 +927,9 @@ def nova_devolucao(request):
             messages.error(request, f'Já existe uma devolução registrada pro pedido {valores["numero_pedido"]}.')
             return rerenderizar()
 
+        # {} quando a tela foi aberta à mão; com o que o ML trouxe quando veio da
+        # Consultar Pedido (ver campos_automaticos_ml no model).
+        campos_automaticos = _selos_para_gravar(selos_originais_post)
         devolucao = Devolucao.objects.create(
             produto=produto,
             nome_plataforma=valores['nome_plataforma'],
@@ -847,6 +948,7 @@ def nova_devolucao(request):
             valor_reembolsado=_parse_decimal_opcional(valores['valor_reembolsado']),
             anotacao_mediacao=valores['anotacao_mediacao'],
             motivo_reclamacao=valores['motivo_reclamacao'],
+            campos_automaticos_ml=campos_automaticos,
         )
 
         # * [EXPLICAÇÃO] → fotos que o CLIENTE mandou pra plataforma junto
@@ -864,6 +966,12 @@ def nova_devolucao(request):
             fotos_importadas, fotos_com_falha = _importar_fotos_do_cliente_do_ml(
                 devolucao, claim_id_fotos, fotos_cliente_ml,
             )
+
+        # Nenhuma foto do ML foi anexada (a Ana tirou todas, ou o download falhou):
+        # então não vale dizer, na edição, que as fotos vieram do ML.
+        if not fotos_importadas and 'fotos_cliente' in campos_automaticos:
+            devolucao.campos_automaticos_ml = {k: v for k, v in campos_automaticos.items() if k != 'fotos_cliente'}
+            devolucao.save(update_fields=['campos_automaticos_ml'])
 
         mensagem_sucesso = f'Devolução do pedido {devolucao.numero_pedido} criada — pendente de conferência das peças.'
         if fotos_importadas:
@@ -1188,6 +1296,14 @@ def devolucoes_pendentes(request):
             or devolucao.observacao_geral
         )
 
+    # * [EXPLICAÇÃO] → ordem, filtros novos e busca ampliada (pedido de
+    #   Matheus, 05/10/2026) continuam 100% client-side, igual ao filtro de
+    #   destino/reembolso que já existia: aqui só entregamos a cada linha os
+    #   dados que o JS precisa (data-dp, 1 JSON por linha) e os padrões
+    #   salvos da empresa. Nenhum endpoint de busca/filtro novo.
+    for devolucao in lista:
+        devolucao.dados_tela_json = _dados_da_linha_para_a_tela(devolucao)
+
     contexto = {
         'aguardando_conferencia': grupos[Devolucao.STATUS_AGUARDANDO_CONFERENCIA],
         'conferidos': grupos[Devolucao.STATUS_CONFERIDO],
@@ -1196,8 +1312,389 @@ def devolucoes_pendentes(request):
         'impressos': grupos[Devolucao.STATUS_IMPRESSO],
         'total_devolucoes': len(lista),
         'pagina_ativa': 'devolucoes_pendentes',
+        'padroes_salvos_tela': _ler_padroes_salvos_da_tela(),
+        'config_tela': {
+            'hoje': timezone.localdate().toordinal(),
+            'empresa': NOME_EXIBICAO_POR_EMPRESA.get(obter_empresa_ativa(), ''),
+            'urlSalvar': reverse('salvar_padrao_tela'),
+            'urlRestaurar': reverse('restaurar_padrao_tela'),
+        },
     }
     return render(request, 'devolucoes/devolucoes_pendentes.html', contexto)
+
+
+# ===== Ordem, filtros e padrão salvo da tela Devoluções (05/10/2026) =====
+
+def _sem_acentos_minusculo(texto):
+    # * [EXPLICAÇÃO] → MESMA regra da função norm() do JS
+    #   (script_devolucoes_pendentes.js): tira os acentos e põe em
+    #   minúsculas. A busca precisa dos 2 lados iguais — "Joao" acha
+    #   "João", "ORTOPEDICO" acha "Ortopédico".
+    texto = unicodedata.normalize('NFD', str(texto or ''))
+    return re.sub('[\u0300-\u036f]', '', texto).lower()
+
+
+def _dia_do_calendario(valor):
+    # * [EXPLICAÇÃO] → transforma data/data-e-hora no "número do dia"
+    #   (date.toordinal) pra o JS fazer a conta de "últimos 7/30/90 dias"
+    #   sem se perder com fuso horário: data-e-hora é convertida pro
+    #   horário de São Paulo ANTES de virar dia.
+    if not valor:
+        return None
+    if isinstance(valor, datetime):
+        if timezone.is_naive(valor):
+            valor = timezone.make_aware(valor)
+        valor = timezone.localtime(valor).date()
+    return valor.toordinal()
+
+
+def _dados_da_linha_para_a_tela(devolucao):
+    """Monta o pacotinho (1 JSON por linha, atributo data-dp) que o JS da
+    listagem usa pra ordenar, filtrar e buscar SEM nenhuma requisição
+    nova. Só leitura: nada daqui é gravado em lugar nenhum. Campos (nomes
+    curtos de propósito, a linha já é pesada):
+      cad/cadd  cadastro (carimbo de tempo p/ ordenar; dia p/ Período)
+      cli/prod/plat/marca  texto normalizado (sem acento, minúsculo)
+      ped/nf/cod/ean  pedido, nota fiscal, código do fabricante, código
+                      de barras (também normalizados — alimentam a busca)
+      ab/fim    mediação aberta/encerrada em (dia)
+      imp/impd  relatório impresso em (carimbo / dia)
+      prz/pst   prazo de resposta (dia) e situação (vencido/hoje/proximo/ok)
+      rec7      'dentro' | 'fora' dos 7 dias | '' (não dá pra calcular)
+      nota/evid/msg  tem anotação / evidência / mensagem nova (1 ou 0)
+      val       valor reembolsado (número) ou null
+      pn/mn     plataforma e marca COMO SÃO ESCRITAS (as opções do filtro)"""
+    produto = devolucao.produto
+    marca_nome = produto.marca.nome
+    impresso = devolucao.relatorio_impresso_em
+    dentro_do_prazo = devolucao.reclamacao_dentro_do_prazo
+    dados = {
+        'cad': int(devolucao.criado_em.timestamp()),
+        'cadd': _dia_do_calendario(devolucao.criado_em),
+        'cli': _sem_acentos_minusculo(devolucao.nome_cliente),
+        'prod': _sem_acentos_minusculo(produto.nome),
+        'plat': _sem_acentos_minusculo(devolucao.nome_plataforma),
+        'marca': _sem_acentos_minusculo(marca_nome),
+        'ped': _sem_acentos_minusculo(devolucao.numero_pedido),
+        'nf': _sem_acentos_minusculo(devolucao.numero_nota_fiscal),
+        'cod': _sem_acentos_minusculo(produto.codigo_fabricante),
+        'ean': _sem_acentos_minusculo(produto.codigo_barras),
+        'ab': _dia_do_calendario(devolucao.data_abertura_mediacao),
+        'fim': _dia_do_calendario(devolucao.data_finalizacao_mediacao),
+        'imp': int(impresso.timestamp()) if impresso else None,
+        'impd': _dia_do_calendario(impresso),
+        'prz': _dia_do_calendario(devolucao.prazo_resposta),
+        'pst': devolucao.status_prazo_resposta or '',
+        'rec7': '' if dentro_do_prazo is None else ('dentro' if dentro_do_prazo else 'fora'),
+        'nota': 1 if devolucao.anotacao_mediacao else 0,
+        'evid': 1 if devolucao.tem_evidencia_mediacao else 0,
+        'msg': 1 if getattr(devolucao, 'mensagem_nao_lida', False) else 0,
+        'val': float(devolucao.valor_reembolsado) if devolucao.valor_reembolsado is not None else None,
+        'pn': devolucao.nome_plataforma,
+        'mn': marca_nome,
+    }
+    return json.dumps(dados, ensure_ascii=False, separators=(',', ':'))
+
+
+def _ler_padroes_salvos_da_tela():
+    """Padrões salvos (ordem + filtros) da empresa ativa, por aba. Se a
+    tabela ainda não existe nesse banco (faltou rodar o migrate dessa
+    empresa), a listagem abre normal, só sem padrão salvo — o recurso novo
+    nunca pode derrubar a tela que a Ana usa o dia inteiro."""
+    try:
+        return {
+            preferencia.chave: preferencia.configuracao
+            for preferencia in PreferenciaTela.objects.filter(chave__in=PreferenciaTela.chaves_validas())
+        }
+    except DatabaseError:
+        logger.warning('Não foi possível ler PreferenciaTela (falta rodar o migrate nesta empresa?).', exc_info=True)
+        return {}
+
+
+def _limpar_configuracao_tela(valor, nivel=0):
+    """Só deixa passar o que uma ordem+filtros de verdade tem (texto curto,
+    número, sim/não, listas e dicionários pequenos). Qualquer outra coisa
+    levanta ValueError — a view responde 400 e nada é gravado."""
+    if nivel > 4:
+        raise ValueError('configuração funda demais')
+    if isinstance(valor, dict):
+        if len(valor) > 40:
+            raise ValueError('dicionário grande demais')
+        return {str(chave)[:40]: _limpar_configuracao_tela(item, nivel + 1) for chave, item in valor.items()}
+    if isinstance(valor, list):
+        if len(valor) > 60:
+            raise ValueError('lista grande demais')
+        return [_limpar_configuracao_tela(item, nivel + 1) for item in valor]
+    if isinstance(valor, str):
+        return valor[:200]
+    if valor is None or isinstance(valor, bool):
+        return valor
+    if isinstance(valor, int):
+        return valor
+    if isinstance(valor, float) and math.isfinite(valor):
+        return valor
+    raise ValueError('tipo não aceito')
+
+
+def salvar_padrao_tela(request):
+    """Salva (ou troca) o padrão de UMA aba da listagem — ou da tela
+    Análise: ordem + filtros que a Ana escolheu e quer ver toda vez que
+    abrir. Guardado no banco da empresa ativa (EmpresaRouter), então
+    Magazine e Samvale têm padrões separados. Corpo: JSON
+    {chave, configuracao}. Só POST; sempre responde JSON."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    try:
+        corpo = json.loads(request.body.decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({'erro': 'Pedido inválido.'}, status=400)
+
+    chave = corpo.get('chave') if isinstance(corpo, dict) else None
+    configuracao = corpo.get('configuracao') if isinstance(corpo, dict) else None
+    if chave not in PreferenciaTela.chaves_validas() or not isinstance(configuracao, dict):
+        return JsonResponse({'erro': 'Pedido inválido.'}, status=400)
+
+    try:
+        configuracao_limpa = _limpar_configuracao_tela(configuracao)
+    except ValueError:
+        return JsonResponse({'erro': 'Pedido inválido.'}, status=400)
+
+    try:
+        PreferenciaTela.objects.update_or_create(chave=chave, defaults={'configuracao': configuracao_limpa})
+    except DatabaseError:
+        logger.exception('Falha ao salvar PreferenciaTela (%s).', chave)
+        return JsonResponse({
+            'erro': 'Não foi possível salvar agora. Se o problema continuar, falta rodar o migrate desta empresa.',
+        }, status=500)
+
+    return JsonResponse({'ok': True})
+
+
+def restaurar_padrao_tela(request):
+    """Apaga o padrão salvo de uma aba/tela — a aba volta ao padrão
+    original (o de antes dessa funcionalidade existir). Só POST; sempre
+    responde JSON. Corpo: JSON {chave}."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    try:
+        corpo = json.loads(request.body.decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({'erro': 'Pedido inválido.'}, status=400)
+
+    chave = corpo.get('chave') if isinstance(corpo, dict) else None
+    if chave not in PreferenciaTela.chaves_validas():
+        return JsonResponse({'erro': 'Pedido inválido.'}, status=400)
+
+    try:
+        PreferenciaTela.objects.filter(chave=chave).delete()
+    except DatabaseError:
+        logger.exception('Falha ao apagar PreferenciaTela (%s).', chave)
+        return JsonResponse({'erro': 'Não foi possível voltar ao padrão agora.'}, status=500)
+
+    return JsonResponse({'ok': True})
+
+
+# ===== Tela Análise (05/10/2026) =====
+
+def _data_local(valor):
+    # * [EXPLICAÇÃO] → data-e-hora vira só a DATA no horário de São Paulo
+    #   (mesma ideia de _dia_do_calendario, mas devolvendo a data em si,
+    #   pro Excel); data pura passa direto; vazio vira None.
+    if not valor:
+        return None
+    if isinstance(valor, datetime):
+        if timezone.is_naive(valor):
+            valor = timezone.make_aware(valor)
+        return timezone.localtime(valor).date()
+    return valor
+
+
+def _texto_reembolsado(devolucao):
+    if devolucao.reembolsado is None:
+        return ''
+    return 'Sim' if devolucao.reembolsado else 'Não'
+
+
+# * [EXPLICAÇÃO] → as colunas que a Ana pode escolher na tela Análise, numa
+#   lista só: o título e o "alinhar à direita" vão pro JS (config_analise);
+#   o tipo/largura/valor são os que o Excel usa. Mudar um título aqui muda
+#   na tela e no arquivo ao mesmo tempo. A ORDEM desta lista é a ordem das
+#   colunas na tabela e no Excel.
+#   (chave, título, tipo no Excel, largura no Excel, número à direita na
+#   tela, como ler o valor da devolução pro Excel)
+COLUNAS_ANALISE = [
+    ('pedido', 'Pedido', TIPO_TEXTO, 24, False, lambda d: d.numero_pedido),
+    ('cliente', 'Cliente', TIPO_TEXTO, 30, False, lambda d: d.nome_cliente),
+    ('produto', 'Produto', TIPO_TEXTO, 48, False, lambda d: d.produto.nome),
+    ('marca', 'Marca', TIPO_TEXTO, 18, False, lambda d: d.produto.marca.nome),
+    ('plat', 'Plataforma', TIPO_TEXTO, 16, False, lambda d: d.nome_plataforma),
+    ('tipo', 'Tipo de venda', TIPO_TEXTO, 15, False, lambda d: d.get_tipo_venda_display()),
+    ('etapa', 'Etapa', TIPO_TEXTO, 22, False, lambda d: d.status_fluxo_display),
+    ('destino', 'Destino', TIPO_TEXTO, 18, False, lambda d: d.get_destino_produto_display() if d.destino_produto else ''),
+    ('criado', 'Cadastro', TIPO_DATA, 13, False, lambda d: _data_local(d.criado_em)),
+    ('venda', 'Data da venda', TIPO_DATA, 14, False, lambda d: d.data_venda),
+    ('abertura', 'Mediação aberta', TIPO_DATA, 16, False, lambda d: d.data_abertura_mediacao),
+    ('fim', 'Mediação encerrada', TIPO_DATA, 18, False, lambda d: d.data_finalizacao_mediacao),
+    ('impresso', 'Impressa em', TIPO_DATA, 13, False, lambda d: _data_local(d.relatorio_impresso_em)),
+    ('reemb', 'Reembolsado?', TIPO_TEXTO, 14, False, _texto_reembolsado),
+    ('valor', 'Valor reembolsado', TIPO_DINHEIRO, 18, True, lambda d: d.valor_reembolsado),
+    ('preco', 'Preço do produto', TIPO_DINHEIRO, 17, True, lambda d: d.preco_produto),
+    ('dif', 'Diferença', TIPO_DINHEIRO, 14, True, lambda d: d.diferenca_reembolso),
+]
+COLUNAS_ANALISE_POR_CHAVE = {coluna[0]: coluna for coluna in COLUNAS_ANALISE}
+COLUNAS_ANALISE_PADRAO = ['pedido', 'cliente', 'produto', 'plat', 'etapa', 'criado', 'reemb', 'valor']
+LIMITE_IDS_EXPORTACAO = 100000
+
+
+def _linha_da_analise(devolucao):
+    """1 devolução no formato que o JS da tela Análise usa pra filtrar,
+    ordenar, buscar e somar SEM nenhuma requisição nova. Só leitura.
+    Nomes curtos de propósito (a tela leva todas as devoluções de uma vez):
+      ped/cli/prod  pedido, cliente, produto · mn/pn marca e plataforma
+      tipo          'comum'|'full' · et etapa (status_fluxo) · dst destino
+      cad/imp       cadastro e impressão (carimbo de tempo, pra ordenar)
+      cadd/vd/ab/fim/impd  datas como número do dia (date.toordinal)
+      rb            reembolsado: 1 sim, 0 não, None sem informação
+      val/preco     valor reembolsado e preço do produto (número ou None)
+      nf/cod/ean    nota fiscal, código do fabricante, código de barras
+                    (só entram na busca)"""
+    produto = devolucao.produto
+    impresso = devolucao.relatorio_impresso_em
+    return {
+        'id': devolucao.id,
+        'ped': devolucao.numero_pedido,
+        'cli': devolucao.nome_cliente,
+        'prod': produto.nome,
+        'mn': produto.marca.nome,
+        'pn': devolucao.nome_plataforma,
+        'tipo': devolucao.tipo_venda,
+        'et': devolucao.status_fluxo,
+        'dst': devolucao.destino_produto or '',
+        'cad': int(devolucao.criado_em.timestamp()),
+        'cadd': _dia_do_calendario(devolucao.criado_em),
+        'vd': _dia_do_calendario(devolucao.data_venda),
+        'ab': _dia_do_calendario(devolucao.data_abertura_mediacao),
+        'fim': _dia_do_calendario(devolucao.data_finalizacao_mediacao),
+        'imp': int(impresso.timestamp()) if impresso else None,
+        'impd': _dia_do_calendario(impresso),
+        'rb': None if devolucao.reembolsado is None else (1 if devolucao.reembolsado else 0),
+        'val': float(devolucao.valor_reembolsado) if devolucao.valor_reembolsado is not None else None,
+        'preco': float(devolucao.preco_produto) if devolucao.preco_produto is not None else None,
+        'nf': devolucao.numero_nota_fiscal or '',
+        'cod': produto.codigo_fabricante or '',
+        'ean': produto.codigo_barras or '',
+    }
+
+
+def analise_devolucoes(request):
+    """Tela Análise (pedido de Matheus, 05/10/2026): uma tabela só com as
+    devoluções de TODAS as etapas juntas, com filtros, colunas à escolha,
+    totais e "Exportar para Excel". É só um adicional — consulta e exporta;
+    nada daqui altera uma devolução (pra mexer, a Ana usa a tela
+    Devoluções, pelo botão "Ver na lista" de cada linha).
+
+    Igual à tela Devoluções, filtrar/ordenar/paginar/buscar é 100%
+    client-side (script_analise_devolucoes.js): o Django manda todas as
+    devoluções de uma vez (1 JSON, só os campos que a tela usa) e o padrão
+    salvo (PreferenciaTela, chave 'analise') da empresa ativa."""
+    lista = Devolucao.objects.select_related('produto__marca').order_by('-criado_em')
+    linhas = [_linha_da_analise(devolucao) for devolucao in lista]
+
+    contexto = {
+        'pagina_ativa': 'devolucoes_pendentes',
+        'total_devolucoes': len(linhas),
+        'analise_dados': linhas,
+        'analise_padrao_salvo': _ler_padroes_salvos_da_tela().get(PreferenciaTela.CHAVE_ANALISE),
+        'analise_config': {
+            'hoje': timezone.localdate().toordinal(),
+            'empresa': NOME_EXIBICAO_POR_EMPRESA.get(obter_empresa_ativa(), ''),
+            'chave': PreferenciaTela.CHAVE_ANALISE,
+            'urlSalvar': reverse('salvar_padrao_tela'),
+            'urlRestaurar': reverse('restaurar_padrao_tela'),
+            'urlExportar': reverse('exportar_analise'),
+            'urlLista': reverse('devolucoes_pendentes'),
+            'etapas': [[valor, rotulo] for valor, rotulo in Devolucao.STATUS_CHOICES],
+            'plataformas': [valor for valor, _ in Devolucao.PLATAFORMA_CHOICES],
+            'destinos': [[valor, rotulo] for valor, rotulo in Devolucao.DESTINO_CHOICES],
+            'tipos': [[valor, rotulo] for valor, rotulo in Devolucao.TIPO_VENDA_CHOICES],
+            'colunas': [[chave, titulo, 1 if a_direita else 0] for chave, titulo, _, _, a_direita, _ in COLUNAS_ANALISE],
+            'colunasPadrao': COLUNAS_ANALISE_PADRAO,
+        },
+    }
+    return render(request, 'devolucoes/analise_devolucoes.html', contexto)
+
+
+def _ler_ids_da_exportacao(texto):
+    # * [EXPLICAÇÃO] → "12,40,7" -> [12, 40, 7], na MESMA ordem (é a ordem
+    #   em que a tabela está na tela), sem repetir e ignorando o que não
+    #   for número. O teto evita um pedido gigante por engano.
+    ids = []
+    vistos = set()
+    for pedaco in str(texto or '').split(','):
+        pedaco = pedaco.strip()
+        if not pedaco.isdigit() or len(pedaco) > 12:
+            continue
+        numero = int(pedaco)
+        if numero in vistos:
+            continue
+        vistos.add(numero)
+        ids.append(numero)
+        if len(ids) >= LIMITE_IDS_EXPORTACAO:
+            break
+    return ids
+
+
+def exportar_analise(request):
+    """"Exportar para Excel" da tela Análise. A tela manda (por um
+    formulário, POST) os números das devoluções que estão filtradas, NA
+    ORDEM da tabela, e as colunas escolhidas; aqui o servidor relê essas
+    devoluções do banco e monta o .xlsx — assim o arquivo sempre sai com
+    exatamente o que a Ana está vendo, sem a regra de filtro existir 2
+    vezes (uma no JS e outra aqui). Devolução excluída nesse meio-tempo
+    simplesmente não entra. Só POST; responde o arquivo pra baixar."""
+    if request.method != 'POST':
+        return HttpResponseNotAllowed(['POST'])
+
+    ids = _ler_ids_da_exportacao(request.POST.get('ids'))
+
+    chaves = []
+    for chave in str(request.POST.get('colunas') or '').split(','):
+        chave = chave.strip()
+        if chave in COLUNAS_ANALISE_POR_CHAVE and chave not in chaves:
+            chaves.append(chave)
+    if not chaves:
+        chaves = list(COLUNAS_ANALISE_PADRAO)
+    # a ordem do arquivo é sempre a da lista COLUNAS_ANALISE, igual à tabela
+    colunas = [coluna for coluna in COLUNAS_ANALISE if coluna[0] in chaves]
+
+    por_id = {}
+    for inicio in range(0, len(ids), 500):
+        bloco = ids[inicio:inicio + 500]
+        for devolucao in Devolucao.objects.select_related('produto__marca').filter(id__in=bloco):
+            por_id[devolucao.id] = devolucao
+
+    linhas = []
+    for devolucao_id in ids:
+        devolucao = por_id.get(devolucao_id)
+        if devolucao is not None:
+            linhas.append([leitor(devolucao) for _, _, _, _, _, leitor in colunas])
+
+    conteudo = gerar_xlsx(
+        'Devoluções',
+        [{'titulo': titulo, 'tipo': tipo, 'largura': largura} for _, titulo, tipo, largura, _, _ in colunas],
+        linhas,
+    )
+    nome_arquivo = 'analise_devolucoes_%s_%s.xlsx' % (
+        (obter_empresa_ativa() or 'empresa').lower(), timezone.localdate().strftime('%Y-%m-%d'),
+    )
+    resposta = HttpResponse(
+        conteudo,
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    resposta['Content-Disposition'] = 'attachment; filename="%s"' % nome_arquivo
+    return resposta
 
 
 def marcar_devolucao_impressa(request, devolucao_id):
