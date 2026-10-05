@@ -349,6 +349,46 @@
     background-color: #f2f8fc;
 }
 
+/* * [EXPLICAÇÃO] → pedido de Matheus (05/10/2026): em cada local de envio de foto a pessoa escolhe
+ *   "Tirar foto" (câmera na hora) ou "Anexar arquivo" (galeria/arquivos). A câmera direta só existe
+ *   em aparelho de toque (no PC o atributo capture é ignorado), então no PC continua só o botão
+ *   "Adicionar foto" de sempre, do jeito que já era; em aparelho de toque aparecem os dois lado a lado.
+ *
+ * * [ATENÇÃO] → o botão do "Observação geral" fica dentro de .cf-campo, e ".cf-campo label" (mais
+ *   específico que .cf-foto-botao) já o deixava como bloco cinza de largura total no PC — mantido
+ *   como era. Por isso as regras novas usam ".cf-fotos-acoes .cf-foto-botao" (mesmo peso ou maior). */
+.cf-fotos-acoes .cf-foto-botao--camera,
+.cf-foto-icone-toque,
+.cf-foto-rotulo-toque {
+    display: none;
+}
+
+@media (pointer: coarse) {
+    .cf-fotos-acoes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .cf-fotos-acoes .cf-foto-botao {
+        display: inline-flex;
+        margin: 0;
+        padding: 10px 14px;
+        font-size: 12.5px;
+        color: var(--cor-primaria-clara);
+    }
+
+    .cf-foto-icone-pc,
+    .cf-foto-rotulo-pc {
+        display: none;
+    }
+
+    .cf-foto-icone-toque,
+    .cf-foto-rotulo-toque {
+        display: inline;
+    }
+}
+
 .cf-input-oculto {
     position: absolute;
     width: 1px;

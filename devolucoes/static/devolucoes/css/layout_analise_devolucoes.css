@@ -69,6 +69,30 @@
     font-weight: 600;
 }
 
+/* coluna "Consultas ML": uma pílula por situação (mesmas cores da tela Visualizar devolução) */
+.an-consulta {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.an-consulta + .an-consulta {
+    margin-left: 4px;
+}
+
+.an-consulta--aberta {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.an-consulta--encerrada {
+    background: #eceff1;
+    color: #546e7a;
+}
+
 /* ----- totais ----- */
 
 .an-totais {

@@ -13,7 +13,7 @@
         {% csrf_token %}
 
         <div class="vp-header">
-            <a href="{% url 'visualizar_produto' produto.id %}" class="vp-header-cancelar">
+            <a href="{% url 'visualizar_produto' produto.id %}" class="vp-header-cancelar" data-voltar>
                 <i class="fas fa-arrow-left"></i> Cancelar
             </a>
             <div class="vp-header-divisor"></div>
@@ -35,19 +35,25 @@
 
         <div class="vp-corpo">
             {% if tem_pecas %}
-                <div class="vp-filtros">
-                    <input type="text" id="vp_busca" class="vp-busca" placeholder="Buscar peça pelo nome..." autocomplete="off">
-                    <select id="vp_filtro_marca" class="vp-filtro">
+                <div class="vp-filtros" id="vp_filtros">
+                    <input type="text" id="vp_busca" class="vp-busca" placeholder="Buscar por nome, código ou produto..." autocomplete="off" enterkeyhint="search">
+                    <select id="vp_filtro_marca" class="vp-filtro" aria-label="Filtrar por marca">
                         <option value="">Todas as marcas</option>
                         {% for marca in marcas %}
                             <option value="{{ marca.id }}">{{ marca.nome }}</option>
                         {% endfor %}
                     </select>
+                    <select id="vp_filtro_produto" class="vp-filtro" aria-label="Filtrar por produto">
+                        <option value="">Todos os produtos</option>
+                        {% for p in produtos_filtro %}
+                            <option value="{{ p.id }}">{% if p.atual %}★ {% endif %}{{ p.nome }}</option>
+                        {% endfor %}
+                    </select>
                     <button type="button" id="vp_toggle_selecionadas" class="vp-toggle-selecionadas">
-                        <i class="fas fa-square-check"></i> Ver só as selecionadas
+                        <i class="fas fa-square-check"></i> <span class="vp-toggle-longo">Ver só as selecionadas</span><span class="vp-toggle-curto">Selecionadas</span>
                     </button>
                 </div>
-                <p class="vp-dica"><i class="fas fa-circle-info"></i> Peças com a faixa verde já estão vinculadas a este produto — desmarque pra desvincular.</p>
+                <p class="vp-dica"><i class="fas fa-circle-info"></i> <span>Peças com a faixa verde já estão vinculadas a este produto — desmarque pra desvincular. Peça nova entra no fim da ordem; arraste na tela do produto pra reordenar.</span></p>
 
                 <div id="vp_grade">
                     {% for item in pecas_marcas_sem_grupo %}
@@ -56,11 +62,9 @@
                                 <i class="fas fa-tag"></i>
                                 <span>{{ item.marca.nome }}</span>
                             </div>
-                            <div class="vp-carrossel" data-carrossel>
-                                {% for peca in item.pecas %}
-                                    {% include 'devolucoes/_card_peca_selecionavel.html' with peca=peca %}
-                                {% endfor %}
-                            </div>
+                            {% for sub in item.subgrupos %}
+                                {% include 'devolucoes/_vp_subgrupo_produto.html' with sub=sub %}
+                            {% endfor %}
                         </div>
                     {% endfor %}
 
@@ -77,11 +81,9 @@
                                         <i class="fas fa-tag"></i>
                                         <span>{{ item.marca.nome }}</span>
                                     </div>
-                                    <div class="vp-carrossel" data-carrossel>
-                                        {% for peca in item.pecas %}
-                                            {% include 'devolucoes/_card_peca_selecionavel.html' with peca=peca %}
-                                        {% endfor %}
-                                    </div>
+                                    {% for sub in item.subgrupos %}
+                                        {% include 'devolucoes/_vp_subgrupo_produto.html' with sub=sub %}
+                                    {% endfor %}
                                 </div>
                             {% endfor %}
                         </div>
@@ -101,9 +103,12 @@
         {% if tem_pecas %}
             <div class="vp-rodape">
                 <div class="vp-rodape-conteudo">
-                    <div class="vp-rodape-contador"><strong id="vp_contador">{{ qtd_vinculada_inicial }}</strong> peça(s) selecionada(s)</div>
+                    <div class="vp-rodape-contador">
+                        <div><strong id="vp_contador">{{ qtd_vinculada_inicial }}</strong> peça(s) selecionada(s)</div>
+                        <div class="vp-rodape-resumo" id="vp_resumo_mudancas" hidden role="status" aria-live="polite"></div>
+                    </div>
                     <div class="vp-rodape-botoes">
-                        <a href="{% url 'visualizar_produto' produto.id %}" class="vp-botao-cancelar">Cancelar</a>
+                        <a href="{% url 'visualizar_produto' produto.id %}" class="vp-botao-cancelar" data-voltar>Cancelar</a>
                         <button type="submit" class="vp-botao-salvar">Salvar vínculos</button>
                     </div>
                 </div>

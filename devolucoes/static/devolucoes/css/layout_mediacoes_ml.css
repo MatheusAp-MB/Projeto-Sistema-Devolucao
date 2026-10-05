@@ -1244,6 +1244,39 @@ span.med-item-acao--fixa:hover {
     background: var(--cor-primaria-clara);
 }
 
+/* "Tirar foto" (pedido de Matheus, 05/10/2026): botão de câmera ao lado do clipe ("Anexar arquivo").
+   A câmera direta só existe em aparelho de toque (no PC o capture é ignorado), então no PC ele fica
+   escondido e a caixa continua exatamente como era. */
+.med-resposta-camera {
+    display: none;
+    flex-shrink: 0;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--cor-fundo-pagina);
+    border: 1px solid var(--cor-borda);
+    color: var(--cor-texto-muted);
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.med-resposta-camera:hover {
+    color: var(--cor-primaria-clara);
+    border-color: var(--cor-primaria-clara);
+}
+
+.med-resposta-camera:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+@media (pointer: coarse) {
+    .med-resposta-camera {
+        display: flex;
+    }
+}
+
 .med-resposta-anexos {
     display: flex;
     flex-wrap: wrap;

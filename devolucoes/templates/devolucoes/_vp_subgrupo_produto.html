@@ -1,0 +1,14 @@
+{# Um grupo de peças de UM produto dentro de uma marca (sanfona). Sem JS fica tudo aberto e funciona igual; o JS fecha os grupos de outros produtos no celular. #}
+<details class="vp-produto-grupo{% if sub.atual %} vp-produto-grupo--atual{% endif %}" data-subgrupo-produto open{% if sub.atual %} data-atual{% endif %}>
+    <summary class="vp-produto-grupo-cabecalho">
+        <i class="fas fa-chevron-down vp-produto-grupo-seta" aria-hidden="true"></i>
+        <span class="vp-produto-grupo-nome">{% if sub.produto_id %}{{ sub.nome }}{% else %}Sem produto ainda{% endif %}</span>
+        {% if sub.atual %}<span class="vp-produto-grupo-selo">este produto</span>{% endif %}
+        <span class="vp-produto-grupo-contagem"><span>{{ sub.pecas|length }}</span> peça{{ sub.pecas|length|pluralize }} · <span data-qtd-selecionadas>{{ sub.qtd_selecionadas }}</span> selecionada{{ sub.qtd_selecionadas|pluralize }}</span>
+    </summary>
+    <div class="vp-carrossel" data-carrossel>
+        {% for peca in sub.pecas %}
+            {% include 'devolucoes/_card_peca_selecionavel.html' with peca=peca %}
+        {% endfor %}
+    </div>
+</details>

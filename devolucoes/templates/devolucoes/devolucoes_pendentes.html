@@ -113,6 +113,27 @@
                             <p class="vd-texto-bloco">{{ devolucao.anotacao_mediacao|linebreaksbr }}</p>
                         </template>
                         {% endif %}
+                        {% with consultas=devolucao.consultas_ml.all %}{% if consultas %}
+                        <div class="dp-tabela-anotacao-icone dp-tabela-consulta-icone{% if not devolucao.consultas_abertas %} dp-tabela-consulta-icone--encerrada{% endif %}" data-popover-alvo="consultas-ml-{{ devolucao.id }}" aria-label="Consultas no Mercado Livre — {% if devolucao.consultas_abertas %}{{ devolucao.consultas_abertas }} aberta(s){% else %}todas encerradas{% endif %}">
+                            <i class="fas fa-headset"></i>{% if consultas|length > 1 %}<span class="dp-tabela-icone-contador">{{ consultas|length }}</span>{% endif %}
+                        </div>
+                        <template id="consultas-ml-{{ devolucao.id }}">
+                            <h2 class="vd-cartao-titulo">Consultas no Mercado Livre</h2>
+                            <ul class="vd-consultas-lista">
+                                {% for consulta in consultas %}
+                                <li class="vd-consulta">
+                                    <div class="vd-consulta-textos">
+                                        <span class="vd-consulta-numero">N.º {{ consulta.numero }}
+                                            <span class="vd-badge {% if consulta.status == 'encerrada' %}vd-badge--cinza{% else %}vd-badge--ambar{% endif %}">{{ consulta.get_status_display }}</span>
+                                        </span>
+                                        {% if consulta.anotacao %}<span class="vd-consulta-nota">{{ consulta.anotacao }}</span>{% endif %}
+                                    </div>
+                                    <a class="vd-consulta-abrir" href="{{ consulta.link }}" target="_blank" rel="noopener noreferrer"><i class="fas fa-up-right-from-square" aria-hidden="true"></i> Abrir</a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </template>
+                        {% endif %}{% endwith %}
                         {% if devolucao.tem_evidencia_mediacao %}
                         <div class="dp-tabela-evidencia-icone" data-devolucao-id="{{ devolucao.id }}" data-evidencia-url="{% url 'evidencia_mediacao_preview' devolucao.id %}">
                             <i class="fas fa-images"></i>
@@ -209,6 +230,27 @@
                             <p class="vd-texto-bloco">{{ devolucao.anotacao_mediacao|linebreaksbr }}</p>
                         </template>
                         {% endif %}
+                        {% with consultas=devolucao.consultas_ml.all %}{% if consultas %}
+                        <div class="dp-tabela-anotacao-icone dp-tabela-consulta-icone{% if not devolucao.consultas_abertas %} dp-tabela-consulta-icone--encerrada{% endif %}" data-popover-alvo="consultas-ml-{{ devolucao.id }}" aria-label="Consultas no Mercado Livre — {% if devolucao.consultas_abertas %}{{ devolucao.consultas_abertas }} aberta(s){% else %}todas encerradas{% endif %}">
+                            <i class="fas fa-headset"></i>{% if consultas|length > 1 %}<span class="dp-tabela-icone-contador">{{ consultas|length }}</span>{% endif %}
+                        </div>
+                        <template id="consultas-ml-{{ devolucao.id }}">
+                            <h2 class="vd-cartao-titulo">Consultas no Mercado Livre</h2>
+                            <ul class="vd-consultas-lista">
+                                {% for consulta in consultas %}
+                                <li class="vd-consulta">
+                                    <div class="vd-consulta-textos">
+                                        <span class="vd-consulta-numero">N.º {{ consulta.numero }}
+                                            <span class="vd-badge {% if consulta.status == 'encerrada' %}vd-badge--cinza{% else %}vd-badge--ambar{% endif %}">{{ consulta.get_status_display }}</span>
+                                        </span>
+                                        {% if consulta.anotacao %}<span class="vd-consulta-nota">{{ consulta.anotacao }}</span>{% endif %}
+                                    </div>
+                                    <a class="vd-consulta-abrir" href="{{ consulta.link }}" target="_blank" rel="noopener noreferrer"><i class="fas fa-up-right-from-square" aria-hidden="true"></i> Abrir</a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </template>
+                        {% endif %}{% endwith %}
                         {% if devolucao.tem_evidencia_mediacao %}
                         <div class="dp-tabela-evidencia-icone" data-devolucao-id="{{ devolucao.id }}" data-evidencia-url="{% url 'evidencia_mediacao_preview' devolucao.id %}">
                             <i class="fas fa-images"></i>
@@ -333,6 +375,27 @@
                             <p class="vd-texto-bloco">{{ devolucao.anotacao_mediacao|linebreaksbr }}</p>
                         </template>
                         {% endif %}
+                        {% with consultas=devolucao.consultas_ml.all %}{% if consultas %}
+                        <div class="dp-tabela-anotacao-icone dp-tabela-consulta-icone{% if not devolucao.consultas_abertas %} dp-tabela-consulta-icone--encerrada{% endif %}" data-popover-alvo="consultas-ml-{{ devolucao.id }}" aria-label="Consultas no Mercado Livre — {% if devolucao.consultas_abertas %}{{ devolucao.consultas_abertas }} aberta(s){% else %}todas encerradas{% endif %}">
+                            <i class="fas fa-headset"></i>{% if consultas|length > 1 %}<span class="dp-tabela-icone-contador">{{ consultas|length }}</span>{% endif %}
+                        </div>
+                        <template id="consultas-ml-{{ devolucao.id }}">
+                            <h2 class="vd-cartao-titulo">Consultas no Mercado Livre</h2>
+                            <ul class="vd-consultas-lista">
+                                {% for consulta in consultas %}
+                                <li class="vd-consulta">
+                                    <div class="vd-consulta-textos">
+                                        <span class="vd-consulta-numero">N.º {{ consulta.numero }}
+                                            <span class="vd-badge {% if consulta.status == 'encerrada' %}vd-badge--cinza{% else %}vd-badge--ambar{% endif %}">{{ consulta.get_status_display }}</span>
+                                        </span>
+                                        {% if consulta.anotacao %}<span class="vd-consulta-nota">{{ consulta.anotacao }}</span>{% endif %}
+                                    </div>
+                                    <a class="vd-consulta-abrir" href="{{ consulta.link }}" target="_blank" rel="noopener noreferrer"><i class="fas fa-up-right-from-square" aria-hidden="true"></i> Abrir</a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </template>
+                        {% endif %}{% endwith %}
                         {% if devolucao.tem_evidencia_mediacao %}
                         <div class="dp-tabela-evidencia-icone" data-devolucao-id="{{ devolucao.id }}" data-evidencia-url="{% url 'evidencia_mediacao_preview' devolucao.id %}">
                             <i class="fas fa-images"></i>
@@ -445,6 +508,27 @@
                             <p class="vd-texto-bloco">{{ devolucao.anotacao_mediacao|linebreaksbr }}</p>
                         </template>
                         {% endif %}
+                        {% with consultas=devolucao.consultas_ml.all %}{% if consultas %}
+                        <div class="dp-tabela-anotacao-icone dp-tabela-consulta-icone{% if not devolucao.consultas_abertas %} dp-tabela-consulta-icone--encerrada{% endif %}" data-popover-alvo="consultas-ml-{{ devolucao.id }}" aria-label="Consultas no Mercado Livre — {% if devolucao.consultas_abertas %}{{ devolucao.consultas_abertas }} aberta(s){% else %}todas encerradas{% endif %}">
+                            <i class="fas fa-headset"></i>{% if consultas|length > 1 %}<span class="dp-tabela-icone-contador">{{ consultas|length }}</span>{% endif %}
+                        </div>
+                        <template id="consultas-ml-{{ devolucao.id }}">
+                            <h2 class="vd-cartao-titulo">Consultas no Mercado Livre</h2>
+                            <ul class="vd-consultas-lista">
+                                {% for consulta in consultas %}
+                                <li class="vd-consulta">
+                                    <div class="vd-consulta-textos">
+                                        <span class="vd-consulta-numero">N.º {{ consulta.numero }}
+                                            <span class="vd-badge {% if consulta.status == 'encerrada' %}vd-badge--cinza{% else %}vd-badge--ambar{% endif %}">{{ consulta.get_status_display }}</span>
+                                        </span>
+                                        {% if consulta.anotacao %}<span class="vd-consulta-nota">{{ consulta.anotacao }}</span>{% endif %}
+                                    </div>
+                                    <a class="vd-consulta-abrir" href="{{ consulta.link }}" target="_blank" rel="noopener noreferrer"><i class="fas fa-up-right-from-square" aria-hidden="true"></i> Abrir</a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </template>
+                        {% endif %}{% endwith %}
                         {% if devolucao.tem_evidencia_mediacao %}
                         <div class="dp-tabela-evidencia-icone" data-devolucao-id="{{ devolucao.id }}" data-evidencia-url="{% url 'evidencia_mediacao_preview' devolucao.id %}">
                             <i class="fas fa-images"></i>
@@ -564,6 +648,27 @@
                             <p class="vd-texto-bloco">{{ devolucao.anotacao_mediacao|linebreaksbr }}</p>
                         </template>
                         {% endif %}
+                        {% with consultas=devolucao.consultas_ml.all %}{% if consultas %}
+                        <div class="dp-tabela-anotacao-icone dp-tabela-consulta-icone{% if not devolucao.consultas_abertas %} dp-tabela-consulta-icone--encerrada{% endif %}" data-popover-alvo="consultas-ml-{{ devolucao.id }}" aria-label="Consultas no Mercado Livre — {% if devolucao.consultas_abertas %}{{ devolucao.consultas_abertas }} aberta(s){% else %}todas encerradas{% endif %}">
+                            <i class="fas fa-headset"></i>{% if consultas|length > 1 %}<span class="dp-tabela-icone-contador">{{ consultas|length }}</span>{% endif %}
+                        </div>
+                        <template id="consultas-ml-{{ devolucao.id }}">
+                            <h2 class="vd-cartao-titulo">Consultas no Mercado Livre</h2>
+                            <ul class="vd-consultas-lista">
+                                {% for consulta in consultas %}
+                                <li class="vd-consulta">
+                                    <div class="vd-consulta-textos">
+                                        <span class="vd-consulta-numero">N.º {{ consulta.numero }}
+                                            <span class="vd-badge {% if consulta.status == 'encerrada' %}vd-badge--cinza{% else %}vd-badge--ambar{% endif %}">{{ consulta.get_status_display }}</span>
+                                        </span>
+                                        {% if consulta.anotacao %}<span class="vd-consulta-nota">{{ consulta.anotacao }}</span>{% endif %}
+                                    </div>
+                                    <a class="vd-consulta-abrir" href="{{ consulta.link }}" target="_blank" rel="noopener noreferrer"><i class="fas fa-up-right-from-square" aria-hidden="true"></i> Abrir</a>
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        </template>
+                        {% endif %}{% endwith %}
                         {% if devolucao.tem_evidencia_mediacao %}
                         <div class="dp-tabela-evidencia-icone" data-devolucao-id="{{ devolucao.id }}" data-evidencia-url="{% url 'evidencia_mediacao_preview' devolucao.id %}">
                             <i class="fas fa-images"></i>

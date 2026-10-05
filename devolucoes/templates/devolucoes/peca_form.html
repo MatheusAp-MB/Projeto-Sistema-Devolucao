@@ -10,21 +10,29 @@
 
 {% block conteudo %}
     <div class="produto-form-pagina">
-        <a href="{% url 'gaveta_pecas' %}" class="produto-form-link-voltar">← Voltar para Peças</a>
+        <a href="{% url 'gaveta_pecas' %}" class="produto-form-link-voltar" data-voltar>← Voltar para Peças</a>
 
         <div class="produto-form-cartao">
             <form method="post" action="{% url 'editar_peca' peca.id %}" enctype="multipart/form-data" id="form-dados-peca">
                 {% csrf_token %}
 
                 <div class="produto-form-topo">
-                    <label class="produto-form-foto-uploader" for="id_foto_peca">
-                        <img id="preview_foto_peca" {% if not peca.imagem %}hidden{% endif %} src="{% if peca.imagem %}{{ peca.imagem.url }}{% endif %}" alt="Pré-visualização">
-                        <span class="produto-form-foto-texto" id="foto_peca_texto" {% if peca.imagem %}hidden{% endif %}>
-                            <strong>Trocar foto</strong>
-                            clique pra selecionar uma imagem da peça
-                        </span>
-                    </label>
+                    <div class="produto-form-foto-coluna">
+                        <label class="produto-form-foto-uploader" for="id_foto_peca">
+                            <img id="preview_foto_peca" {% if not peca.imagem %}hidden{% endif %} src="{% if peca.imagem %}{{ peca.imagem.url }}{% endif %}" alt="Pré-visualização">
+                            <span class="produto-form-foto-texto" id="foto_peca_texto" {% if peca.imagem %}hidden{% endif %}>
+                                <strong>Trocar foto</strong>
+                                clique pra selecionar uma imagem da peça
+                            </span>
+                        </label>
+                        {# Só no celular: "Tirar foto" (câmera) e "Anexar arquivo" (galeria/arquivos). No PC essa faixa fica escondida. #}
+                        <div class="produto-form-foto-acoes">
+                            <label class="produto-form-foto-botao" for="id_foto_peca_camera"><i class="fas fa-camera"></i> Tirar foto</label>
+                            <label class="produto-form-foto-botao" for="id_foto_peca"><i class="fas fa-paperclip"></i> Anexar arquivo</label>
+                        </div>
+                    </div>
                     <input type="file" name="imagem" accept="image/*" id="id_foto_peca" class="produto-form-input-oculto">
+                    <input type="file" name="imagem" accept="image/*" capture="environment" id="id_foto_peca_camera" class="produto-form-input-oculto" data-foto-camera="id_foto_peca">
 
                     <div class="produto-form-identificacao">
                         <div class="produto-form-campo">
@@ -113,7 +121,7 @@
                     <button type="submit" class="produto-form-botao-excluir" data-peca-nome="{{ peca.nome_generico }}" data-qtd-produtos="{{ qtd_produtos_vinculados }}">Excluir peça</button>
                 </form>
                 <div class="produto-form-rodape-principais">
-                    <a href="{% url 'gaveta_pecas' %}" class="produto-form-botao-cancelar">Cancelar</a>
+                    <a href="{% url 'gaveta_pecas' %}" class="produto-form-botao-cancelar" data-voltar>Cancelar</a>
                     <button type="submit" form="form-dados-peca" class="produto-form-botao-salvar">Salvar alterações</button>
                 </div>
             </div>

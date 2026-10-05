@@ -6,7 +6,7 @@
 
 {% block toolbar_acoes %}
 {# ?voltar=<id>: a lista devolve a aba, os filtros, a busca e a rolagem de quando esta devolução foi aberta (script_devolucoes_pendentes.js) #}
-<a href="{% url 'devolucoes_pendentes' %}?voltar={{ devolucao.id }}" class="vd-btn"><i class="fas fa-arrow-left"></i> Voltar</a>
+<a href="{% url 'devolucoes_pendentes' %}?voltar={{ devolucao.id }}" class="vd-btn" data-voltar><i class="fas fa-arrow-left"></i> Voltar</a>
 {% endblock %}
 
 {% block head_extra %}
@@ -42,7 +42,7 @@
                         <i class="fas fa-comments"></i> Ver mediação
                     </a>
                     {% endif %}
-                    <a href="{% url 'conferir_devolucao' devolucao.id %}" class="vd-btn">
+                    <a href="{% url 'conferir_devolucao' devolucao.id %}" class="vd-btn vd-btn--principal">
                         <i class="fas fa-pen-to-square"></i> Editar conferência
                     </a>
                     <a href="{% url 'editar_devolucao' devolucao.id %}" class="vd-btn">
@@ -54,6 +54,27 @@
                     <a href="{% url 'imprimir_etiqueta_termica_devolucao' devolucao.id %}" target="_blank" class="vd-btn">
                         <i class="fas fa-tag"></i> Etiqueta térmica
                     </a>
+                </div>
+            </div>
+
+            {# Só no celular (até 720px): o Produto aparece aqui, logo abaixo do cabeçalho, em vez de só no cartão lateral que vai pro fim da tela. No computador essa faixa fica escondida e nada muda. #}
+            <div class="vd-produto-faixa">
+                <div class="vd-produto-faixa-foto{% if devolucao.produto.foto %} card-fotos-item{% endif %}"
+                     {% if devolucao.produto.foto %}data-fotos-id="vd-produto-faixa-{{ devolucao.id }}" data-titulo="{{ devolucao.produto.nome }}"{% endif %}>
+                    {% if devolucao.produto.foto %}
+                        <img src="{{ devolucao.produto.foto.url }}" alt="{{ devolucao.produto.nome }}">
+                    {% else %}
+                        <i class="fas fa-box"></i>
+                    {% endif %}
+                </div>
+                <div class="vd-produto-faixa-info">
+                    <span class="vd-rotulo">Produto</span>
+                    <div class="vd-produto-faixa-nome">{{ devolucao.produto.nome }}</div>
+                    <div class="vd-produto-faixa-codigos">
+                        <span>EAN {{ devolucao.produto.codigo_barras }}</span>
+                        {% if devolucao.produto.sku %}<span>SKU {{ devolucao.produto.sku }}</span>{% endif %}
+                        {% if devolucao.preco_produto is not None %}<span class="vd-produto-faixa-preco">R$ {{ devolucao.preco_produto|floatformat:2 }}</span>{% endif %}
+                    </div>
                 </div>
             </div>
 
@@ -175,6 +196,30 @@
     </div>
     {% endif %}
 
+    {% with consultas=devolucao.consultas_ml.all %}
+    {% if consultas %}
+    <div class="vd-cartao vd-consultas">
+        <h2 class="vd-cartao-titulo">Consultas no Mercado Livre</h2>
+        <ul class="vd-consultas-lista">
+            {% for consulta in consultas %}
+            <li class="vd-consulta">
+                <div class="vd-consulta-textos">
+                    <span class="vd-consulta-numero">Consulta N.º {{ consulta.numero }}
+                        <span class="vd-badge {% if consulta.status == 'encerrada' %}vd-badge--cinza{% else %}vd-badge--ambar{% endif %}">{{ consulta.get_status_display }}</span>
+                    </span>
+                    {% if consulta.anotacao %}<span class="vd-consulta-nota">{{ consulta.anotacao }}</span>{% endif %}
+                </div>
+                <a class="vd-consulta-abrir" href="{{ consulta.link }}" target="_blank" rel="noopener noreferrer">
+                    <i class="fas fa-up-right-from-square" aria-hidden="true"></i> Abrir consulta
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        <p class="vd-consultas-dica">Abre no site do Mercado Livre, na conta que estiver aberta no navegador (esta devolução é da {{ empresa_ativa_nome }}). Consulta encerrada fica disponível lá por 30 dias.</p>
+    </div>
+    {% endif %}
+    {% endwith %}
+
     <div class="vd-cartao">
         <h2 class="vd-cartao-titulo">Motivo da reclamação do cliente</h2>
         <p class="vd-texto-bloco">{{ devolucao.motivo_reclamacao|linebreaksbr }}</p>
@@ -235,7 +280,8 @@
 
         <div class="vd-cartao">
             <h2 class="vd-cartao-titulo">Evidência para a mediação</h2>
-            <p class="vd-texto-bloco vd-texto-bloco--dica">Fotos de todas as peças com problema, já reunidas — selecione tudo e arraste direto pro chat de mediação da plataforma.</p>
+            {# Aparelho de toque não arrasta arquivos pro chat: lá a dica vira "toque numa foto pra ampliar" (CSS troca uma pela outra). #}
+            <p class="vd-texto-bloco vd-texto-bloco--dica"><span class="vd-dica-pc">Fotos de todas as peças com problema, já reunidas — selecione tudo e arraste direto pro chat de mediação da plataforma.</span><span class="vd-dica-toque">Fotos de todas as peças com problema, já reunidas. Toque numa foto para ampliar.</span></p>
 
             {% if pecas_com_problema or fotos_observacao_geral or devolucao.observacao_geral %}
                 <div class="vd-grade-fotos">

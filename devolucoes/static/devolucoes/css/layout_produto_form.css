@@ -78,6 +78,40 @@
     border: 0;
 }
 
+/* * [EXPLICAÇÃO] → pedido de Matheus (05/10/2026): onde há envio de foto a pessoa escolhe "Tirar foto"
+ *   (câmera na hora) ou "Anexar arquivo" (galeria/arquivos). A câmera direta só existe em aparelho de
+ *   toque (no PC o capture é ignorado), então no PC nada muda — o quadro grande continua sendo o jeito
+ *   de escolher a imagem — e em aparelho de toque a faixa com os 2 botões aparece embaixo do quadro.
+ *   A mesma faixa vale nas telas de Produto, de Peça e na janelinha de Peça da Gaveta. */
+.produto-form-foto-acoes {
+    display: none;
+}
+
+@media (pointer: coarse) {
+    .produto-form-foto-acoes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+    }
+
+    .produto-form-foto-botao {
+        flex: 1 1 auto;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 10px 14px;
+        border: 1.5px dashed #dee2e6;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #2e7bb5;
+        background: #fff;
+        cursor: pointer;
+    }
+}
+
 .produto-form-campo {
     margin-bottom: 14px;
 }

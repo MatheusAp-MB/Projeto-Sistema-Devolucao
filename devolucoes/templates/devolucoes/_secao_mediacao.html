@@ -35,4 +35,14 @@
         <label for="id_anotacao_mediacao">Anotações sobre a mediação</label>
         <textarea id="id_anotacao_mediacao" name="anotacao_mediacao" rows="2">{{ valores.anotacao_mediacao }}</textarea>
     </div>
+    {# Consultas abertas com o ML (uma por linha); cada uma vira um botão que abre a consulta no site. Só o número é guardado. #}
+    <div class="nd-campo nd-consultas" id="nd_consultas" data-consultas>
+        <p class="nd-consultas-titulo">Consultas no Mercado Livre <span class="nd-secao-opcional">(opcional)</span></p>
+        <small class="nd-campo-ajuda">Uma consulta por linha. Digite só o número (ex.: 485766153) ou cole o endereço da consulta — o botão "Abrir" aparece sozinho. O ML guarda consulta encerrada por 30 dias: use a anotação para registrar como terminou.</small>
+        <div class="nd-consultas-lista" data-consultas-lista>
+            {% for c in consultas_form %}{% include 'devolucoes/_consulta_ml_linha.html' with c=c %}{% empty %}{% include 'devolucoes/_consulta_ml_linha.html' with c=None %}{% endfor %}
+        </div>
+        <button type="button" class="nd-consulta-adicionar" data-consulta-adicionar><i class="fas fa-plus" aria-hidden="true"></i> Adicionar consulta</button>
+        <template data-consulta-modelo>{% include 'devolucoes/_consulta_ml_linha.html' with c=None %}</template>
+    </div>
 </div>

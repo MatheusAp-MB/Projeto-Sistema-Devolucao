@@ -99,6 +99,7 @@
 .vd-badge--verde    { background: #e6f4ea; color: var(--cor-positivo); }
 .vd-badge--ambar    { background: #fef3c7; color: #92400e; }
 .vd-badge--vermelho { background: #fde8e8; color: var(--cor-negativo); }
+.vd-badge--cinza    { background: #eceff1; color: #546e7a; }
 
 .vd-grade-dados {
     display: grid;
@@ -562,5 +563,334 @@
 
     .vd-resumo-grid {
         grid-template-columns: 1fr;
+    }
+}
+/* ===== Celular — pedido de Matheus (05/10/2026): "corrija a tela de visualizar devolução pensando no
+   uso em celular". Tudo aqui vale SÓ até 720px (ou só em aparelho de toque): no computador nada muda.
+   Problemas que estas regras resolvem (vistos em 320/360/393px):
+   - o selo de prazo ("Fora dos 7 dias — reclamou 10 dias depois") não quebrava linha e esticava o
+     cartão além da tela: datas e código de barras ficavam cortados à direita;
+   - o Produto vinha depois da linha do tempo toda, com uma caixa de foto enorme;
+   - botões de 35px de altura em linhas desiguais;
+   - dica de "arrastar pro chat" e botão "Abrir pasta no Explorer" não servem no celular. ===== */
+
+.vd-produto-faixa,
+.vd-dica-toque {
+    display: none;
+}
+
+@media (max-width: 720px) {
+    .vd-pagina {
+        gap: 12px;
+    }
+
+    /* coluna única que PODE encolher (sem isso o conteúdo mais largo esticava o cartão pra fora da tela) */
+    .vd-topo-grid,
+    .vd-zona-bottom {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+    }
+
+    .vd-cartao {
+        min-width: 0;
+        padding: 16px 14px;
+    }
+
+    .vd-titulo-pedido {
+        overflow-wrap: anywhere;
+    }
+
+    .vd-meta-linha {
+        gap: 6px 14px;
+    }
+
+    .vd-cabecalho {
+        gap: 12px;
+    }
+
+    .vd-cabecalho > div:first-child {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .vd-badge {
+        white-space: normal;
+    }
+
+    /* --- Datas e valores: lista "nome ........ valor", nada fica cortado --- */
+    .vd-grade-dados,
+    .vd-grade-dados--3col {
+        display: flex;
+        flex-direction: column;
+        gap: 0;
+    }
+
+    .vd-campo {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: baseline;
+        column-gap: 12px;
+        row-gap: 4px;
+        padding: 9px 0;
+        border-top: 1px dashed var(--cor-borda);
+    }
+
+    .vd-campo:first-child {
+        border-top: none;
+        padding-top: 2px;
+    }
+
+    .vd-campo .vd-valor {
+        text-align: right;
+        overflow-wrap: anywhere;
+    }
+
+    .vd-campo > .vd-badge-prazo {
+        grid-column: 1 / -1;
+        justify-self: start;
+        margin-top: 2px;
+        border-radius: 12px;
+        line-height: 1.35;
+        text-align: left;
+    }
+
+    /* --- Produto: faixa compacta no começo; o cartão lateral (caixa de foto grande) some --- */
+    .vd-produto-mini {
+        display: none;
+    }
+
+    .vd-produto-faixa {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-top: 14px;
+        padding-top: 14px;
+        border-top: 1px solid var(--cor-borda);
+    }
+
+    .vd-produto-faixa-foto {
+        width: 72px;
+        height: 72px;
+        flex: 0 0 72px;
+        border-radius: 8px;
+        background: var(--cor-fundo-pagina);
+        border: 1px solid var(--cor-borda);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--cor-texto-muted);
+        font-size: 22px;
+    }
+
+    .vd-produto-faixa-foto img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        display: block;
+    }
+
+    .vd-produto-faixa-info {
+        min-width: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+    }
+
+    .vd-produto-faixa-nome {
+        font-size: 14px;
+        font-weight: 700;
+        color: #333;
+        line-height: 1.3;
+        overflow-wrap: anywhere;
+    }
+
+    .vd-produto-faixa-codigos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 12px;
+        font-size: 12px;
+        color: var(--cor-texto-muted);
+    }
+
+    .vd-produto-faixa-codigos span {
+        overflow-wrap: anywhere;
+    }
+
+    .vd-produto-faixa-preco {
+        font-weight: 700;
+        color: #333;
+    }
+
+    /* --- Botões de ação: 2 por linha, 44px de altura, "Editar conferência" em destaque --- */
+    .vd-acoes-topo {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        width: 100%;
+    }
+
+    .vd-acoes-topo > .vd-badge {
+        grid-column: 1 / -1;
+        justify-self: start;
+        order: -2;
+    }
+
+    .vd-acoes-topo > .vd-btn--principal {
+        grid-column: 1 / -1;
+        order: -1;
+    }
+
+    .vd-acoes-topo .vd-btn {
+        min-height: 44px;
+        justify-content: center;
+        text-align: center;
+        white-space: normal;
+        padding: 10px 8px;
+        font-size: 13px;
+    }
+
+    .vd-acoes-topo .vd-btn--principal {
+        background-color: var(--cor-primaria-clara);
+        border-color: var(--cor-primaria-clara);
+        color: #fff;
+    }
+
+    .vd-acoes-topo .vd-btn--principal:active {
+        background-color: var(--cor-primaria);
+        border-color: var(--cor-primaria);
+        color: #fff;
+    }
+
+    /* --- Resumo da conferência: letras e foto um pouco maiores pra ler/tocar --- */
+    .vd-resumo-card-foto,
+    .vd-resumo-card-foto-vazia {
+        width: 52px;
+        height: 52px;
+    }
+
+    .vd-resumo-card-nome {
+        font-size: 13.5px;
+    }
+
+    .vd-status-mini {
+        font-size: 11px;
+    }
+
+    .vd-resumo-card-anotacao {
+        font-size: 12.5px;
+    }
+
+    .vd-anotacao-item {
+        overflow-wrap: anywhere;
+    }
+}
+
+/* Aparelho de toque (celular/tablet): não dá pra arrastar arquivo pro chat, e "Abrir pasta no Explorer"
+   abriria o Explorer do PC onde o sistema roda, não do aparelho. */
+@media (pointer: coarse) {
+    .vd-dica-pc {
+        display: none;
+    }
+
+    .vd-dica-toque {
+        display: inline;
+    }
+
+    .vd-aviso-pasta--secundario {
+        display: none;
+    }
+}
+
+/* ===== Consultas no Mercado Livre: uma linha por consulta, com botão que abre no site do ML ===== */
+
+.vd-consultas-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.vd-consulta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--cor-borda);
+}
+
+.vd-consulta:last-child {
+    border-bottom: 0;
+}
+
+.vd-consulta-textos {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.vd-consulta-numero {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #333;
+    font-variant-numeric: tabular-nums;
+}
+
+.vd-consulta-nota {
+    font-size: 13px;
+    line-height: 1.45;
+    color: #555;
+    overflow-wrap: anywhere;
+}
+
+.vd-consulta-abrir {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-radius: 6px;
+    background-color: var(--cor-primaria-clara);
+    border: 1px solid var(--cor-primaria-clara);
+    color: #ffffff;
+    font-size: 12.5px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.vd-consulta-abrir:hover {
+    color: #ffffff;
+    text-decoration: none;
+    filter: brightness(1.1);
+}
+
+.vd-consultas-dica {
+    margin: 10px 0 0;
+    font-size: 12px;
+    line-height: 1.45;
+    color: #6b6b6b;
+}
+
+/* Celular: número e anotação em cima, botão "Abrir consulta" embaixo ocupando a largura toda (alvo de 44px) */
+@media (max-width: 720px) {
+    .vd-consulta {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+    }
+
+    .vd-consulta-abrir {
+        min-height: 44px;
+        font-size: 13.5px;
     }
 }

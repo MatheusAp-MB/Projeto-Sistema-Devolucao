@@ -53,4 +53,45 @@
 
         if (vazioBusca) vazioBusca.hidden = algumaSecaoVisivel;
     });
+
+    // * [EXPLICAÇÃO] → pedido de Matheus (05/10/2026): voltar pra esta lista (botão "Voltar
+    //   para Produtos" ou o voltar do navegador) devolve a busca e a posição da rolagem de
+    //   quando a pessoa saiu. A busca é filtro feito por JavaScript — o navegador não refaz
+    //   sozinho — então a foto dela é guardada/aplicada por EstadoDaTela (script_global.js).
+    function refazerBusca() {
+        campoBusca.dispatchEvent(new Event('input'));
+    }
+
+    // Cada marca tem a sua fila de cards que rola pro lado (.produtos-grade): a posição de cada
+    // fila também é guardada (na ordem em que aparecem na página) pra pessoa não ter que
+    // rolar de novo pra achar o produto.
+    function lerFilas() {
+        return Array.prototype.map.call(lista.querySelectorAll('.produtos-grade'), function (fila) { return Math.round(fila.scrollLeft); });
+    }
+
+    function aplicarFilas(posicoes) {
+        if (!Array.isArray(posicoes)) return;
+        Array.prototype.forEach.call(lista.querySelectorAll('.produtos-grade'), function (fila, i) {
+            if (typeof posicoes[i] === 'number' && posicoes[i] > 0) fila.scrollLeft = posicoes[i];
+        });
+    }
+
+    if (window.EstadoDaTela) {
+        window.EstadoDaTela.registrar(
+            function () { return { busca: campoBusca.value, filas: lerFilas() }; },
+            function (dados) {
+                if (typeof dados.busca === 'string' && dados.busca) {
+                    campoBusca.value = dados.busca.slice(0, 200);
+                    refazerBusca();          // a busca esconde cards: as filas só podem ser posicionadas depois
+                }
+                aplicarFilas(dados.filas);
+            }
+        );
+    }
+
+    // Se o navegador devolver o texto do campo por conta própria (voltar do navegador), a lista
+    // tem que acompanhar o campo — senão ele mostra um texto e a lista continua inteira.
+    window.addEventListener('pageshow', function () {
+        if (campoBusca.value) refazerBusca();
+    });
 })();

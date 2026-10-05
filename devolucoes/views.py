@@ -28,7 +28,8 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.files.base import ContentFile
 from django.db import DatabaseError, transaction
-from django.db.models import Count, Q
+from django.db.models import Count, IntegerField, OuterRef, Q, Subquery, Value
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse, HttpResponseNotAllowed, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -44,7 +45,7 @@ from integracao_mercado_livre.views import CONTA_POR_EMPRESA, PASTA_LOGS_ML
 
 from .exportacao_xlsx import TIPO_DATA, TIPO_DINHEIRO, TIPO_TEXTO, gerar_xlsx
 from .models import (
-    ClaimMercadoLivre, Compatibilidade, ConferenciaPeca, Devolucao,
+    ClaimMercadoLivre, Compatibilidade, ConferenciaPeca, ConsultaML, Devolucao,
     FotoConferenciaPeca, FotoObservacaoGeral, FotoReclamacaoCliente,
     GrupoFornecedor, Marca, MediacaoAvulsa, ModeloAnotacao, Peca, PreferenciaTela,
     Produto, StatusVarreduraMediacoes, TravaChatMediacao,
@@ -55,6 +56,7 @@ from .models import (
 #   Matheus, 21/09/2026: sem .env, sem tela de CRUD, so essa constante
 #   mesmo. Trocar aqui e o unico jeito de mudar a senha.
 SENHA_TRAVA_CHAT_MEDIACAO = '2530'
+from .models.consulta_ml import extrair_numero_consulta
 from .reorganizacao_fotos import reorganizar_fotos_devolucao
 from .varredura_mediacoes import (
     atualizar_e_formatar_mensagens, buscar_nome_cliente_e_produto,
@@ -89,10 +91,9 @@ def imprimir_relatorio_devolucao(request, devolucao_id):
     devolucao = get_object_or_404(
         Devolucao.objects.select_related('produto__marca'), pk=devolucao_id,
     )
-    pecas_conferidas = (
-        devolucao.pecas_conferidas
-        .select_related('peca__marca')
-        .order_by('peca__nome_generico')
+    pecas_conferidas = _conferencias_na_ordem_do_produto(
+        devolucao,
+        devolucao.pecas_conferidas.select_related('peca__marca'),
     )
     return render(request, 'devolucoes/relatorio_devolucao_impressao.html', {
         'devolucao': devolucao,
@@ -702,9 +703,82 @@ def _montar_selos(selos_originais, valores, produto_selecionado, fotos_cliente_m
     return selos
 
 
+def _consultas_para_formulario(consultas):
+    """Consultas já salvas -> linhas do formulário (mesmo formato de _ler_consultas_do_post)."""
+    return [
+        {'numero': consulta.numero, 'anotacao': consulta.anotacao, 'status': consulta.status, 'link': consulta.link, 'valida': True}
+        for consulta in consultas
+    ]
+
+
+def _ler_consultas_do_post(post):
+    """Lê as linhas "Consultas no Mercado Livre" do formulário (campos paralelos consulta_numero /
+    consulta_anotacao, uma linha por consulta). Devolve (linhas, textos_invalidos):
+      - linha totalmente vazia é ignorada (a tela sempre mostra ao menos uma);
+      - a pessoa pode digitar só o número ou colar o endereço da consulta — vira sempre só o número;
+      - número repetido na mesma devolução vale uma vez só (a primeira linha);
+      - linha com algo que não dá pra entender como consulta volta marcada (valida=False) pra tela
+        mostrar de novo do jeito que foi digitado, e o texto entra em textos_invalidos."""
+    numeros = post.getlist('consulta_numero')
+    anotacoes = post.getlist('consulta_anotacao')
+    situacoes = post.getlist('consulta_status')
+    status_validos = dict(ConsultaML.STATUS_CHOICES)
+    linhas, invalidos, vistos = [], [], set()
+    for posicao, texto in enumerate(numeros):
+        texto = texto.strip()
+        anotacao = (anotacoes[posicao] if posicao < len(anotacoes) else '').strip()[:300]
+        status = situacoes[posicao] if posicao < len(situacoes) else ConsultaML.STATUS_ABERTA
+        if status not in status_validos:
+            status = ConsultaML.STATUS_ABERTA
+        if not texto and not anotacao:
+            continue
+        numero = extrair_numero_consulta(texto)
+        if numero is None:
+            invalidos.append(texto or '(sem número)')
+            linhas.append({'numero': texto, 'anotacao': anotacao, 'status': status, 'link': '', 'valida': False})
+            continue
+        if numero in vistos:
+            continue
+        vistos.add(numero)
+        linhas.append({
+            'numero': numero, 'anotacao': anotacao, 'status': status,
+            'link': ConsultaML(numero=numero).link, 'valida': True,
+        })
+    return linhas, invalidos
+
+
+def _mensagem_consulta_invalida(invalidos):
+    lista = ', '.join(f'"{texto}"' for texto in invalidos[:3])
+    return (
+        f'Consulta do Mercado Livre inválida: {lista}. Digite só o número da consulta (ex.: 485766153) '
+        f'ou cole o endereço dela no Mercado Livre.'
+    )
+
+
+def _gravar_consultas(devolucao, linhas):
+    """Deixa as consultas da devolução exatamente como as linhas do formulário: cria as novas, atualiza a
+    anotação/situação das que mudaram e apaga as que a pessoa removeu. Tudo numa transação só."""
+    with transaction.atomic(using=obter_alias_banco_ativo()):
+        existentes = {consulta.numero: consulta for consulta in devolucao.consultas_ml.all()}
+        desejados = {linha['numero'] for linha in linhas}
+        for numero, consulta in existentes.items():
+            if numero not in desejados:
+                consulta.delete()
+        for linha in linhas:
+            consulta = existentes.get(linha['numero'])
+            if consulta is None:
+                ConsultaML.objects.create(
+                    devolucao=devolucao, numero=linha['numero'], anotacao=linha['anotacao'], status=linha['status'],
+                )
+            elif consulta.anotacao != linha['anotacao'] or consulta.status != linha['status']:
+                consulta.anotacao = linha['anotacao']
+                consulta.status = linha['status']
+                consulta.save(update_fields=['anotacao', 'status'])
+
+
 def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=None, busca_produto_sugerida='',
                              fotos_cliente_ml=None, claim_id_fotos='', produto_origem_automatica='',
-                             selos_originais=None):
+                             selos_originais=None, consultas_form=None):
     """Monta o contexto da tela de Nova Devolução (Fase 0 + busca/
     seleção de produto) — usada tanto pro GET simples quanto pra
     re-exibir o formulário com o que a pessoa digitou quando a
@@ -743,6 +817,10 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
 
     em_edicao = devolucao is not None
     fotos_salvas = list(devolucao.fotos_reclamacao_cliente.all()) if em_edicao else []
+    # Consultas do ML: as linhas que a pessoa acabou de digitar (formulário reexibido por erro) ou, na
+    # edição, as que estão salvas; na tela nova, nenhuma (o template mostra uma linha em branco).
+    if consultas_form is None:
+        consultas_form = _consultas_para_formulario(devolucao.consultas_ml.all()) if em_edicao else []
     if em_edicao:
         registro = devolucao.campos_automaticos_ml
         selos_originais = _filtrar_selos(registro)
@@ -764,6 +842,7 @@ def _contexto_nova_devolucao(valores=None, produto_selecionado=None, devolucao=N
         'produto_selecionado': produto_selecionado,
         'devolucao': devolucao,
         'fotos_reclamacao_cliente': fotos_salvas,
+        'consultas_form': consultas_form,
         'busca_produto_sugerida': busca_produto_sugerida,
         'fotos_cliente_ml': fotos_cliente_ml or [],
         'claim_id_fotos': claim_id_fotos,
@@ -881,6 +960,7 @@ def nova_devolucao(request):
         }
         produto_id = request.POST.get('produto_id', '').strip()
         produto = Produto.objects.select_related('marca').filter(pk=produto_id).first() if produto_id else None
+        consultas_form, consultas_invalidas = _ler_consultas_do_post(request.POST)
 
         claim_id_fotos, fotos_cliente_ml = _fotos_do_cliente_pedidas(
             request.POST.get('claim_id_fotos'), request.POST.getlist('foto_cliente_ml'), valores['numero_pedido'],
@@ -892,7 +972,7 @@ def nova_devolucao(request):
             request, 'devolucoes/nova_devolucao.html',
             _contexto_nova_devolucao(
                 valores, produto, fotos_cliente_ml=fotos_cliente_ml, claim_id_fotos=claim_id_fotos,
-                selos_originais=selos_originais_post,
+                selos_originais=selos_originais_post, consultas_form=consultas_form,
             ),
         )
 
@@ -927,6 +1007,10 @@ def nova_devolucao(request):
             messages.error(request, f'Já existe uma devolução registrada pro pedido {valores["numero_pedido"]}.')
             return rerenderizar()
 
+        if consultas_invalidas:
+            messages.error(request, _mensagem_consulta_invalida(consultas_invalidas))
+            return rerenderizar()
+
         # {} quando a tela foi aberta à mão; com o que o ML trouxe quando veio da
         # Consultar Pedido (ver campos_automaticos_ml no model).
         campos_automaticos = _selos_para_gravar(selos_originais_post)
@@ -950,6 +1034,7 @@ def nova_devolucao(request):
             motivo_reclamacao=valores['motivo_reclamacao'],
             campos_automaticos_ml=campos_automaticos,
         )
+        _gravar_consultas(devolucao, consultas_form)
 
         # * [EXPLICAÇÃO] → fotos que o CLIENTE mandou pra plataforma junto
         #   da reclamação (opcional) — devolucao já existe nesse ponto
@@ -1074,10 +1159,11 @@ def editar_devolucao(request, devolucao_id):
         }
         produto_id = request.POST.get('produto_id', '').strip()
         produto = Produto.objects.select_related('marca').filter(pk=produto_id).first() if produto_id else None
+        consultas_form, consultas_invalidas = _ler_consultas_do_post(request.POST)
 
         rerenderizar = lambda: render(
             request, 'devolucoes/nova_devolucao.html',
-            _contexto_nova_devolucao(valores, produto, devolucao),
+            _contexto_nova_devolucao(valores, produto, devolucao, consultas_form=consultas_form),
         )
 
         obrigatorios = [
@@ -1111,6 +1197,10 @@ def editar_devolucao(request, devolucao_id):
             messages.error(request, f'Já existe uma devolução registrada pro pedido {valores["numero_pedido"]}.')
             return rerenderizar()
 
+        if consultas_invalidas:
+            messages.error(request, _mensagem_consulta_invalida(consultas_invalidas))
+            return rerenderizar()
+
         devolucao.produto = produto
         devolucao.nome_plataforma = valores['nome_plataforma']
         devolucao.tipo_venda = valores['tipo_venda']
@@ -1129,6 +1219,7 @@ def editar_devolucao(request, devolucao_id):
         devolucao.anotacao_mediacao = valores['anotacao_mediacao']
         devolucao.motivo_reclamacao = valores['motivo_reclamacao']
         devolucao.save()
+        _gravar_consultas(devolucao, consultas_form)
 
         # * [EXPLICAÇÃO] → fotos novas que o cliente mandou, anexadas
         #   durante a edição — SOMA às que já existem, nunca substitui;
@@ -1222,11 +1313,16 @@ def devolucoes_pendentes(request):
     manda as 5 listas prontas de uma vez, sem endpoint novo pra buscar."""
     lista = (
         Devolucao.objects.select_related('produto__marca')
+        .prefetch_related('consultas_ml')
         .order_by('-criado_em')
     )
 
     grupos = {status_valor: [] for status_valor, _ in Devolucao.STATUS_CHOICES}
     for devolucao in lista:
+        # consultas do ML ainda abertas (o ícone da lista muda de cor quando todas já foram encerradas)
+        devolucao.consultas_abertas = sum(
+            1 for consulta in devolucao.consultas_ml.all() if consulta.status == ConsultaML.STATUS_ABERTA
+        )
         grupos[devolucao.status_fluxo].append(devolucao)
 
     # * [EXPLICAÇÃO] → indicador de mensagem não lida no card de
@@ -1348,6 +1444,36 @@ def _dia_do_calendario(valor):
     return valor.toordinal()
 
 
+def _contagem_consultas(devolucao):
+    """(total, abertas, encerradas) das consultas do ML de 1 devolução. Lê
+    `consultas_ml.all()`, então aproveita o prefetch_related das telas (nenhuma
+    consulta extra ao banco por linha). Alimenta o filtro "Consultas ML" da
+    lista Devoluções e da Análise (pedido de Matheus, 05/10/2026) e a coluna
+    "Consultas ML" da Análise."""
+    abertas = 0
+    encerradas = 0
+    for consulta in devolucao.consultas_ml.all():
+        if consulta.status == ConsultaML.STATUS_ABERTA:
+            abertas += 1
+        else:
+            encerradas += 1
+    return abertas + encerradas, abertas, encerradas
+
+
+def _texto_das_consultas(devolucao):
+    # * [EXPLICAÇÃO] → "1 aberta", "2 encerradas", "1 aberta, 1 encerrada";
+    #   sem consulta nenhuma fica vazio. MESMO texto que o JS da Análise
+    #   mostra na célula (script_analise_devolucoes.js, textoDasConsultas),
+    #   pra o Excel sair igual à tela.
+    _, abertas, encerradas = _contagem_consultas(devolucao)
+    partes = []
+    if abertas:
+        partes.append('%d %s' % (abertas, 'aberta' if abertas == 1 else 'abertas'))
+    if encerradas:
+        partes.append('%d %s' % (encerradas, 'encerrada' if encerradas == 1 else 'encerradas'))
+    return ', '.join(partes)
+
+
 def _dados_da_linha_para_a_tela(devolucao):
     """Monta o pacotinho (1 JSON por linha, atributo data-dp) que o JS da
     listagem usa pra ordenar, filtrar e buscar SEM nenhuma requisição
@@ -1362,12 +1488,14 @@ def _dados_da_linha_para_a_tela(devolucao):
       prz/pst   prazo de resposta (dia) e situação (vencido/hoje/proximo/ok)
       rec7      'dentro' | 'fora' dos 7 dias | '' (não dá pra calcular)
       nota/evid/msg  tem anotação / evidência / mensagem nova (1 ou 0)
+      ct/ca/ce  consultas do ML: quantas ao todo / abertas / encerradas
       val       valor reembolsado (número) ou null
       pn/mn     plataforma e marca COMO SÃO ESCRITAS (as opções do filtro)"""
     produto = devolucao.produto
     marca_nome = produto.marca.nome
     impresso = devolucao.relatorio_impresso_em
     dentro_do_prazo = devolucao.reclamacao_dentro_do_prazo
+    consultas_total, consultas_abertas, consultas_encerradas = _contagem_consultas(devolucao)
     dados = {
         'cad': int(devolucao.criado_em.timestamp()),
         'cadd': _dia_do_calendario(devolucao.criado_em),
@@ -1390,6 +1518,9 @@ def _dados_da_linha_para_a_tela(devolucao):
         'evid': 1 if devolucao.tem_evidencia_mediacao else 0,
         'msg': 1 if getattr(devolucao, 'mensagem_nao_lida', False) else 0,
         'val': float(devolucao.valor_reembolsado) if devolucao.valor_reembolsado is not None else None,
+        'ct': consultas_total,
+        'ca': consultas_abertas,
+        'ce': consultas_encerradas,
         'pn': devolucao.nome_plataforma,
         'mn': marca_nome,
     }
@@ -1567,6 +1698,7 @@ COLUNAS_ANALISE = [
     ('plat', 'Plataforma', TIPO_TEXTO, 16, False, lambda d: d.nome_plataforma),
     ('tipo', 'Tipo de venda', TIPO_TEXTO, 15, False, lambda d: d.get_tipo_venda_display()),
     ('etapa', 'Etapa', TIPO_TEXTO, 22, False, lambda d: d.status_fluxo_display),
+    ('consultas', 'Consultas ML', TIPO_TEXTO, 22, False, _texto_das_consultas),
     ('destino', 'Destino', TIPO_TEXTO, 18, False, lambda d: d.get_destino_produto_display() if d.destino_produto else ''),
     ('criado', 'Cadastro', TIPO_DATA, 13, False, lambda d: _data_local(d.criado_em)),
     ('venda', 'Data da venda', TIPO_DATA, 14, False, lambda d: d.data_venda),
@@ -1595,10 +1727,12 @@ def _linha_da_analise(devolucao):
       rb            reembolsado: 1 sim, 0 não, None sem informação
       val/preco     valor reembolsado e preço do produto (número ou None)
       fl            o que falta preencher: letras de FALTAS_ANALISE ('' = nada)
+      cs/ca/ce      consultas do ML: quantas ao todo / abertas / encerradas
       nf/cod/ean    nota fiscal, código do fabricante, código de barras
                     (só entram na busca)"""
     produto = devolucao.produto
     impresso = devolucao.relatorio_impresso_em
+    consultas_total, consultas_abertas, consultas_encerradas = _contagem_consultas(devolucao)
     return {
         'id': devolucao.id,
         'ped': devolucao.numero_pedido,
@@ -1620,6 +1754,9 @@ def _linha_da_analise(devolucao):
         'val': float(devolucao.valor_reembolsado) if devolucao.valor_reembolsado is not None else None,
         'preco': float(devolucao.preco_produto) if devolucao.preco_produto is not None else None,
         'fl': _faltas_da_devolucao(devolucao),
+        'cs': consultas_total,
+        'ca': consultas_abertas,
+        'ce': consultas_encerradas,
         'nf': devolucao.numero_nota_fiscal or '',
         'cod': produto.codigo_fabricante or '',
         'ean': produto.codigo_barras or '',
@@ -1637,7 +1774,7 @@ def analise_devolucoes(request):
     client-side (script_analise_devolucoes.js): o Django manda todas as
     devoluções de uma vez (1 JSON, só os campos que a tela usa) e o padrão
     salvo (PreferenciaTela, chave 'analise') da empresa ativa."""
-    lista = Devolucao.objects.select_related('produto__marca').order_by('-criado_em')
+    lista = Devolucao.objects.select_related('produto__marca').prefetch_related('consultas_ml').order_by('-criado_em')
     linhas = [_linha_da_analise(devolucao) for devolucao in lista]
 
     contexto = {
@@ -1711,7 +1848,7 @@ def exportar_analise(request):
     por_id = {}
     for inicio in range(0, len(ids), 500):
         bloco = ids[inicio:inicio + 500]
-        for devolucao in Devolucao.objects.select_related('produto__marca').filter(id__in=bloco):
+        for devolucao in Devolucao.objects.select_related('produto__marca').prefetch_related('consultas_ml').filter(id__in=bloco):
             por_id[devolucao.id] = devolucao
 
     linhas = []
@@ -2440,7 +2577,33 @@ def _pecas_para_conferencia(devolucao):
             'fotos': list(conferencia.fotos.all()),
     }
 
-    return sorted(pecas_por_id.values(), key=lambda p: p['peca'].nome_generico)
+    # * [EXPLICAÇÃO] → pedido de Matheus (05/10/2026): as peças aparecem na ORDEM definida no produto
+    #   (arrastando na tela do produto). Peça já conferida que hoje não está mais vinculada ao produto
+    #   não tem posição: vai pro fim, em ordem alfabética.
+    ordem_no_produto = {compat.peca_id: compat.ordem for compat in compatibilidades}
+    return sorted(
+        pecas_por_id.values(),
+        key=lambda p: (ordem_no_produto.get(p['peca'].id, ORDEM_SEM_VINCULO), p['peca'].nome_generico),
+    )
+
+
+# Posição usada pra peça conferida que não está mais vinculada ao produto: maior que qualquer ordem real.
+ORDEM_SEM_VINCULO = 1_000_000
+
+
+def _conferencias_na_ordem_do_produto(devolucao, conferencias):
+    """Põe as peças conferidas de uma devolução na ordem definida no produto (a mesma da tela de
+    conferência), pra Visualizar devolução, relatório impresso e prévia de evidência não mostrarem
+    uma ordem diferente da conferência. Peça que não está mais vinculada ao produto vai pro fim."""
+    ordem_da_peca = (
+        Compatibilidade.objects
+        .filter(produto_id=devolucao.produto_id, peca_id=OuterRef('peca_id'))
+        .order_by()
+        .values('ordem')[:1]
+    )
+    return conferencias.annotate(
+        ordem_no_produto=Coalesce(Subquery(ordem_da_peca), Value(ORDEM_SEM_VINCULO), output_field=IntegerField()),
+    ).order_by('ordem_no_produto', 'peca__nome_generico')
 
 
 def conferir_devolucao(request, devolucao_id):
@@ -2628,10 +2791,9 @@ def visualizar_devolucao(request, devolucao_id):
     devolucao = get_object_or_404(
         Devolucao.objects.select_related('produto'), pk=devolucao_id,
     )
-    pecas_conferidas = (
-        devolucao.pecas_conferidas
-        .select_related('peca')
-        .prefetch_related('fotos')
+    pecas_conferidas = _conferencias_na_ordem_do_produto(
+        devolucao,
+        devolucao.pecas_conferidas.select_related('peca').prefetch_related('fotos'),
     )
     # * [EXPLICAÇÃO] → pré-filtra as peças com problema (não veio,
     #   incompleta, ou completa mas com anotação) pra alimentar o bloco
@@ -2660,10 +2822,9 @@ def evidencia_mediacao_preview(request, devolucao_id):
     de TODAS as mediações abertas de uma vez, mesmo as que ninguém for
     olhar — ver comentário em devolucoes_pendentes)."""
     devolucao = get_object_or_404(Devolucao, pk=devolucao_id)
-    pecas_conferidas = (
-        devolucao.pecas_conferidas
-        .select_related('peca')
-        .prefetch_related('fotos')
+    pecas_conferidas = _conferencias_na_ordem_do_produto(
+        devolucao,
+        devolucao.pecas_conferidas.select_related('peca').prefetch_related('fotos'),
     )
     pecas_com_problema = [c for c in pecas_conferidas if c.eh_evidencia_de_problema]
     return render(request, 'devolucoes/_evidencia_mediacao_preview.html', {
@@ -2940,7 +3101,7 @@ def visualizar_produto(request, produto_id):
     produto). Vincular e desvincular peça não acontece mais aqui —
     virou responsabilidade exclusiva de vincular_pecas_produto."""
     produto = get_object_or_404(Produto, pk=produto_id)
-    compatibilidades = produto.compatibilidades.select_related('peca__marca').order_by('peca__nome_generico')
+    compatibilidades = produto.compatibilidades.select_related('peca__marca').order_by('ordem', 'peca__nome_generico')
 
     contexto = {
         'produto': produto,
@@ -2948,6 +3109,43 @@ def visualizar_produto(request, produto_id):
         'pagina_ativa': 'produtos',
     }
     return render(request, 'devolucoes/produto_visualizar.html', contexto)
+
+
+def ordenar_pecas_produto(request, produto_id):
+    """Guarda a ordem das peças do produto depois que a pessoa arrasta uma peça na tela do produto
+    (pedido de Matheus, 05/10/2026). Recebe a lista COMPLETA, na nova ordem, em 'vinculos' (ids de
+    Compatibilidade, separados por vírgula) e grava 1, 2, 3... Se a lista não for exatamente a dos
+    vínculos que o produto tem agora (alguém vinculou/desvinculou no meio), recusa com 409 em vez de
+    gravar uma ordem torta — a tela avisa e a pessoa recarrega."""
+    if request.method != 'POST':
+        return JsonResponse({'erro': 'Método não permitido.'}, status=405)
+
+    produto = get_object_or_404(Produto, pk=produto_id)
+    texto = request.POST.get('vinculos', '')
+    try:
+        ids_recebidos = [int(valor) for valor in texto.split(',') if valor.strip()]
+    except ValueError:
+        return JsonResponse({'erro': 'Lista de peças inválida.'}, status=400)
+
+    # A transação precisa abrir no MESMO banco das consultas (magazine ou samvale, conforme a empresa
+    # ativa): sem isso o MySQL recusa o select_for_update ("cannot be used outside of a transaction").
+    with transaction.atomic(using=obter_alias_banco_ativo()):
+        vinculos = {c.id: c for c in produto.compatibilidades.select_for_update().order_by('id')}
+        if len(ids_recebidos) != len(set(ids_recebidos)) or set(ids_recebidos) != set(vinculos):
+            return JsonResponse(
+                {'erro': 'A lista de peças deste produto mudou. Recarregue a página e tente de novo.'},
+                status=409,
+            )
+        a_gravar = []
+        for posicao, vinculo_id in enumerate(ids_recebidos, start=1):
+            vinculo = vinculos[vinculo_id]
+            if vinculo.ordem != posicao:
+                vinculo.ordem = posicao
+                a_gravar.append(vinculo)
+        if a_gravar:
+            Compatibilidade.objects.bulk_update(a_gravar, ['ordem'])
+
+    return JsonResponse({'ok': True})
 
 
 def editar_produto(request, produto_id):
@@ -3088,7 +3286,8 @@ def vincular_pecas_produto(request, produto_id):
             if ids_para_desvincular:
                 Compatibilidade.objects.filter(produto=produto, peca_id__in=ids_para_desvincular).delete()
 
-            for peca_id in ids_para_vincular:
+            # peças novas entram no FIM da ordem do produto (ver Compatibilidade.save), em ordem alfabética
+            for peca_id in Peca.objects.filter(pk__in=ids_para_vincular).order_by('nome_generico').values_list('pk', flat=True):
                 Compatibilidade.objects.create(
                     produto=produto, peca_id=peca_id,
                     quantidade_esperada=_ler_quantidade_do_post(request, peca_id),
@@ -3105,12 +3304,37 @@ def vincular_pecas_produto(request, produto_id):
         return redirect('visualizar_produto', produto_id=produto.id)
 
     vinculos = {c.peca_id: c.quantidade_esperada for c in produto.compatibilidades.all()}
+    produtos_por_peca = _produtos_vinculados_por_peca()
     pecas = Peca.objects.select_related('marca__grupo_fornecedor').order_by('nome_generico')
     for peca in pecas:
         peca.ja_vinculada = peca.id in vinculos
         peca.quantidade_vinculada = vinculos.get(peca.id, 1)
+        # usados pela busca/filtro "Produto" da tela (data-produtos / data-busca do card)
+        produtos_da_peca = produtos_por_peca.get(peca.id, [])
+        peca.produtos_ids_texto = ('|' + '|'.join(str(pid) for pid, _ in produtos_da_peca) + '|') if produtos_da_peca else ''
+        peca.nomes_produtos_busca = ' '.join(nome for _, nome in produtos_da_peca)
 
     pecas_grupos, pecas_marcas_sem_grupo, tem_pecas = _agrupar_pecas_por_marca_grupo(pecas)
+
+    # * [EXPLICAÇÃO] → pedido de Matheus (05/10/2026): dentro de cada marca, as peças ficam agrupadas pelo
+    #   PRODUTO a que já estão vinculadas — marca com muitos produtos ficava difícil de achar a peça certa.
+    #   É derivado dos vínculos que já existem (nada novo pra cadastrar). Só esta tela usa isso: a Gaveta de
+    #   Peças continua com _agrupar_pecas_por_marca_grupo puro.
+    for grupo_item in pecas_grupos:
+        for item in grupo_item['marcas']:
+            item['subgrupos'] = _subagrupar_pecas_por_produto(item['pecas'], produto, produtos_por_peca)
+    for item in pecas_marcas_sem_grupo:
+        item['subgrupos'] = _subagrupar_pecas_por_produto(item['pecas'], produto, produtos_por_peca)
+
+    # produtos que têm ao menos 1 peça vinculada: alimentam o filtro "Produto" (o atual aparece primeiro)
+    produtos_filtro = {}
+    for lista in produtos_por_peca.values():
+        for produto_id_vinculado, nome in lista:
+            produtos_filtro[produto_id_vinculado] = nome
+    produtos_filtro = sorted(
+        ({'id': pid, 'nome': nome, 'atual': pid == produto.id} for pid, nome in produtos_filtro.items()),
+        key=lambda p: (not p['atual'], p['nome'].lower(), p['id']),
+    )
 
     contexto = {
         'produto': produto,
@@ -3119,9 +3343,57 @@ def vincular_pecas_produto(request, produto_id):
         'tem_pecas': tem_pecas,
         'qtd_vinculada_inicial': len(vinculos),
         'marcas': Marca.objects.all(),
+        'produtos_filtro': produtos_filtro,
         'pagina_ativa': 'produtos',
     }
     return render(request, 'devolucoes/produto_vincular_pecas.html', contexto)
+
+
+def _produtos_vinculados_por_peca():
+    """{peca_id: [(produto_id, nome do produto), ...]} com TODOS os vínculos do banco, cada lista em ordem
+    alfabética de produto. Usado pela tela Vincular peças pra agrupar/filtrar por produto."""
+    mapa = {}
+    for peca_id, produto_id, nome in Compatibilidade.objects.order_by().values_list('peca_id', 'produto_id', 'produto__nome'):
+        mapa.setdefault(peca_id, []).append((produto_id, nome))
+    for lista in mapa.values():
+        lista.sort(key=lambda par: (par[1].lower(), par[0]))
+    return mapa
+
+
+def _subagrupar_pecas_por_produto(pecas, produto_atual, produtos_por_peca):
+    """Divide as peças de UMA marca em grupos por produto. Cada peça aparece uma única vez: no grupo do
+    produto que está sendo editado (se já estiver vinculada a ele); senão no primeiro produto (alfabético)
+    a que está vinculada; senão em "Sem produto ainda". As outras ligações dela viram a etiqueta "também em".
+    Ordem dos grupos: produto atual, depois os outros em ordem alfabética, "Sem produto ainda" por último."""
+    grupos = {}
+    for peca in pecas:
+        vinculados = produtos_por_peca.get(peca.id, [])
+        ids = [pid for pid, _ in vinculados]
+        if produto_atual.id in ids:
+            chave = produto_atual.id
+        elif vinculados:
+            chave = vinculados[0][0]
+        else:
+            chave = None
+
+        outros = [nome for pid, nome in vinculados if pid != chave]
+        peca.tambem_em_texto = ' · '.join(outros)   # todos os outros produtos, por extenso (a etiqueta quebra linha em vez de cortar)
+
+        grupo = grupos.get(chave)
+        if grupo is None:
+            nome_grupo = next((nome for pid, nome in vinculados if pid == chave), '') if chave is not None else ''
+            grupo = grupos[chave] = {
+                'produto_id': chave, 'nome': nome_grupo, 'atual': chave == produto_atual.id,
+                'pecas': [], 'qtd_selecionadas': 0,
+            }
+        grupo['pecas'].append(peca)
+        if peca.ja_vinculada:
+            grupo['qtd_selecionadas'] += 1
+
+    return sorted(
+        grupos.values(),
+        key=lambda g: (g['produto_id'] is None, not g['atual'], g['nome'].lower(), g['produto_id'] or 0),
+    )
 
 
 def cadastrar_peca_avulsa(request):

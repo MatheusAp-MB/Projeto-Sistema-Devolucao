@@ -97,5 +97,21 @@
             atualizarInput();
             renderizarPreview();
         });
+
+        // "Tirar foto": segundo campo, com o MESMO name, que abre a câmera direto (capture). A foto
+        // tirada entra na mesma lista do "Anexar arquivo" e o campo da câmera é esvaziado logo em
+        // seguida — assim a foto vai pro servidor uma vez só (pelo campo principal) e dá pra tirar
+        // a próxima. Sem JS, os dois campos são enviados do jeito nativo (a view usa getlist()).
+        var camera = container.querySelector('[data-cf-fotos-camera]');
+        if (camera) {
+            camera.addEventListener('change', function () {
+                Array.prototype.forEach.call(camera.files, function (arquivo) {
+                    arquivosAcumulados.push(arquivo);
+                });
+                camera.value = '';
+                atualizarInput();
+                renderizarPreview();
+            });
+        }
     });
 })();

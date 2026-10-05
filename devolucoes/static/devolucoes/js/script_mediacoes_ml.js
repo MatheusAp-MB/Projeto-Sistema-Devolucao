@@ -570,10 +570,16 @@
         var claimId = caixa.getAttribute('data-claim-id');
         var statusEnvio = caixa.parentElement ? caixa.parentElement.querySelector('[data-resposta-status]') : null;
 
-        btnAnexar.addEventListener('click', function () { input.click(); });
+        // "Tirar foto" (só aparece no celular): segundo campo, com capture, que abre a câmera direto.
+        // A foto tirada entra na MESMA lista do "Anexar arquivo" (limite de 10, prévia, remover, envio).
+        var btnCamera = caixa.querySelector('.med-resposta-camera');
+        var inputCamera = caixa.querySelector('.med-resposta-camera-input');
 
-        input.addEventListener('change', function () {
-            Array.prototype.forEach.call(input.files, function (arquivo) {
+        btnAnexar.addEventListener('click', function () { input.click(); });
+        if (btnCamera && inputCamera) btnCamera.addEventListener('click', function () { inputCamera.click(); });
+
+        function adicionarArquivos(entrada) {
+            Array.prototype.forEach.call(entrada.files, function (arquivo) {
                 if (arquivo.type.indexOf('image/') !== 0) return;
                 if (arquivosSelecionados.length >= LIMITE_ANEXOS_MEDIACAO) {
                     window.alert('Máximo de ' + LIMITE_ANEXOS_MEDIACAO + ' fotos por mensagem.');
@@ -603,8 +609,11 @@
                 tira.appendChild(item);
             });
             tira.hidden = tira.children.length === 0;
-            input.value = '';
-        });
+            entrada.value = '';
+        }
+
+        input.addEventListener('change', function () { adicionarArquivos(input); });
+        if (inputCamera) inputCamera.addEventListener('change', function () { adicionarArquivos(inputCamera); });
 
         if (!claimId) return;
 
@@ -622,6 +631,8 @@
             });
 
             var controles = [btnAnexar, input, textarea, btnEnviar];
+            if (btnCamera) controles.push(btnCamera);
+            if (inputCamera) controles.push(inputCamera);
             controles.forEach(function (el) { el.disabled = true; });
             var iconeOriginal = btnEnviar.innerHTML;
             btnEnviar.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
@@ -695,7 +706,7 @@
     var btn = caixaTrava.querySelector('[data-trava-btn]');
     var caixaResposta = document.querySelector('[data-resposta-caixa]');
     var controles = caixaResposta ? Array.prototype.slice.call(
-        caixaResposta.querySelectorAll('.med-resposta-anexar, .med-resposta-input, .med-resposta-enviar')
+        caixaResposta.querySelectorAll('.med-resposta-anexar, .med-resposta-camera, .med-resposta-input, .med-resposta-enviar')
     ) : [];
 
     var URL_LIBERAR = '/mediacoes/chat/liberar/';

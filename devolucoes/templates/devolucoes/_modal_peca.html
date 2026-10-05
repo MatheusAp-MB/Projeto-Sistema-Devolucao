@@ -13,14 +13,22 @@
             <input type="hidden" id="modal_peca_id" value="">
 
             <div class="produto-form-topo">
-                <label class="produto-form-foto-uploader" for="modal_peca_imagem">
-                    <img id="modal_peca_preview_imagem" hidden alt="Pré-visualização">
-                    <span class="produto-form-foto-texto" id="modal_peca_foto_texto">
-                        <strong id="modal_peca_foto_texto_titulo">Escolher foto *</strong>
-                        clique pra selecionar uma imagem da peça
-                    </span>
-                </label>
+                <div class="produto-form-foto-coluna">
+                    <label class="produto-form-foto-uploader" for="modal_peca_imagem">
+                        <img id="modal_peca_preview_imagem" hidden alt="Pré-visualização">
+                        <span class="produto-form-foto-texto" id="modal_peca_foto_texto">
+                            <strong id="modal_peca_foto_texto_titulo">Escolher foto *</strong>
+                            clique pra selecionar uma imagem da peça
+                        </span>
+                    </label>
+                    {# Só no celular: "Tirar foto" (câmera) e "Anexar arquivo" (galeria/arquivos). No PC essa faixa fica escondida. #}
+                    <div class="produto-form-foto-acoes">
+                        <label class="produto-form-foto-botao" for="modal_peca_imagem_camera"><i class="fas fa-camera"></i> Tirar foto</label>
+                        <label class="produto-form-foto-botao" for="modal_peca_imagem"><i class="fas fa-paperclip"></i> Anexar arquivo</label>
+                    </div>
+                </div>
                 <input type="file" name="imagem" accept="image/*" id="modal_peca_imagem" class="produto-form-input-oculto">
+                <input type="file" name="imagem" accept="image/*" capture="environment" id="modal_peca_imagem_camera" class="produto-form-input-oculto" data-foto-camera="modal_peca_imagem">
 
                 <div class="produto-form-identificacao">
                     <div class="produto-form-campo">

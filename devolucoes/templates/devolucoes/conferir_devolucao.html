@@ -109,11 +109,26 @@
                             </div>
                         {% endif %}
 
-                        <label class="cf-foto-botao" for="fotos_{{ item.peca.id }}">
-                            <i class="fas fa-camera"></i> Adicionar foto
-                        </label>
+                        {% comment %}
+                            [EXPLICAÇÃO] → pedido de Matheus (05/10/2026): onde há envio de foto, a pessoa escolhe entre
+                            "Tirar foto" (abre a câmera na hora) e "Anexar arquivo" (galeria / arquivos). Os dois campos
+                            têm o MESMO name — a view lê com getlist(), então as fotos dos dois entram juntas. No PC só
+                            aparece "Adicionar foto" (a câmera direta só existe em aparelho de toque).
+                        {% endcomment %}
+                        <div class="cf-fotos-acoes">
+                            <label class="cf-foto-botao cf-foto-botao--camera" for="fotos_{{ item.peca.id }}_camera">
+                                <i class="fas fa-camera"></i> Tirar foto
+                            </label>
+                            <label class="cf-foto-botao" for="fotos_{{ item.peca.id }}">
+                                <i class="fas fa-camera cf-foto-icone-pc"></i><i class="fas fa-paperclip cf-foto-icone-toque"></i>
+                                <span class="cf-foto-rotulo-pc">Adicionar foto</span><span class="cf-foto-rotulo-toque">Anexar arquivo</span>
+                            </label>
+                        </div>
+                        <input type="file" name="fotos_{{ item.peca.id }}" id="fotos_{{ item.peca.id }}_camera"
+                               accept="image/*" capture="environment"
+                               class="cf-input-oculto" data-cf-fotos-camera>
                         <input type="file" name="fotos_{{ item.peca.id }}" id="fotos_{{ item.peca.id }}"
-                               accept="image/*" capture="environment" multiple
+                               accept="image/*" multiple
                                class="cf-input-oculto" data-cf-fotos-input>
 
                         <div class="cf-fotos-preview" data-cf-fotos-preview></div>
@@ -158,11 +173,20 @@
                         </div>
                     {% endif %}
 
-                    <label class="cf-foto-botao" for="fotos_geral">
-                        <i class="fas fa-camera"></i> Adicionar foto
-                    </label>
+                    <div class="cf-fotos-acoes">
+                        <label class="cf-foto-botao cf-foto-botao--camera" for="fotos_geral_camera">
+                            <i class="fas fa-camera"></i> Tirar foto
+                        </label>
+                        <label class="cf-foto-botao" for="fotos_geral">
+                            <i class="fas fa-camera cf-foto-icone-pc"></i><i class="fas fa-paperclip cf-foto-icone-toque"></i>
+                            <span class="cf-foto-rotulo-pc">Adicionar foto</span><span class="cf-foto-rotulo-toque">Anexar arquivo</span>
+                        </label>
+                    </div>
+                    <input type="file" name="fotos_geral" id="fotos_geral_camera"
+                           accept="image/*" capture="environment"
+                           class="cf-input-oculto" data-cf-fotos-camera>
                     <input type="file" name="fotos_geral" id="fotos_geral"
-                           accept="image/*" capture="environment" multiple
+                           accept="image/*" multiple
                            class="cf-input-oculto" data-cf-fotos-input>
 
                     <div class="cf-fotos-preview" data-cf-fotos-preview></div>

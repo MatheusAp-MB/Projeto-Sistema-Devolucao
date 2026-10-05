@@ -1265,3 +1265,43 @@
         min-height: 40px;
     }
 }
+
+/* ===== Ícone "Consultas no Mercado Livre" (mesma janelinha dos ícones de anotação; cor própria + contador quando há mais de uma) ===== */
+
+.dp-tabela-consulta-icone {
+    position: relative;
+    background: #fff3e0;
+    color: #b45309;
+    cursor: pointer;
+}
+
+.dp-tabela-consulta-icone--encerrada {
+    background: #eceff1;
+    color: #607d8b;
+}
+
+.dp-tabela-consulta-icone--encerrada .dp-tabela-icone-contador {
+    background-color: #607d8b;
+}
+
+.dp-tabela-icone-contador {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background-color: #b45309;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 16px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+/* Dentro da janelinha (360px) o botão "Abrir" fica ao lado do número; no celular, embaixo (regra de .vd-consulta). */
+.dp-tabela-popover .vd-consultas-lista {
+    gap: 0;
+}

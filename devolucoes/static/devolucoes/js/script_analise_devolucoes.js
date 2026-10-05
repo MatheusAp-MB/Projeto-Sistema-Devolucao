@@ -17,6 +17,11 @@
 //   "Ver só elas", coluna "O que falta" e a nota "sem valor informado" no
 //   total de Reembolsadas.
 //
+// * [EXPLICAÇÃO] → Consultas ML (pedido de Matheus, 05/10/2026): filtro "Consultas ML"
+//   (Tem consulta / Tem aberta / Tem encerrada / Todas encerradas / Sem consulta) e a coluna "Consultas ML".
+//   O Django manda, por devolução, quantas consultas do Mercado Livre existem ao todo
+//   (cs), abertas (ca) e encerradas (ce) — ver views._linha_da_analise.
+//
 // * [EXPLICAÇÃO] → igual à tela Devoluções, tudo é client-side: o Django
 //   manda todas as devoluções de uma vez (bloco #an-dados, montado em
 //   views._linha_da_analise) e aqui só filtramos/ordenamos/mostramos.
@@ -132,9 +137,21 @@
 
     var LINHAS_POR_PAGINA = [25, 50, 100];
 
+    // * [EXPLICAÇÃO] → opções do filtro "Consultas ML": o rótulo inteiro aparece na janelinha;
+    //   o curto aparece no botão da barra e na lista de filtros ligados.
+    var OPCOES_CONSULTA = [
+        ['', 'Todas'],
+        ['tem', 'Tem consulta'],
+        ['aberta', 'Tem consulta aberta'],
+        ['encerrada', 'Tem consulta encerrada'],
+        ['todas_enc', 'Todas encerradas (nenhuma aberta)'],
+        ['sem', 'Sem consulta']
+    ];
+    var ROTULO_CONSULTA_CURTO = { tem: 'com consulta', aberta: 'com consulta aberta', encerrada: 'com consulta encerrada', todas_enc: 'todas encerradas', sem: 'sem consulta' };
+
     // 1º clique em número/data ordena do maior pro menor (o que a Ana quer
     // ver primeiro: o mais recente, o maior valor); texto, de A a Z.
-    var PRIMEIRO_DECRESCENTE = /^(criado|venda|abertura|fim|impresso|reemb)$/;
+    var PRIMEIRO_DECRESCENTE = /^(criado|venda|abertura|fim|impresso|reemb|consultas)$/;
 
     function primeiroDecrescente(chave) {
         var col = null;
@@ -168,6 +185,22 @@
     // quantas devoluções têm dado faltando (sem olhar filtros nem busca)
     var QTD_COM_FALTA = LINHAS.filter(function (r) { return !!r.falta; }).length;
 
+    // "1 aberta", "2 encerradas", "1 aberta, 1 encerrada" — MESMO texto do Excel (views._texto_das_consultas)
+    function textoDasConsultas(d) {
+        var partes = [];
+        if (d.ca) partes.push(d.ca + (d.ca === 1 ? ' aberta' : ' abertas'));
+        if (d.ce) partes.push(d.ce + (d.ce === 1 ? ' encerrada' : ' encerradas'));
+        return partes.join(', ');
+    }
+
+    function htmlDasConsultas(d) {
+        if (!d.cs) return '—';
+        var h = '';
+        if (d.ca) h += '<span class="an-consulta an-consulta--aberta">' + d.ca + (d.ca === 1 ? ' aberta' : ' abertas') + '</span>';
+        if (d.ce) h += '<span class="an-consulta an-consulta--encerrada">' + d.ce + (d.ce === 1 ? ' encerrada' : ' encerradas') + '</span>';
+        return h;
+    }
+
     function diferenca(d) {
         if (d.val == null || d.preco == null) return null;
         return (centavos(d.preco) - centavos(d.val)) / 100;
@@ -194,6 +227,8 @@
         venda: { sv: function (r) { return r.d.vd; }, fm: function (r) { return formatarDia(r.d.vd); }, nw: true },
         abertura: { sv: function (r) { return r.d.ab; }, fm: function (r) { return formatarDia(r.d.ab); }, nw: true },
         fim: { sv: function (r) { return r.d.fim; }, fm: function (r) { return formatarDia(r.d.fim); }, nw: true },
+        // sem consulta = "sem valor": vai sempre pro fim; com consulta, quem tem mais abertas vem primeiro (depois mais encerradas)
+        consultas: { sv: function (r) { return r.d.cs ? r.d.ca * 1000 + r.d.ce : null; }, fm: function (r) { return htmlDasConsultas(r.d); }, nw: true },
         impresso: { sv: function (r) { return r.d.imp; }, fm: function (r) { return formatarDia(r.d.impd); }, nw: true },
         reemb: {
             sv: function (r) { return r.d.rb === 1 ? 2 : (r.d.rb === 0 ? 1 : 0); },
@@ -219,7 +254,7 @@
     //   mostra quando ninguém salvou nada: do cadastro mais recente pro
     //   mais antigo, dos últimos 90 dias, 8 colunas, 25 linhas por página.
     function fabricaFiltros() {
-        return { etapa: [], plat: [], marca: [], destino: '', reemb: '', tipo: '', falta: '', perCampo: 'criado', per: '90' };
+        return { etapa: [], plat: [], marca: [], destino: '', reemb: '', tipo: '', falta: '', consulta: '', perCampo: 'criado', per: '90' };
     }
 
     function fabrica() {
@@ -257,6 +292,8 @@
         if (typeof f.tipo === 'string' && (f.tipo === '' || TIPOS.some(function (x) { return x[0] === f.tipo; }))) v.f.tipo = f.tipo;
         // padrões salvos antes do Ciclo 3 não têm `falta`: ficam com o de fábrica ('')
         if (tem(['', 'sim'], f.falta)) v.f.falta = f.falta;
+        // padrões salvos antes do filtro "Consultas ML" não têm `consulta`: ficam com o de fábrica ('')
+        if (tem(['', 'tem', 'aberta', 'encerrada', 'todas_enc', 'sem'], f.consulta)) v.f.consulta = f.consulta;
         if (OPCOES_DATA_DO_PERIODO.some(function (x) { return x[0] === f.perCampo; })) v.f.perCampo = f.perCampo;
         if (typeof f.per === 'string' && OPCOES_PERIODO.some(function (x) { return x[0] === f.per; })) v.f.per = f.per;
 
@@ -322,6 +359,13 @@
         if (f.reemb && (d.rb === 1 ? 'sim' : 'nao') !== f.reemb) return false;
         if (f.tipo && d.tipo !== f.tipo) return false;
         if (f.falta && !d.fl) return false;
+        // "Tem aberta" e "Tem encerrada" olham cada uma por si: 1 aberta + 1 encerrada aparece nas duas
+        if (f.consulta === 'tem' && !d.cs) return false;
+        if (f.consulta === 'sem' && d.cs) return false;
+        if (f.consulta === 'aberta' && !d.ca) return false;
+        if (f.consulta === 'encerrada' && !d.ce) return false;
+        // "Todas encerradas": tem consulta e NENHUMA está aberta (nada pendente com o ML)
+        if (f.consulta === 'todas_enc' && !(d.cs && !d.ca)) return false;
         if (f.per) {
             var ref = d[CAMPO_DA_DATA[f.perCampo]];
             if (ref == null || HOJE - ref > +f.per) return false;
@@ -360,8 +404,17 @@
     //   é mexida: ao sair desse modo a tabela volta ao que era.
     function colunaFaltaForcada() { return !!V.f.falta; }
 
+    // * [EXPLICAÇÃO] → o mesmo vale pra coluna "Consultas ML" enquanto o filtro de consultas
+    //   está em "Tem consulta", "Tem aberta", "Tem encerrada" ou "Todas encerradas" (em "Sem consulta" a coluna
+    //   só mostraria traços, então não aparece sozinha).
+    function colunaConsultasForcada() { return tem(['tem', 'aberta', 'encerrada', 'todas_enc'], V.f.consulta); }
+
+    function colunaForcada(chave) {
+        return (chave === 'falta' && colunaFaltaForcada()) || (chave === 'consultas' && colunaConsultasForcada());
+    }
+
     function colunasEscolhidas() {
-        return COLUNAS.filter(function (c) { return tem(V.cols, c.k) || (c.k === 'falta' && colunaFaltaForcada()); });
+        return COLUNAS.filter(function (c) { return tem(V.cols, c.k) || colunaForcada(c.k); });
     }
 
     function descreverFiltros(f) {
@@ -373,6 +426,7 @@
         if (f.reemb) d.push(f.reemb === 'sim' ? 'Reembolsadas' : 'Não reembolsadas');
         if (f.tipo) d.push(rotuloDe(TIPOS, f.tipo));
         if (f.falta) d.push('Só com dado faltando');
+        if (f.consulta) d.push('Consultas ML: ' + ROTULO_CONSULTA_CURTO[f.consulta]);
         if (f.per) d.push(rotuloDe(OPCOES_DATA_DO_PERIODO, f.perCampo) + ': ' + rotuloDe(OPCOES_PERIODO, f.per).toLowerCase());
         return d;
     }
@@ -428,6 +482,7 @@
         h += chipPopover('destino', 'Destino', !!f.destino, f.destino ? rotuloDe(DESTINOS, f.destino) : '');
         h += chipPopover('reemb', 'Reembolso', !!f.reemb, f.reemb ? (f.reemb === 'sim' ? 'Reembolsadas' : 'Não reembolsadas') : '');
         h += chipPopover('tipo', 'Tipo de venda', !!f.tipo, f.tipo ? rotuloDe(TIPOS, f.tipo) : '');
+        h += chipPopover('consulta', 'Consultas ML', !!f.consulta, f.consulta ? ROTULO_CONSULTA_CURTO[f.consulta] : '');
         h += chipPopover('per', 'Período', !!f.per, f.per ? rotuloDe(OPCOES_DATA_DO_PERIODO, f.perCampo) + ' · ' + rotuloDe(OPCOES_PERIODO, f.per) : '');
         if (descreverFiltros(f).length) h += '<button type="button" class="dp-link dp-direita" data-an-act="limpar"><i class="fas fa-xmark"></i> Tirar filtros</button>';
         return h + '</div>';
@@ -581,8 +636,9 @@
     document.body.appendChild(janela);
     var popAberto = null;
 
-    function opcaoUnica(rotulo, ligada, dados) {
-        return '<button type="button" class="dp-op' + (ligada ? ' dp-op--on' : '') + '" data-an-act="set" ' + dados + '><i class="fas fa-check"></i><span>' + esc(rotulo) + '</span></button>';
+    function opcaoUnica(rotulo, ligada, dados, quantidade) {
+        return '<button type="button" class="dp-op' + (ligada ? ' dp-op--on' : '') + '" data-an-act="set" ' + dados + '><i class="fas fa-check"></i><span>' + esc(rotulo) + '</span>' +
+            (quantidade != null ? '<em>' + quantidade + '</em>' : '') + '</button>';
     }
 
     // `travada` (texto) = a opção está ligada por outro motivo e não dá pra desligar agora
@@ -654,6 +710,15 @@
             html = tituloPop('Tipo de venda') + [['', 'Todos']].concat(TIPOS).map(function (o) {
                 return opcaoUnica(o[1], f.tipo === o[0], dadosDoCampo('tipo', o[0], true));
             }).join('');
+        } else if (id === 'consulta') {
+            // quantas devoluções existem em cada opção (no total, sem olhar os outros filtros)
+            html = tituloPop('Consultas no Mercado Livre') + OPCOES_CONSULTA.map(function (o) {
+                var qtd = LINHAS.filter(function (r) {
+                    var d = r.d;
+                    return o[0] === '' ? true : (o[0] === 'tem' ? !!d.cs : (o[0] === 'sem' ? !d.cs : (o[0] === 'aberta' ? !!d.ca : (o[0] === 'todas_enc' ? !!(d.cs && !d.ca) : !!d.ce))));
+                }).length;
+                return opcaoUnica(o[1], f.consulta === o[0], dadosDoCampo('consulta', o[0], true), qtd);
+            }).join('');
         } else if (id === 'per') {
             html = tituloPop('Qual data usar') + OPCOES_DATA_DO_PERIODO.map(function (o) {
                 return opcaoUnica(o[1], f.perCampo === o[0], dadosDoCampo('perCampo', o[0]));
@@ -662,9 +727,11 @@
             }).join('');
         } else if (id === 'cols') {
             html = tituloPop('Colunas da tabela') + COLUNAS.map(function (c) {
-                var forcada = c.k === 'falta' && colunaFaltaForcada() && !tem(V.cols, c.k);
-                return opcaoMultipla(c.t, tem(V.cols, c.k) || forcada, dadosDoCampo('cols', c.k), null,
-                    forcada ? 'Aparece sozinha enquanto você vê só as devoluções com dado faltando.' : '');
+                var forcada = colunaForcada(c.k) && !tem(V.cols, c.k);
+                var motivo = c.k === 'consultas'
+                    ? 'Aparece sozinha enquanto o filtro Consultas ML está ligado.'
+                    : 'Aparece sozinha enquanto você vê só as devoluções com dado faltando.';
+                return opcaoMultipla(c.t, tem(V.cols, c.k) || forcada, dadosDoCampo('cols', c.k), null, forcada ? motivo : '');
             }).join('') + '<div class="dp-pop-rod"><button type="button" class="dp-link" data-an-act="colunas-padrao">Voltar às colunas padrão</button></div>';
         }
         return html;

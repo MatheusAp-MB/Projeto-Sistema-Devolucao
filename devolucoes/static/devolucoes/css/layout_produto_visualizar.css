@@ -268,6 +268,100 @@
     margin: 0;
 }
 
+/* * [EXPLICAÇÃO] → pedido de Matheus (05/10/2026): arrastar as peças pra definir a ordem em que
+ *   aparecem na conferência. A alça (⠿) é o único ponto de arrastar — o resto da linha rola a tela
+ *   normalmente no celular (touch-action só é desligado na alça). */
+.produto-view-dica-ordem {
+    font-size: 12px;
+    color: #6c757d;
+    margin: -4px 0 10px;
+}
+
+.produto-view-dica-ordem i {
+    color: #adb5bd;
+    margin-right: 4px;
+}
+
+.produto-view-status-ordem {
+    font-weight: 700;
+    margin-left: 6px;
+    color: #198754;
+}
+
+.produto-view-status-ordem--erro {
+    color: #c0392b;
+}
+
+.produto-view-peca-alca {
+    flex-shrink: 0;
+    width: 26px;
+    height: 40px;
+    margin-left: -6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    color: #adb5bd;
+    cursor: grab;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.produto-view-peca-alca:hover,
+.produto-view-peca-alca:focus-visible {
+    color: #2e7bb5;
+    background-color: #f1f3f6;
+    outline: none;
+}
+
+.produto-view-peca-alca:focus-visible {
+    box-shadow: 0 0 0 2px #2e7bb5;
+}
+
+.produto-view-peca-posicao {
+    flex-shrink: 0;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 5px;
+    box-sizing: border-box;
+    border-radius: 10px;
+    background-color: #f1f3f6;
+    color: #6c757d;
+    font-size: 11px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-variant-numeric: tabular-nums;
+}
+
+.produto-view-pecas-lista--arrastando {
+    -webkit-user-select: none;
+    user-select: none;
+    cursor: grabbing;
+}
+
+.produto-view-peca-linha--arrastando {
+    position: relative;
+    z-index: 5;
+    border-color: #2e7bb5;
+    box-shadow: 0 8px 20px rgba(26, 58, 92, 0.22);
+}
+
+.produto-view-peca-linha--arrastando .produto-view-peca-alca {
+    cursor: grabbing;
+    color: #2e7bb5;
+}
+
+@media (pointer: coarse) {
+    .produto-view-peca-alca {
+        width: 40px;
+        height: 44px;
+        margin-left: -10px;
+    }
+}
+
 @media (max-width: 600px) {
     .produto-view-cartao {
         flex-direction: column;

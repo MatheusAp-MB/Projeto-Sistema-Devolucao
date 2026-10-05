@@ -10,7 +10,7 @@
 
 {% block conteudo %}
     <div class="produto-view-pagina">
-        <a href="{% url 'produtos' %}" class="produto-form-link-voltar">
+        <a href="{% url 'produtos' %}" class="produto-form-link-voltar" data-voltar>
             ← Voltar para Produtos
         </a>
 
@@ -71,9 +71,24 @@
         </p>
 
         {% if compatibilidades %}
-            <div class="produto-view-pecas-lista">
+            {% if compatibilidades|length > 1 %}
+                {# Pedido de Matheus (05/10/2026): a ordem em que as peças aparecem na conferência é a ordem desta lista — arrasta pela alça e a ordem já fica salva (script_produto_visualizar.js). #}
+                <p class="produto-view-dica-ordem">
+                    <i class="fas fa-grip-vertical"></i> Arraste as peças pela alça para mudar a ordem em que aparecem na conferência.
+                    <span class="produto-view-status-ordem" id="pv_status_ordem" role="status" aria-live="polite"></span>
+                </p>
+            {% endif %}
+            <div class="produto-view-pecas-lista"{% if compatibilidades|length > 1 %} data-ordenar-pecas data-url-ordenar="{% url 'ordenar_pecas_produto' produto.id %}"{% endif %}>
                 {% for comp in compatibilidades %}
-                    <div class="produto-view-peca-linha">
+                    <div class="produto-view-peca-linha" data-vinculo-id="{{ comp.id }}">
+                        {% if compatibilidades|length > 1 %}
+                            <span class="produto-view-peca-alca" role="button" tabindex="0"
+                                  title="Arraste para mudar a ordem"
+                                  aria-label="Mudar a ordem de {{ comp.peca.nome_generico }}: arraste, ou use as setas do teclado para cima e para baixo">
+                                <i class="fas fa-grip-vertical"></i>
+                            </span>
+                            <span class="produto-view-peca-posicao" title="Posição na conferência">{{ forloop.counter }}</span>
+                        {% endif %}
                         <div class="produto-view-peca-foto-mini{% if comp.peca.imagem %} card-fotos-item{% endif %}"
                              {% if comp.peca.imagem %}data-fotos-id="produto-view-peca-{{ comp.id }}" data-titulo="{{ comp.peca.nome_generico }}"{% endif %}>
                             {% if comp.peca.imagem %}

@@ -33,6 +33,9 @@
 // (7) o botão "Ver na lista" da tela Análise abre esta tela com
 // ?aba=...&busca=... (fim do arquivo): já cai na aba certa, com o pedido
 // na busca.
+// (8) filtro "Consultas ML" na barra (Tem consulta / Tem aberta / Tem
+// encerrada / Todas encerradas / Sem consulta): as consultas que a Ana abre no Mercado Livre
+// e anota na devolução. Mesma regra: client-side, guardado no padrão salvo.
 
 (function () {
     document.addEventListener('submit', function (evento) {
@@ -204,8 +207,20 @@
     // Estado de cada aba: ordem + filtros (+ padrão salvo)
     // ===================================================================
 
+    // * [EXPLICAÇÃO] → opções do filtro "Consultas ML": o rótulo inteiro aparece na janelinha;
+    //   o curto aparece no botão da barra e na descrição do "Padrão salvo".
+    var OPCOES_CONSULTA = [
+        ['', 'Todas'],
+        ['tem', 'Tem consulta'],
+        ['aberta', 'Tem consulta aberta'],
+        ['encerrada', 'Tem consulta encerrada'],
+        ['todas_enc', 'Todas encerradas (nenhuma aberta)'],
+        ['sem', 'Sem consulta']
+    ];
+    var ROTULO_CONSULTA_CURTO = { tem: 'com consulta', aberta: 'com consulta aberta', encerrada: 'com consulta encerrada', todas_enc: 'todas encerradas', sem: 'sem consulta' };
+
     function fabricaFiltros() {
-        return { destino: 'todos', reembolso: 'todos', plat: [], marca: [], per: '', rec7: '', anot: '', prazo: [], msg: false };
+        return { destino: 'todos', reembolso: 'todos', plat: [], marca: [], per: '', rec7: '', anot: '', cons: '', prazo: [], msg: false };
     }
 
     function fabrica() {
@@ -235,6 +250,8 @@
         if (typeof f.per === 'string' && OPCOES_PERIODO.some(function (p) { return p[0] === f.per; })) v.f.per = f.per;
         if (tem(['', 'dentro', 'fora'], f.rec7)) v.f.rec7 = f.rec7;
         if (tem(['', 'nota', 'evid'], f.anot)) v.f.anot = f.anot;
+        // padrões salvos antes do filtro "Consultas ML" não têm `cons`: ficam com o de fábrica ('')
+        if (tem(['', 'tem', 'aberta', 'encerrada', 'todas_enc', 'sem'], f.cons)) v.f.cons = f.cons;
         if (aba === 'mediacao_aberta') {
             v.f.prazo = listaDeTextos(f.prazo, Object.keys(ROTULO_PRAZO));
             v.f.msg = f.msg === true;
@@ -314,6 +331,16 @@
         if (f.rec7 && d.rec7 !== f.rec7) return false;
         if (f.anot === 'nota' && !d.nota) return false;
         if (f.anot === 'evid' && !d.evid) return false;
+        // * [EXPLICAÇÃO] → "Consultas ML" (pedido de Matheus, 05/10/2026): ct/ca/ce são quantas
+        //   consultas a devolução tem ao todo / abertas / encerradas (vêm do Django em data-dp).
+        //   "Tem aberta" e "Tem encerrada" olham cada uma por si: uma devolução com 1 aberta e
+        //   1 encerrada aparece nas duas.
+        if (f.cons === 'tem' && !d.ct) return false;
+        if (f.cons === 'sem' && d.ct) return false;
+        if (f.cons === 'aberta' && !d.ca) return false;
+        if (f.cons === 'encerrada' && !d.ce) return false;
+        // "Todas encerradas": tem consulta e NENHUMA está aberta (nada pendente com o ML)
+        if (f.cons === 'todas_enc' && !(d.ct && !d.ca)) return false;
         if (aba === 'mediacao_aberta') {
             if (f.prazo.length && !tem(f.prazo, d.pst || 'sem')) return false;
             if (f.msg && !d.msg) return false;
@@ -330,6 +357,7 @@
         if (f.per) desc.push('Período: ' + OPCOES_PERIODO.filter(function (p) { return p[0] === f.per; })[0][1].toLowerCase());
         if (f.rec7) desc.push('Reclamação ' + (f.rec7 === 'dentro' ? 'dentro' : 'fora') + ' dos 7 dias');
         if (f.anot) desc.push(f.anot === 'nota' ? 'com anotação' : 'com evidência');
+        if (f.cons) desc.push('Consultas ML: ' + ROTULO_CONSULTA_CURTO[f.cons]);
         if (aba === 'mediacao_aberta') {
             if (f.prazo.length) desc.push('Prazo: ' + f.prazo.map(function (p) { return ROTULO_PRAZO[p].toLowerCase(); }).join(', '));
             if (f.msg) desc.push('só com mensagem nova');
@@ -344,6 +372,7 @@
         if (f.per) n++;
         if (f.rec7) n++;
         if (f.anot) n++;
+        if (f.cons) n++;
         if (aba === 'mediacao_aberta') {
             if (f.prazo.length) n++;
             if (f.msg) n++;
@@ -754,6 +783,7 @@
         h += chipPopover('marca', 'Marca', f.marca.length, f.marca.length ? resumoLista(f.marca, 'marcas') : '');
         var periodoAtual = OPCOES_PERIODO.filter(function (p) { return p[0] === f.per; })[0];
         h += chipPopover('per', 'Período', !!f.per, f.per ? periodoAtual[1] : '');
+        h += chipPopover('cons', 'Consultas ML', !!f.cons, f.cons ? ROTULO_CONSULTA_CURTO[f.cons] : '');
         if (nomeAba === 'mediacao_aberta') {
             h += chipPopover('prazo', 'Prazo de resposta', f.prazo.length, f.prazo.length ? resumoLista(f.prazo.map(function (p) { return ROTULO_PRAZO[p]; }), 'situações') : '');
             h += '<button type="button" class="dp-chip-filtro dp-chip-pop' + (f.msg ? ' dp-chip-filtro--ativa' : '') + '" data-dp-act="tog-msg"><i class="fas fa-comment-dots"></i> Mensagem nova</button>';
@@ -802,8 +832,9 @@
     document.body.appendChild(janela);
     var popAberto = null;
 
-    function opcaoUnica(rotulo, ligada, dados) {
-        return '<button type="button" class="dp-op' + (ligada ? ' dp-op--on' : '') + '" data-dp-act="set" ' + dados + '><i class="fas fa-check"></i><span>' + esc(rotulo) + '</span></button>';
+    function opcaoUnica(rotulo, ligada, dados, quantidade) {
+        return '<button type="button" class="dp-op' + (ligada ? ' dp-op--on' : '') + '" data-dp-act="set" ' + dados + '><i class="fas fa-check"></i><span>' + esc(rotulo) + '</span>' +
+            (quantidade != null ? '<em>' + quantidade + '</em>' : '') + '</button>';
     }
 
     function opcaoMultipla(rotulo, ligada, dados, quantidade) {
@@ -850,6 +881,14 @@
         } else if (id === 'per') {
             html = tituloPop('Período · ' + DATA_REFERENCIA[nomeAba].rotulo) + OPCOES_PERIODO.map(function (p) {
                 return opcaoUnica(p[1], f.per === p[0], dadosDoCampo('per', p[0], true));
+            }).join('');
+        } else if (id === 'cons') {
+            html = tituloPop('Consultas no Mercado Livre') + OPCOES_CONSULTA.map(function (o) {
+                var qtd = itens.filter(function (it) {
+                    var d = it.d;
+                    return o[0] === '' ? true : (o[0] === 'tem' ? !!d.ct : (o[0] === 'sem' ? !d.ct : (o[0] === 'aberta' ? !!d.ca : (o[0] === 'todas_enc' ? !!(d.ct && !d.ca) : !!d.ce))));
+                }).length;
+                return opcaoUnica(o[1], f.cons === o[0], dadosDoCampo('cons', o[0], true), qtd);
             }).join('');
         } else if (id === 'prazo') {
             html = tituloPop('Prazo de resposta') + Object.keys(ROTULO_PRAZO).map(function (k) {

@@ -1,0 +1,21 @@
+{# Uma linha de "Consultas no Mercado Livre": c = {numero, anotacao, status, link, valida} ou None (linha em branco). O link só aparece quando o número é válido; o JS (script_nova_devolucao.js) mostra/esconde o botão "Abrir" enquanto a pessoa digita. #}
+<div class="nd-consulta-linha{% if c and not c.valida %} nd-consulta-linha--erro{% endif %}" data-consulta-linha>
+    <input type="text" name="consulta_numero" class="nd-consulta-numero" data-consulta-numero
+           value="{{ c.numero|default:'' }}" placeholder="N.º da consulta (ex.: 485766153)"
+           autocomplete="off" aria-label="Número da consulta no Mercado Livre">
+    <select name="consulta_status" class="nd-consulta-status" aria-label="Situação da consulta">
+        <option value="aberta"{% if c.status != 'encerrada' %} selected{% endif %}>Aberta</option>
+        <option value="encerrada"{% if c.status == 'encerrada' %} selected{% endif %}>Encerrada</option>
+    </select>
+    <input type="text" name="consulta_anotacao" class="nd-consulta-nota"
+           value="{{ c.anotacao|default:'' }}" maxlength="300" placeholder="Anotação (opcional) — ex.: pedi recontagem"
+           autocomplete="off" aria-label="Anotação sobre esta consulta">
+    <a class="nd-consulta-abrir" data-consulta-abrir href="{{ c.link|default:'#' }}" target="_blank" rel="noopener noreferrer"
+       {% if not c or not c.link %}hidden{% endif %}
+       title="Abre a consulta no site do Mercado Livre (use a conta {{ empresa_ativa_nome }})">
+        <i class="fas fa-up-right-from-square" aria-hidden="true"></i> Abrir
+    </a>
+    <button type="button" class="nd-consulta-remover" data-consulta-remover aria-label="Remover esta consulta" title="Remover esta consulta">
+        <i class="fas fa-xmark" aria-hidden="true"></i>
+    </button>
+</div>

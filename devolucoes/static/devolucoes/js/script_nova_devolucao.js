@@ -557,3 +557,92 @@ document.querySelectorAll('[data-nd-voltar]').forEach(function (link) {
 
     atualizarSelos();
 })();
+
+// ===== Consultas no Mercado Livre (linhas na seção Mediação) =====
+// Cada linha = uma consulta. A pessoa digita só o número ou cola o endereço da consulta; ao sair do campo
+// (ou ao colar) o endereço vira só o número, e o botão "Abrir" aparece/some conforme o número é válido.
+// O servidor refaz a mesma conta (devolucoes/models/consulta_ml.py) — aqui é só conforto de tela.
+(function () {
+    var bloco = document.querySelector('[data-consultas]');
+    if (!bloco) return;
+
+    var lista = bloco.querySelector('[data-consultas-lista]');
+    var modelo = bloco.querySelector('template[data-consulta-modelo]');
+    var botaoAdicionar = bloco.querySelector('[data-consulta-adicionar]');
+    var URL_BASE = 'https://www.mercadolivre.com.br/cases/';
+
+    // Mesma regra do servidor: número puro (6 a 12 dígitos) ou endereço do ML com /cases/<N> ou /minhas-consultas/detalhe/<N>.
+    function extrairNumero(texto) {
+        texto = (texto || '').trim();
+        if (!texto) return null;
+        if (texto.indexOf('://') !== -1 || /^www\./i.test(texto)) {
+            var url;
+            try { url = new URL(texto.indexOf('://') !== -1 ? texto : 'https://' + texto); } catch (e) { return null; }
+            var host = url.hostname.toLowerCase();
+            var dominioML = ['mercadolivre.com.br', 'mercadolivre.com', 'mercadolibre.com'].some(function (d) {
+                return host === d || host.slice(-(d.length + 1)) === '.' + d;
+            });
+            if (!dominioML) return null;
+            var achado = url.pathname.match(/\/(?:cases|minhas-consultas\/detalhe)\/(\d{6,12})(?:\/|$)/);
+            return achado ? achado[1] : null;
+        }
+        var simples = texto.match(/^\D*(\d{6,12})\D*$/);
+        return simples ? simples[1] : null;
+    }
+
+    function atualizarLinha(linha, normalizar) {
+        var campo = linha.querySelector('[data-consulta-numero]');
+        var botao = linha.querySelector('[data-consulta-abrir]');
+        var numero = extrairNumero(campo.value);
+        if (numero) {
+            if (normalizar) campo.value = numero;
+            botao.href = URL_BASE + numero;
+            botao.hidden = false;
+            linha.classList.remove('nd-consulta-linha--erro');
+        } else {
+            botao.hidden = true;
+            botao.href = '#';
+            // só marca erro quando a pessoa terminou de digitar (saiu do campo) e há algo escrito
+            if (normalizar) linha.classList.toggle('nd-consulta-linha--erro', campo.value.trim() !== '');
+        }
+    }
+
+    lista.addEventListener('input', function (evento) {
+        if (evento.target.matches('[data-consulta-numero]')) atualizarLinha(evento.target.closest('[data-consulta-linha]'), false);
+    });
+    lista.addEventListener('change', function (evento) {
+        if (evento.target.matches('[data-consulta-numero]')) atualizarLinha(evento.target.closest('[data-consulta-linha]'), true);
+    });
+    lista.addEventListener('paste', function (evento) {
+        if (!evento.target.matches('[data-consulta-numero]')) return;
+        var campo = evento.target;
+        // depois que o navegador cola, já troca o endereço colado pelo número
+        setTimeout(function () { atualizarLinha(campo.closest('[data-consulta-linha]'), true); }, 0);
+    });
+
+    lista.addEventListener('click', function (evento) {
+        var remover = evento.target.closest('[data-consulta-remover]');
+        if (!remover) return;
+        var linha = remover.closest('[data-consulta-linha]');
+        // a última linha não some: só esvazia (a tela sempre mostra ao menos uma)
+        if (lista.querySelectorAll('[data-consulta-linha]').length <= 1) {
+            linha.querySelectorAll('input').forEach(function (campo) { campo.value = ''; });
+            linha.querySelectorAll('select').forEach(function (campo) { campo.value = 'aberta'; });
+            atualizarLinha(linha, true);
+            linha.querySelector('[data-consulta-numero]').focus();
+        } else {
+            linha.remove();
+        }
+    });
+
+    if (botaoAdicionar && modelo) {
+        botaoAdicionar.addEventListener('click', function () {
+            lista.appendChild(modelo.content.cloneNode(true));
+            var campos = lista.querySelectorAll('[data-consulta-numero]');
+            campos[campos.length - 1].focus();
+        });
+    }
+
+    // Linhas que vieram do servidor já têm o botão certo; recalcula só pelo que o navegador restaurou (voltar/atualizar).
+    lista.querySelectorAll('[data-consulta-linha]').forEach(function (linha) { atualizarLinha(linha, false); });
+})();

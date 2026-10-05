@@ -215,9 +215,19 @@
                         </div>
                     {% endif %}
 
-                    <label class="cf-foto-botao" for="fotos_cliente">
-                        <i class="fas fa-camera"></i> Adicionar foto
-                    </label>
+                    {# Mesmo padrão da Editar conferência: no celular "Tirar foto" + "Anexar arquivo"; no PC só "Adicionar foto". Os 2 campos têm o mesmo name (a view lê com getlist). #}
+                    <div class="cf-fotos-acoes">
+                        <label class="cf-foto-botao cf-foto-botao--camera" for="fotos_cliente_camera">
+                            <i class="fas fa-camera"></i> Tirar foto
+                        </label>
+                        <label class="cf-foto-botao" for="fotos_cliente">
+                            <i class="fas fa-camera cf-foto-icone-pc"></i><i class="fas fa-paperclip cf-foto-icone-toque"></i>
+                            <span class="cf-foto-rotulo-pc">Adicionar foto</span><span class="cf-foto-rotulo-toque">Anexar arquivo</span>
+                        </label>
+                    </div>
+                    <input type="file" name="fotos_cliente" id="fotos_cliente_camera"
+                           accept="image/*" capture="environment"
+                           class="cf-input-oculto" data-cf-fotos-camera>
                     <input type="file" name="fotos_cliente" id="fotos_cliente"
                            accept="image/*" multiple
                            class="cf-input-oculto" data-cf-fotos-input>
