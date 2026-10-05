@@ -1517,6 +1517,41 @@ def _texto_reembolsado(devolucao):
     return 'Sim' if devolucao.reembolsado else 'Não'
 
 
+# * [EXPLICAÇÃO] → "dado faltando" (Ciclo 3 da Análise, 05/10/2026): o que
+#   falta preencher numa devolução pra ela entrar nas contas certinho (total
+#   reembolsado, diferença). Cada falta tem uma LETRA (é o que viaja no
+#   pacote da tela, pra ele ficar pequeno) e o TEXTO que a Ana lê. A ORDEM
+#   desta lista é a ordem em que aparecem no texto "O que falta".
+FALTAS_ANALISE = [
+    ('r', 'reembolsado? (sim/não)'),
+    ('v', 'valor reembolsado'),
+    ('p', 'preço do produto'),
+]
+TEXTO_DA_FALTA = dict(FALTAS_ANALISE)
+
+
+def _faltas_da_devolucao(devolucao):
+    """Letras do que falta preencher numa devolução ('' = nada falta).
+    A regra mora SÓ aqui (a tela e o Excel usam esta mesma função):
+      p  falta o preço do produto (em qualquer devolução);
+      r  a mediação já foi decidida (tem data de encerramento) mas ninguém
+         marcou "Reembolsado? sim/não";
+      v  está como reembolsada, mas falta o valor reembolsado.
+    Mesma regra do script de exploração (testar_visoes_prontas_analise)."""
+    letras = set()
+    if devolucao.preco_produto is None:
+        letras.add('p')
+    if devolucao.data_finalizacao_mediacao is not None and devolucao.reembolsado is None:
+        letras.add('r')
+    if devolucao.reembolsado is True and devolucao.valor_reembolsado is None:
+        letras.add('v')
+    return ''.join(letra for letra, _ in FALTAS_ANALISE if letra in letras)
+
+
+def _texto_das_faltas(devolucao):
+    return ', '.join(TEXTO_DA_FALTA[letra] for letra in _faltas_da_devolucao(devolucao))
+
+
 # * [EXPLICAÇÃO] → as colunas que a Ana pode escolher na tela Análise, numa
 #   lista só: o título e o "alinhar à direita" vão pro JS (config_analise);
 #   o tipo/largura/valor são os que o Excel usa. Mudar um título aqui muda
@@ -1542,6 +1577,7 @@ COLUNAS_ANALISE = [
     ('valor', 'Valor reembolsado', TIPO_DINHEIRO, 18, True, lambda d: d.valor_reembolsado),
     ('preco', 'Preço do produto', TIPO_DINHEIRO, 17, True, lambda d: d.preco_produto),
     ('dif', 'Diferença', TIPO_DINHEIRO, 14, True, lambda d: d.diferenca_reembolso),
+    ('falta', 'O que falta', TIPO_TEXTO, 42, False, _texto_das_faltas),
 ]
 COLUNAS_ANALISE_POR_CHAVE = {coluna[0]: coluna for coluna in COLUNAS_ANALISE}
 COLUNAS_ANALISE_PADRAO = ['pedido', 'cliente', 'produto', 'plat', 'etapa', 'criado', 'reemb', 'valor']
@@ -1558,6 +1594,7 @@ def _linha_da_analise(devolucao):
       cadd/vd/ab/fim/impd  datas como número do dia (date.toordinal)
       rb            reembolsado: 1 sim, 0 não, None sem informação
       val/preco     valor reembolsado e preço do produto (número ou None)
+      fl            o que falta preencher: letras de FALTAS_ANALISE ('' = nada)
       nf/cod/ean    nota fiscal, código do fabricante, código de barras
                     (só entram na busca)"""
     produto = devolucao.produto
@@ -1582,6 +1619,7 @@ def _linha_da_analise(devolucao):
         'rb': None if devolucao.reembolsado is None else (1 if devolucao.reembolsado else 0),
         'val': float(devolucao.valor_reembolsado) if devolucao.valor_reembolsado is not None else None,
         'preco': float(devolucao.preco_produto) if devolucao.preco_produto is not None else None,
+        'fl': _faltas_da_devolucao(devolucao),
         'nf': devolucao.numero_nota_fiscal or '',
         'cod': produto.codigo_fabricante or '',
         'ean': produto.codigo_barras or '',
@@ -1621,6 +1659,7 @@ def analise_devolucoes(request):
             'tipos': [[valor, rotulo] for valor, rotulo in Devolucao.TIPO_VENDA_CHOICES],
             'colunas': [[chave, titulo, 1 if a_direita else 0] for chave, titulo, _, _, a_direita, _ in COLUNAS_ANALISE],
             'colunasPadrao': COLUNAS_ANALISE_PADRAO,
+            'faltas': [[letra, texto] for letra, texto in FALTAS_ANALISE],
         },
     }
     return render(request, 'devolucoes/analise_devolucoes.html', contexto)

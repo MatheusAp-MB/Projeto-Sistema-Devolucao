@@ -11,6 +11,12 @@
 // ordem + linhas por página, guardado no banco da empresa ativa pelos
 // mesmos endereços da tela Devoluções) e "Exportar para Excel".
 //
+// * [EXPLICAÇÃO] → Ciclo 3 (05/10/2026): "dado faltando". O Django decide o
+//   que falta em cada devolução (views._faltas_da_devolucao, 1 regra só) e
+//   manda as letras em `fl`; aqui só mostramos: aviso acima da tabela com
+//   "Ver só elas", coluna "O que falta" e a nota "sem valor informado" no
+//   total de Reembolsadas.
+//
 // * [EXPLICAÇÃO] → igual à tela Devoluções, tudo é client-side: o Django
 //   manda todas as devoluções de uma vez (bloco #an-dados, montado em
 //   views._linha_da_analise) e aqui só filtramos/ordenamos/mostramos.
@@ -24,6 +30,11 @@
     var recipienteResultado = document.getElementById('an-resultado');
     var campoBusca = document.getElementById('an-busca');
     if (!recipienteBarra || !recipienteResultado) return;
+
+    // * [EXPLICAÇÃO] → liga o modo "tela cheia" desta tela (ver o fim do
+    //   layout_analise_devolucoes.css): só a tabela rola, por dentro, com o
+    //   título das colunas fixo. É só nesta tela que o <body> ganha essa classe.
+    document.body.classList.add('an-tela');
 
     // ===================================================================
     // Utilidades pequenas
@@ -85,6 +96,9 @@
     var CHAVES_COLUNAS = COLUNAS.map(function (c) { return c.k; });
     var COLUNAS_PADRAO = (CONFIG.colunasPadrao || []).filter(function (k) { return tem(CHAVES_COLUNAS, k); });
     var CHAVES_ETAPAS = ETAPAS.map(function (e) { return e[0]; });
+    // letra -> texto do que falta (ex.: 'v' -> 'valor reembolsado'); vem do Django
+    var TEXTO_DA_FALTA = {};
+    (CONFIG.faltas || []).forEach(function (par) { TEXTO_DA_FALTA[par[0]] = par[1]; });
 
     function rotuloDe(pares, chave) {
         for (var i = 0; i < pares.length; i++) { if (pares[i][0] === chave) return pares[i][1]; }
@@ -132,16 +146,27 @@
     // As linhas (1 por devolução) e o que cada coluna mostra/ordena
     // ===================================================================
 
+    // "valor reembolsado, preço do produto" a partir das letras de `fl` ('' = nada falta)
+    function textoDasFaltas(letras) {
+        return String(letras || '').split('').map(function (l) { return TEXTO_DA_FALTA[l]; }).filter(Boolean).join(', ');
+    }
+
     var LINHAS = DADOS.map(function (d) {
+        var falta = textoDasFaltas(d.fl);
         return {
             d: d,
+            falta: falta,
             // texto já sem acento/minúsculo, pronto pra buscar e ordenar
             n: {
                 ped: norm(d.ped), cli: norm(d.cli), prod: norm(d.prod), nf: norm(d.nf),
-                cod: norm(d.cod), ean: norm(d.ean), marca: norm(d.mn), plat: norm(d.pn)
+                cod: norm(d.cod), ean: norm(d.ean), marca: norm(d.mn), plat: norm(d.pn),
+                falta: norm(falta)
             }
         };
     });
+
+    // quantas devoluções têm dado faltando (sem olhar filtros nem busca)
+    var QTD_COM_FALTA = LINHAS.filter(function (r) { return !!r.falta; }).length;
 
     function diferenca(d) {
         if (d.val == null || d.preco == null) return null;
@@ -177,7 +202,13 @@
         },
         valor: { sv: function (r) { return r.d.val; }, fm: function (r) { return dinheiro(r.d.val); }, nw: true },
         preco: { sv: function (r) { return r.d.preco; }, fm: function (r) { return dinheiro(r.d.preco); }, nw: true },
-        dif: { sv: function (r) { return diferenca(r.d); }, fm: function (r) { return dinheiro(diferenca(r.d)); }, nw: true }
+        dif: { sv: function (r) { return diferenca(r.d); }, fm: function (r) { return dinheiro(diferenca(r.d)); }, nw: true },
+        // sem nada faltando = "sem valor": vai sempre pro fim, na ordem que for
+        falta: {
+            sv: function (r) { return r.n.falta || null; },
+            fm: function (r) { return r.falta ? '<span class="an-falta">' + esc(r.falta) + '</span>' : '—'; },
+            nw: true
+        }
     };
 
     // ===================================================================
@@ -188,7 +219,7 @@
     //   mostra quando ninguém salvou nada: do cadastro mais recente pro
     //   mais antigo, dos últimos 90 dias, 8 colunas, 25 linhas por página.
     function fabricaFiltros() {
-        return { etapa: [], plat: [], marca: [], destino: '', reemb: '', tipo: '', perCampo: 'criado', per: '90' };
+        return { etapa: [], plat: [], marca: [], destino: '', reemb: '', tipo: '', falta: '', perCampo: 'criado', per: '90' };
     }
 
     function fabrica() {
@@ -224,6 +255,8 @@
         if (typeof f.destino === 'string' && (f.destino === '' || DESTINOS.some(function (x) { return x[0] === f.destino; }))) v.f.destino = f.destino;
         if (tem(['', 'sim', 'nao'], f.reemb)) v.f.reemb = f.reemb;
         if (typeof f.tipo === 'string' && (f.tipo === '' || TIPOS.some(function (x) { return x[0] === f.tipo; }))) v.f.tipo = f.tipo;
+        // padrões salvos antes do Ciclo 3 não têm `falta`: ficam com o de fábrica ('')
+        if (tem(['', 'sim'], f.falta)) v.f.falta = f.falta;
         if (OPCOES_DATA_DO_PERIODO.some(function (x) { return x[0] === f.perCampo; })) v.f.perCampo = f.perCampo;
         if (typeof f.per === 'string' && OPCOES_PERIODO.some(function (x) { return x[0] === f.per; })) v.f.per = f.per;
 
@@ -288,6 +321,7 @@
         // "não reembolsadas" inclui as sem informação (mesma regra dos chips da tela Devoluções)
         if (f.reemb && (d.rb === 1 ? 'sim' : 'nao') !== f.reemb) return false;
         if (f.tipo && d.tipo !== f.tipo) return false;
+        if (f.falta && !d.fl) return false;
         if (f.per) {
             var ref = d[CAMPO_DA_DATA[f.perCampo]];
             if (ref == null || HOJE - ref > +f.per) return false;
@@ -319,8 +353,15 @@
         return LINHAS.filter(function (r) { return bate(r, V.f, tokens); }).sort(comparador(V.o));
     }
 
+    // * [EXPLICAÇÃO] → enquanto a Ana vê só as devoluções com dado faltando, a
+    //   coluna "O que falta" aparece sozinha (na tabela e no Excel), mesmo
+    //   que ela não esteja marcada em "Colunas" — senão ela veria a lista
+    //   sem saber o que falta em cada uma. A escolha dela em "Colunas" não
+    //   é mexida: ao sair desse modo a tabela volta ao que era.
+    function colunaFaltaForcada() { return !!V.f.falta; }
+
     function colunasEscolhidas() {
-        return COLUNAS.filter(function (c) { return tem(V.cols, c.k); });
+        return COLUNAS.filter(function (c) { return tem(V.cols, c.k) || (c.k === 'falta' && colunaFaltaForcada()); });
     }
 
     function descreverFiltros(f) {
@@ -331,6 +372,7 @@
         if (f.destino) d.push('Destino: ' + rotuloDe(DESTINOS, f.destino));
         if (f.reemb) d.push(f.reemb === 'sim' ? 'Reembolsadas' : 'Não reembolsadas');
         if (f.tipo) d.push(rotuloDe(TIPOS, f.tipo));
+        if (f.falta) d.push('Só com dado faltando');
         if (f.per) d.push(rotuloDe(OPCOES_DATA_DO_PERIODO, f.perCampo) + ': ' + rotuloDe(OPCOES_PERIODO, f.per).toLowerCase());
         return d;
     }
@@ -405,10 +447,29 @@
         return '';
     }
 
+    // * [EXPLICAÇÃO] → aviso de "dado faltando" (Ciclo 3). A contagem é de
+    //   TODAS as devoluções da empresa, sem olhar filtros nem busca: é um
+    //   alerta do que falta preencher, não do que está na tela. "Ver só
+    //   elas" tira os outros filtros e a busca (senão o número do aviso não
+    //   bateria com a tabela); "Voltar à lista completa" volta aos filtros
+    //   do padrão (o salvo, ou o de fábrica). Sem nada faltando e sem o
+    //   modo ligado, o aviso nem aparece.
+    function htmlDoAviso() {
+        if (V.f.falta) {
+            return '<div class="an-aviso an-aviso--ativo"><span><i class="fas fa-filter"></i> Mostrando só as devoluções com <b>dado faltando</b>' +
+                (QTD_COM_FALTA ? '' : ' (no momento nenhuma)') + '. A coluna <b>O que falta</b> diz o que preencher em cada uma.</span>' +
+                '<span class="an-aviso-bts"><button type="button" class="dp-bt" data-an-act="falta-todas">Voltar à lista completa</button></span></div>';
+        }
+        if (!QTD_COM_FALTA) return '';
+        return '<div class="an-aviso"><span><i class="fas fa-triangle-exclamation"></i> <b>' + QTD_COM_FALTA + ' devolu' + (QTD_COM_FALTA === 1 ? 'ção' : 'ções') +
+            '</b> com dado faltando <small>(preço, valor reembolsado ou "Reembolsado?" sem preencher) — por isso não entram por inteiro nos totais.</small></span>' +
+            '<span class="an-aviso-bts"><button type="button" class="dp-bt" data-an-act="falta-ver" title="Mostra só as devoluções com dado faltando, de qualquer data">Ver só ' + (QTD_COM_FALTA === 1 ? 'ela' : 'elas') + '</button></span></div>';
+    }
+
     function desenharBarra() {
-        recipienteBarra.innerHTML = htmlDaBarra() + htmlDoEstado();
+        recipienteBarra.innerHTML = htmlDaBarra() + htmlDoEstado() + htmlDoAviso();
         var contador = document.getElementById('an-ncols');
-        if (contador) contador.textContent = V.cols.length;
+        if (contador) contador.textContent = colunasEscolhidas().length;
     }
 
     // ===================================================================
@@ -428,12 +489,14 @@
 
         var nReembolsadas = 0;
         var somaReembolsado = 0;
+        var semValor = 0;
         var somaPreco = 0;
         var semPreco = 0;
         linhas.forEach(function (r) {
             if (r.d.rb === 1) {
                 nReembolsadas++;
                 if (r.d.val != null) somaReembolsado += centavos(r.d.val);
+                else semValor++;
             }
             if (r.d.preco != null) somaPreco += centavos(r.d.preco);
             else semPreco++;
@@ -441,7 +504,8 @@
 
         var h = '<div class="an-totais">' +
             '<div><span>Devoluções encontradas</span><b>' + total + '</b></div>' +
-            '<div><span>Reembolsadas</span><b>' + nReembolsadas + '</b><em>R$ ' + moeda(somaReembolsado / 100) + '</em></div>' +
+            '<div><span>Reembolsadas</span><b>' + nReembolsadas + '</b><em>R$ ' + moeda(somaReembolsado / 100) + '</em>' +
+            (semValor ? '<small>' + semValor + ' sem valor informado</small>' : '') + '</div>' +
             '<div><span>Preço dos produtos</span><b>R$ ' + moeda(somaPreco / 100) + '</b>' +
             (semPreco ? '<small>' + semPreco + ' sem preço informado</small>' : '') + '</div></div>';
 
@@ -483,7 +547,18 @@
             '<span class="an-pag-n">Página ' + V.page + ' de ' + paginas + '</span>' +
             '<button type="button" class="dp-btn dp-tabela-btn" data-an-act="pagina" data-d="1"' + (V.page >= paginas ? ' disabled' : '') + '>Próxima <i class="fas fa-chevron-right"></i></button></span></div>';
 
+        // * [EXPLICAÇÃO] → a tabela é desenhada de novo a cada ordenação, busca,
+        //   filtro ou troca de página, e isso criaria uma "caixa de rolagem"
+        //   nova, voltando pro começo (esquerda). Então guardamos até onde a
+        //   Ana tinha rolado pro lado e devolvemos depois de desenhar — assim,
+        //   com muitas colunas, ela ordena uma coluna da direita sem perder o lugar.
+        var rolavel = recipienteResultado.querySelector('.an-scroll');
+        var rolagemLateral = rolavel ? rolavel.scrollLeft : 0;
         recipienteResultado.innerHTML = h;
+        if (rolagemLateral) {
+            var nova = recipienteResultado.querySelector('.an-scroll');
+            if (nova) nova.scrollLeft = rolagemLateral;
+        }
     }
 
     // * [EXPLICAÇÃO] → "Ver na lista": abre a tela Devoluções já na aba em
@@ -510,8 +585,10 @@
         return '<button type="button" class="dp-op' + (ligada ? ' dp-op--on' : '') + '" data-an-act="set" ' + dados + '><i class="fas fa-check"></i><span>' + esc(rotulo) + '</span></button>';
     }
 
-    function opcaoMultipla(rotulo, ligada, dados, quantidade) {
-        return '<label class="dp-op"><input type="checkbox" data-an-chg="tog" ' + dados + (ligada ? ' checked' : '') + '><span>' + esc(rotulo) + '</span>' +
+    // `travada` (texto) = a opção está ligada por outro motivo e não dá pra desligar agora
+    function opcaoMultipla(rotulo, ligada, dados, quantidade, travada) {
+        return '<label class="dp-op"' + (travada ? ' title="' + esc(travada) + '"' : '') + '><input type="checkbox" data-an-chg="tog" ' + dados +
+            (ligada ? ' checked' : '') + (travada ? ' disabled' : '') + '><span>' + esc(rotulo) + '</span>' +
             (quantidade != null ? '<em>' + quantidade + '</em>' : '') + '</label>';
     }
 
@@ -585,7 +662,9 @@
             }).join('');
         } else if (id === 'cols') {
             html = tituloPop('Colunas da tabela') + COLUNAS.map(function (c) {
-                return opcaoMultipla(c.t, tem(V.cols, c.k), dadosDoCampo('cols', c.k));
+                var forcada = c.k === 'falta' && colunaFaltaForcada() && !tem(V.cols, c.k);
+                return opcaoMultipla(c.t, tem(V.cols, c.k) || forcada, dadosDoCampo('cols', c.k), null,
+                    forcada ? 'Aparece sozinha enquanto você vê só as devoluções com dado faltando.' : '');
             }).join('') + '<div class="dp-pop-rod"><button type="button" class="dp-link" data-an-act="colunas-padrao">Voltar às colunas padrão</button></div>';
         }
         return html;
@@ -802,6 +881,21 @@
             desenharTudo();
         } else if (acao === 'colunas-padrao') {
             V.cols = COLUNAS_PADRAO.slice();
+            desenharTudo();
+        } else if (acao === 'falta-ver') {
+            V.f = fabricaFiltros();
+            V.f.per = '';
+            V.f.falta = 'sim';
+            V.page = 1;
+            textoBusca = '';
+            if (campoBusca) campoBusca.value = '';
+            fecharJanela();
+            desenharTudo();
+        } else if (acao === 'falta-todas') {
+            V.f = clonar(baseDe().f);
+            V.f.falta = '';
+            V.page = 1;
+            fecharJanela();
             desenharTudo();
         } else if (acao === 'limpar') {
             V.f = fabricaFiltros();

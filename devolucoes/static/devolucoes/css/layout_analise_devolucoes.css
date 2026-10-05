@@ -24,6 +24,51 @@
     margin-top: 18px;
 }
 
+/* ----- aviso de "dado faltando" (Ciclo 3), logo abaixo da barra de filtros ----- */
+
+.an-aviso {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 14px;
+    margin-top: 8px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid #f3c969;
+    background-color: #fff;
+    color: #92400e;
+    font-size: 12.5px;
+}
+
+.an-aviso--ativo {
+    background-color: #fffbeb;
+}
+
+.an-aviso i {
+    color: var(--cor-alerta);
+}
+
+.an-aviso small {
+    font-size: 12px;
+    color: var(--cor-texto-muted);
+}
+
+.an-aviso .dp-bt {
+    border-color: #f3c969;
+}
+
+.an-aviso-bts {
+    display: flex;
+    gap: 8px;
+}
+
+/* texto da coluna "O que falta" */
+.an-falta {
+    color: #92400e;
+    font-weight: 600;
+}
+
 /* ----- totais ----- */
 
 .an-totais {
@@ -73,19 +118,29 @@
 
 /* ----- tabela ----- */
 
+/* * [EXPLICAÇÃO] → a tabela tem rolagem PRÓPRIA (pros 2 lados) e o título das
+   colunas fica fixo no topo dela enquanto as linhas rolam. Em telas largas
+   (bloco "tela cheia" mais abaixo) a tabela ocupa o resto da altura da
+   janela; em telas estreitas ela só ganha uma altura máxima. */
 .an-scroll {
-    overflow-x: auto;
+    overflow: auto;
+    max-height: 75vh;
     border: 1px solid var(--cor-borda);
     border-radius: 8px;
 }
 
+/* "separate" (e não "collapse") porque com "collapse" a linha de baixo do título some quando ele gruda no topo */
 .an-tab {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
     font-size: 12.5px;
 }
 
 .an-tab th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     background-color: #f7f9fc;
     text-align: left;
     border-bottom: 1px solid var(--cor-borda);
@@ -165,12 +220,14 @@
     white-space: nowrap;
     position: sticky;
     right: 0;
+    z-index: 1;
     background-color: #fff;
     box-shadow: -8px 0 8px -8px rgba(0, 0, 0, 0.18);
 }
 
 .an-tab th.an-acao {
     background-color: #f7f9fc;
+    z-index: 3;
 }
 
 .an-tab tbody tr:hover td.an-acao {
@@ -236,8 +293,99 @@
     color: #444;
 }
 
-/* ----- janelinha de Colunas: 17 opções, mais alta que as outras ----- */
+/* ----- janelinha de Colunas: 18 opções, mais alta que as outras ----- */
 
 .dp-pop.dp-pop--alto {
     max-height: min(640px, 84vh);
+}
+
+/* ----- tela cheia (só em telas largas): a janela não rola, só a tabela ----- */
+
+/* * [EXPLICAÇÃO] → o script_analise_devolucoes.js põe a classe "an-tela" no
+   <body> desta tela. Em vez da página inteira rolar, o topo (busca, filtros,
+   avisos) e o rodapé (paginação) ficam sempre à vista e só a tabela rola, por
+   dentro, com o título das colunas fixo. Se a janela for baixa demais, a
+   tabela não passa de um mínimo e aí a área de conteúdo rola. Os totais ficam
+   numa faixa mais compacta pra sobrar altura pras linhas. */
+@media (min-width: 901px) {
+    body.an-tela .layout-container {
+        height: 100vh;
+        min-height: 0;
+    }
+
+    body.an-tela .conteudo-principal {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-height: 0;
+        padding: 16px 24px;
+    }
+
+    body.an-tela .conteudo-principal > * {
+        flex-shrink: 0;
+    }
+
+    body.an-tela .dp-cartao {
+        padding: 14px 20px;
+    }
+
+    body.an-tela .conteudo-principal > .an-resultado {
+        flex: 1 1 0;
+        min-height: 380px;
+        margin-top: 0;
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 1;
+    }
+
+    body.an-tela .an-scroll {
+        flex: 1 1 0;
+        min-height: 0;
+        max-height: none;
+    }
+
+    /* topo mais baixo: "Voltar" e título na mesma linha, subtítulo logo abaixo */
+    body.an-tela .dp-titulo-linha > div:first-child {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0 18px;
+    }
+
+    body.an-tela .an-voltar {
+        margin-bottom: 0;
+    }
+
+    body.an-tela .dp-subtitulo {
+        flex-basis: 100%;
+        margin-top: 2px;
+        margin-bottom: 10px;
+    }
+
+    body.an-tela .an-barra {
+        margin-top: 10px;
+    }
+
+    /* totais numa faixa só, cada um "rótulo  número  observação" na mesma linha */
+    body.an-tela .an-totais {
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    body.an-tela .an-totais > div {
+        flex: 1 1 auto;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 2px 10px;
+        padding: 7px 14px;
+    }
+
+    body.an-tela .an-totais b {
+        font-size: 17px;
+    }
+
+    body.an-tela .an-pag {
+        margin-top: 10px;
+    }
 }
